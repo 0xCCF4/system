@@ -10,16 +10,5 @@
       }
     ];
     noxa.secrets.secretsPath = ./../../../external/private/secrets;
-
-    nix.settings.experimental-features = [
-      "nix-command"
-      "flakes"
-    ];
-
-    users.mutableUsers = mkDefault false;
-
-    system.stateVersion = "25.11";
   };
-
-
 }
