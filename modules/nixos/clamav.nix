@@ -5,6 +5,10 @@
 }:
 with lib;
 {
+  imports = [
+    ./persistence.nix
+  ];
+
   options = with types; {
     mine.clamav = {
       enable = mkOption {
@@ -127,5 +131,9 @@ with lib;
           PrivateNetwork = "yes";
         };
       };
+
+      mine.persistence.directories = [
+        "/var/lib/clamav"
+      ];
     };
 }
