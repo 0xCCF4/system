@@ -681,11 +681,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1750586446,
-        "narHash": "sha256-OqGVXnwHHpPfViUiaWvGAXnUhDpxhl6HsFJ73G4M8lk=",
+        "lastModified": 1750662470,
+        "narHash": "sha256-cEeUNoIB2cllsqv1ytAeGXcJvuqCZEfAoCXqkI04Zm0=",
         "owner": "0xCCF4",
         "repo": "noxa",
-        "rev": "b5a803384ab8e8d2a043c5f00d9f5cd04aef996f",
+        "rev": "93a3520c2cb020754a3f23bfea954ee06d3ede08",
         "type": "github"
       },
       "original": {
