@@ -16,6 +16,12 @@ let
   noxaModules = (attrsets.mapAttrs'
     (name: path: attrsets.nameValuePair (noxa.lib.filesystem.baseNameWithoutExtension name) path)
     noxaModulePaths);
+
+  homeModulesPaths = noxa.lib.nixDirectoryToAttr ./home;
+
+  homeModules = (attrsets.mapAttrs'
+    (name: path: attrsets.nameValuePair (noxa.lib.filesystem.baseNameWithoutExtension name) path)
+    homeModulesPaths);
 in
 {
   nixosModules = nixosModules // {
@@ -29,6 +35,13 @@ in
     system = noxaModules.default;
     default = { ... }: {
       imports = attrValues (attrsets.filterAttrs (name: value: name != "mine" && name != "default") noxaModules);
+    };
+  };
+
+  homeModules = homeModules // {
+    system = homeModules.default;
+    default = { ... }: {
+      imports = attrValues (attrsets.filterAttrs (name: value: name != "mine" && name != "default") homeModules);
     };
   };
 }
