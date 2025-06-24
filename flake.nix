@@ -145,6 +145,7 @@
 
       nixosModules = modules.nixosModules;
       noxaModules = modules.noxaModules;
+      homeModules = modules.homeModules;
     } // flake-utils.lib.eachDefaultSystem (system: {
       devShells.default =
         let
