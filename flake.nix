@@ -86,6 +86,12 @@
       inputs.agenix-rekey.follows = "agenix-rekey";
       inputs.flake-utils.follows = "flake-utils";
     };
+
+    # Color themes
+    stylix = {
+      url = "github:danth/stylix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -105,10 +111,12 @@
     , noxa
     , flake-utils
     , home-manager
+    , stylix
     , ...
     }@inputs:
     let
       modules = import ./modules inputs;
+      lib = import ./lib inputs;
     in
     {
       nixosConfigurations = noxa.lib.nixos-instantiate {
@@ -127,6 +135,8 @@
             inherit microvm;
             inherit dns;
             inherit home-manager;
+            inherit stylix;
+            mine.lib = lib;
           };
           modules = [
             ./modules/nixos
