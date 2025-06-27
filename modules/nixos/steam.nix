@@ -11,7 +11,6 @@ with lib;
     description = "Add steam to the system.";
   };
 
-
   config =
     mkIf config.mine.steam {
       programs.steam.enable = mkDefault true;
