@@ -24,5 +24,7 @@
         generator.script = "alnum";
       }
     ];
+
+    mine.homeManager.users.include = [ "mx" ];
   };
 }
