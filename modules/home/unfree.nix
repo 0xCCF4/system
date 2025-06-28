@@ -30,7 +30,7 @@ with lib; with builtins;
       cfg = config.home.mine.unfree;
     in
     mkIf cfg.enable {
-      nixpkgs.config = {
+      nixpkgs.config = mkIf (!osConfig.home-manager.useGlobalPkgs) {
         allowUnfree = cfg.allowAll;
         allowUnfreePredicate = pkg: builtins.elem (getName pkg) cfg.allowList;
       };
