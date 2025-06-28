@@ -24,8 +24,8 @@ with lib;
     services.dnscrypt-proxy2 = {
       enable = mkDefault true;
       settings = {
-        ipv6_servers = mkDefault true;
-        require_dnssec = mkDefault true;
+        ipv6_servers = true;
+        require_dnssec = true;
         sources.public-resolvers = {
           urls = [
             "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md"
@@ -36,12 +36,12 @@ with lib;
         };
         server_names =
           let
-            ipv6 = config.services.dnscrypt-proxy2.settings.ipv6_servers.content;
+            ipv6 = config.services.dnscrypt-proxy2.settings.ipv6_servers;
             provider = config.mine.dns.provider;
           in
           [ ]
-          ++ (lists.optional (provider == "quad9") "quad9-doh-ip4-port443-filter-pri")
-          ++ (lists.optional (provider == "quad9" && ipv6) "quad9-doh-ip6-port443-filter-pri")
+          ++ (lists.optional (provider == "quad9") "quad9-dnscrypt-ip4-filter-pri")
+          ++ (lists.optional (provider == "quad9" && ipv6) "quad9-dnscrypt-ip6-filter-pri")
         ;
       };
     };
