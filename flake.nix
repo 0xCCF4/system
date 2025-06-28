@@ -117,6 +117,7 @@
     let
       modules = import ./modules inputs;
       lib = import ./lib inputs;
+      minePkgs = import ./pkgs inputs;
     in
     {
       nixosConfigurations = noxa.lib.nixos-instantiate {
@@ -140,6 +141,9 @@
           };
           modules = [
             ./modules/nixos
+            ({pkgs, lib, ...}: { # overlay own packages
+              nixpkgs.overlays = [(final: prev: prev // lib.attrsets.mapAttrs (name: pkg: pkgs.callPackage pkg { }) minePkgs)];
+            })
           ];
         };
       };
@@ -157,6 +161,13 @@
       noxaModules = modules.noxaModules;
       homeModules = modules.homeModules;
     } // flake-utils.lib.eachDefaultSystem (system: {
+      packages = let
+        pkgs = import nixpkgs {
+          inherit system;
+        };
+      in
+        nixpkgs.lib.attrsets.mapAttrs (n: x: pkgs.callPackage x {}) minePkgs;
+
       devShells.default =
         let
           pkgs = import nixpkgs {
