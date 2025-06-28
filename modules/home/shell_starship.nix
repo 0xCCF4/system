@@ -9,7 +9,7 @@ with lib; with builtins;
   config = {
     programs.starship = {
       enable = mkDefault true;
-      settings = {
+      settings = mkDefault {
         "$schema" = "https://starship.rs/config-schema.json";
 
         format = lib.concatStrings [
