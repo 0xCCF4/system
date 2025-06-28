@@ -11,7 +11,7 @@ with lib; with builtins;
   ];
 
   config = {
-    home.mine.persistence.cache.directories = [
+    home.mine.persistence.cache.directories = mkIf (config.programs.fish.enable) [
       ".local/share/fish"
     ];
 
