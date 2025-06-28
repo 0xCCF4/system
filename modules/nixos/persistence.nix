@@ -1,11 +1,16 @@
 { pkgs
 , lib
 , config
-, inputs
+, impermanence
 , ...
 }:
 with lib;
 {
+  imports = [
+    impermanence.nixosModules.default
+    ./presets.nix
+  ];
+
   options.mine.persistence =
     let
       preset = config.modules.nixos.usage;
@@ -54,14 +59,6 @@ with lib;
         default = [ ];
       };
     };
-
-  options.environment.persistence = with types; mkOption {
-    type = attrsOf anything;
-  };
-
-  imports = [
-    ./presets.nix
-  ];
 
   config =
     let
