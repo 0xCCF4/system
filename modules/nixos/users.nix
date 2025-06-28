@@ -11,7 +11,7 @@
       };
 
       config = mkIf (submodule.config.passwordFileOverride != null) {
-        hashedPasswordFile = "/pass/${submodule.config.name}.hashed-password";
+        hashedPasswordFile = mkDefault "/pass/${submodule.config.name}.hashed-password";
       };
     }));
   };
