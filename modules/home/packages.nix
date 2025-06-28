@@ -131,30 +131,40 @@ with lib; with builtins;
         freecad
       ]
       ++ lists.optionals cfg.office [
-        eoffice
+        libreoffice
         xournalpp
       ];
 
       home.mine.persistence.cache.directories =
-        [ ]
-        ++ lists.optionals cfg.graphicalEssentials [
-          ".config/borg"
-          ".cache/borg"
-          ".config/keepassxc"
-          ".cache/keepassxc"
-          ".config/GIMP"
-        ]
-        ++ lists.optionals cfg.jabref [
-          ".local/share/jabref"
-          ".java/.userPrefs/org/jabref"
-        ]
-        ++ lists.optionals cfg.hardwareDesign [
-          ".config/kicad"
-          ".cache/kicad"
-          ".local/share/kicad"
-          ".config/FreeCAD"
-          ".cache/FreeCAD"
-          ".local/share/FreeCAD"
+        let
+          names = (map (p: p.name) (config.home.packages));
+        in
+        mkMerge [
+          (mkIf (any (n: strings.hasPrefix "keepassxc" n) names) [
+            ".config/keepassxc"
+            ".cache/keepassxc"
+          ])
+          (mkIf (any (n: strings.hasPrefix "gimp" n) names) [
+            ".config/GIMP"
+          ])
+          (mkIf (any (n: strings.hasPrefix "borgbackup" n) names) [
+            ".config/borg"
+            ".cache/borg"
+          ])
+          (mkIf (any (n: strings.hasPrefix "jabref" n) names) [
+            ".local/share/jabref"
+            ".java/.userPrefs/org/jabref"
+          ])
+          (mkIf (any (n: strings.hasPrefix "kicad" n) names) [
+            ".config/kicad"
+            ".cache/kicad"
+            ".local/share/kicad"
+          ])
+          (mkIf (any (n: strings.hasPrefix "freecad" n) names) [
+            ".config/FreeCAD"
+            ".cache/FreeCAD"
+            ".local/share/FreeCAD"
+          ])
         ];
     };
 }
