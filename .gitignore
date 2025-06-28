@@ -5,4 +5,4 @@ result-*
 # Ignore automatically generated direnv output
 .direnv
 
-./*.qcow2
+*.qcow2
