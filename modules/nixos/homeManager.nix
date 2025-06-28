@@ -9,14 +9,10 @@
 }: with lib; with builtins; {
   imports = [
     home-manager.nixosModules.default
+    ./unfree.nix
   ];
 
   options.mine.homeManager = with types; {
-    users.all = mkOption {
-      type = bool;
-      default = true;
-      description = "Add home manager config for each configured system user.";
-    };
     users.include = mkOption {
       type = listOf str;
       default = [ ];
@@ -43,10 +39,7 @@
     let
       cfg = config.mine.homeManager;
 
-      usersAll = attrsets.mapAttrsToList (name: val: name) (attrsets.filterAttrs (name: data: data.enable && data.isNormalUser) config.users.users);
-      usersInclusive = usersAll ++ cfg.users.include;
-      usersExclude = filter (user: !(elem user cfg.users.exclude)) usersInclusive;
-      users = unique usersExclude;
+      users = unique (filter (user: !(elem user cfg.users.exclude)) cfg.users.include);
 
       resolveImport = name: cfg.config.path + "/${(replaceStrings [ "USER" ] [ name ] cfg.config.pattern)}";
 
@@ -58,15 +51,33 @@
         users);
     in
     {
-      assertions = attrsets.mapAttrsToList
-        (user: path: {
-          assertion = pathExists path;
-          message = with noxa.lib.ansi; "${fgYellow}The home manager main configuration for user ${fgCyan}'${user}'${fgYellow} does not exist at location ${fgCyan}'${toString path}'${fgYellow}. Did you add it to git?${reset}";
-        })
-        imports;
+      assertions = mkMerge (map
+        (name: [{
+          assertion = hasAttr name config.users.users;
+          message = with noxa.lib.ansi; "${fgYellow}The user ${fgCyan}'${name}'${fgYellow} does not exist, but included in home-manager configuration.${reset}";
+        }
+          {
+            assertion = config.users.users.${name}.isNormalUser;
+            message = with noxa.lib.ansi; "${fgYellow}The user ${fgCyan}'${name}'${fgYellow} is not a normal user, but included in home-manager configuration.${reset}";
+          }
+          {
+            assertion = config.users.users.${name}.enable;
+            message = with noxa.lib.ansi; "${fgYellow}The user ${fgCyan}'${name}'${fgYellow} is not enabled, but included in home-manager configuration.${reset}";
+          }
+          {
+            assertion = pathExists imports.${name};
+            message = with noxa.lib.ansi; "${fgYellow}The home manager main configuration for user ${fgCyan}'${name}'${fgYellow} does not exist at location ${fgCyan}'${toString imports.${name}}'${fgYellow}. Did you add it to git?${reset}";
+          }
+          {
+            assertion = config.home-manager.useGlobalPkgs -> ((config.home-manager.users.${name}.home.mine.unfree.allowAll or false) -> config.mine.unfree.allowAll);
+            message = with noxa.lib.ansi; "${fgYellow}You are using global packages for home-manager, but the user ${fgCyan}'${name}'${fgYellow} declared to use unfree packages without restrictions. Since you manage packages in your nixos config, you must set the global option ${fgCyan}'mine.unfree.allowAll = true'${fgYellow} to allow unrestricted unfree packages as requested by the user config.${reset}";
+          }])
+        users);
 
       home-manager = {
         backupFileExtension = "hmbackup";
+        useUserPackages = true;
+        useGlobalPkgs = true;
 
         extraSpecialArgs = {
           inherit impermanence;
@@ -91,5 +102,7 @@
           })
           imports;
       };
+
+      mine.unfree.allowList = mkMerge (map (user: config.home-manager.users.${user}.home.mine.unfree.allowList) users);
     };
 }
