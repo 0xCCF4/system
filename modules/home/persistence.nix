@@ -10,6 +10,7 @@ with lib; with builtins;
 {
   imports = [
     ./traits.nix
+    impermanence.homeManagerModules.impermanence
   ];
 
   options.home.mine = with types;
@@ -56,10 +57,6 @@ with lib; with builtins;
         description = "Persistent cache file. These files are not included in backups.";
       };
     };
-
-  options.home.persistence = with types; mkOption {
-    type = attrsOf anything;
-  };
 
   config =
     let
