@@ -1,6 +1,7 @@
 { osConfig
 , lib
 , config
+, mine
 , ...
 }: with lib; with builtins;
 {
