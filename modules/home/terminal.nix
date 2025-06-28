@@ -13,7 +13,7 @@ with lib; with builtins;
       programs.alacritty = {
         enable = mkDefault true;
         settings = {
-          terminal.shell = mkIf shell.enable "${shell.package}/bin/${shell.package.pname}";
+          terminal.shell = mkIf shell.enable (mkDefault "${shell.package}/bin/${shell.package.pname}");
         };
       };
     };
