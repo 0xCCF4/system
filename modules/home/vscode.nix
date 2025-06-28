@@ -46,6 +46,13 @@ with lib; with builtins;
         # myriad-dreamin.tinymist
       ];
       mutableExtensionsDir = mkDefault true;
+
+      profiles.default.userSettings = {
+        #"editor.fontFamily" = "'Droid Sans Mono', 'monospace', monospace, 'FiraCode Nerd Font'";
+        "cSpell.language" = "en,de-DE";
+        "terminal.integrated.defaultProfile.linux" = "fish";
+        "diffEditor.ignoreTrimWhitespace" = false;
+      };
     };
   };
 }
