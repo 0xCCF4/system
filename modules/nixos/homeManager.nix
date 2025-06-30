@@ -33,6 +33,11 @@
       default = "USER:home.nix";
       description = "File name template for the home configurations. 'USER' is replaced with the username.";
     };
+    config.ignoreIfNotExist = mkOption {
+      type = bool;
+      default = true;
+      description = "Ignore the user config file if it does not exist. If set to false, an assertion will fail if the file does not exist.";
+    };
   };
 
   config =
@@ -65,7 +70,7 @@
             message = with noxa.lib.ansi; "${fgYellow}The user ${fgCyan}'${name}'${fgYellow} is not enabled, but included in home-manager configuration.${reset}";
           }
           {
-            assertion = pathExists imports.${name};
+            assertion = pathExists imports.${name} || cfg.config.ignoreIfNotExist;
             message = with noxa.lib.ansi; "${fgYellow}The home manager main configuration for user ${fgCyan}'${name}'${fgYellow} does not exist at location ${fgCyan}'${toString imports.${name}}'${fgYellow}. Did you add it to git?${reset}";
           }
           {
@@ -90,9 +95,10 @@
         users = attrsets.mapAttrs
           (user: path: { ... }: {
             imports = [
-              path
               ../home
-            ];
+            ] ++ (if pathExists path
+            then [ path ]
+            else [ ]);
 
             config = {
               home.username = user;
