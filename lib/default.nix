@@ -1,6 +1,7 @@
-{ noxa, nixpkgs, lib ? nixpkgs.lib, ... }: with lib; with builtins; let 
-  mkWallpaper = import ./mkWallpaper.nix;
-in rec {
+{ noxa, nixpkgs, lib ? nixpkgs.lib, ... }: with lib; with builtins; let
+  binaryWallpapers = import ./binaryWallpapers;
+in
+rec {
   evalMissingOption = config: option: default:
     let
       options = if typeOf option == "string" then strings.splitString "." option else option;
@@ -15,8 +16,8 @@ in rec {
       )
       config);
 
-  mkBinaryWallpaper = {pkgs, lib, ...}@env: { name, src_image, src_data, primaryColor, secondaryColor, description }@params:
-    mkWallpaper env params;
+  mkBinaryWallpaper = { pkgs, lib, ... }@env: { name, src_image, src_data, primaryColor, secondaryColor, description }@params:
+    binaryWallpapers env params;
 
   optionalIfExist = path: lists.optional (pathExists path) path;
 }
