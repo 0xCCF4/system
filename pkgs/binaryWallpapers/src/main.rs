@@ -1,6 +1,6 @@
 use ab_glyph::FontRef;
-use builder::modules::letterize::CharacterGrid;
-use builder::Color;
+use binary_wallpapers::modules::letterize::CharacterGrid;
+use binary_wallpapers::Color;
 use clap::Parser;
 use flate2::Compression;
 use std::io::Write;
