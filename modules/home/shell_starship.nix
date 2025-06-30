@@ -32,6 +32,7 @@ with lib; with builtins;
           "$docker_context"
           "$conda"
           "$pixi"
+          "$nix_shell"
           "[](fg:color_bg3 bg:color_bg1)"
           "$time"
           "[ ](fg:color_bg1)"
@@ -231,6 +232,12 @@ with lib; with builtins;
         pixi = {
           style = "bg:color_bg3";
           format = "[[ $symbol( $version)( $environment) ](fg:color_fg0 bg:color_bg3)]($style)";
+        };
+
+        nix_shell = {
+          symbol = "❄️ ";
+          style = "bg:color_bg3";
+          format = "[ via [$symbol$state( \($name\))]($style)";
         };
 
         time = {
