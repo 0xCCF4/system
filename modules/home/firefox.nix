@@ -6,13 +6,17 @@
 with lib;
 {
   imports = [
-    ../persistence.nix
+    ./persistence.nix
   ];
 
   config = {
     home.mine.persistence.cache.directories = [
       ".mozilla"
       # ".cache/mozilla/firefox" TODO
+    ];
+
+    stylix.targets.firefox.profileNames = [
+      "default"
     ];
 
     programs.firefox = {
