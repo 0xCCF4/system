@@ -1,10 +1,11 @@
-{ lib, pkgs, ... }: with lib; {
+{ lib, pkgs, mine, ... }: with lib; {
   imports = [
     ../hardware/lenovoThinkpadL14amd.nix
-    ../external/private/hosts/ignis.nix
 
     # Users
     ../users/mx.nix
+  ] ++ mine.lib.optionalsIfExist [
+    ../external/private/hosts/ignis.nix
   ];
 
   config = {
