@@ -34,7 +34,7 @@ with lib;
       ];
 
       programs.waybar = {
-        enable = mkDefault ((mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && osConfig.wayland.windowManager.hyprland.enable);
+        enable = mkDefault ((mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && osConfig.programs.hyprland.enable);
 
         settings = {
           mainBar = {
