@@ -6,8 +6,8 @@
 with lib;
 {
   imports = [
-    ../persistence.nix
-    ../traits.nix
+    ./persistence.nix
+    ./traits.nix
   ];
 
   options.home.mine = with types;
