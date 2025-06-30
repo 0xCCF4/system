@@ -118,6 +118,7 @@
       modules = import ./modules inputs;
       lib = import ./lib inputs;
       minePkgs = import ./pkgs inputs;
+      shells = import ./shells inputs;
     in
     {
       nixosConfigurations = noxa.lib.nixos-instantiate {
@@ -141,8 +142,9 @@
           };
           modules = [
             ./modules/nixos
-            ({pkgs, lib, ...}: { # overlay own packages
-              nixpkgs.overlays = [(final: prev: prev // lib.attrsets.mapAttrs (name: pkg: pkgs.callPackage pkg { }) minePkgs)];
+            ({ pkgs, lib, ... }: {
+              # overlay own packages
+              nixpkgs.overlays = [ (final: prev: prev // lib.attrsets.mapAttrs (name: pkg: pkgs.callPackage pkg { }) minePkgs) ];
             })
           ];
         };
@@ -161,22 +163,33 @@
       noxaModules = modules.noxaModules;
       homeModules = modules.homeModules;
     } // flake-utils.lib.eachDefaultSystem (system: {
-      packages = let
-        pkgs = import nixpkgs {
-          inherit system;
-        };
-      in
-        nixpkgs.lib.attrsets.mapAttrs (n: x: pkgs.callPackage x {}) minePkgs;
-
-      devShells.default =
+      packages =
         let
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [ agenix-rekey.overlays.default ];
           };
         in
-        pkgs.mkShell {
-          packages = [ pkgs.agenix-rekey pkgs.rage deploy-rs.packages.${system}.deploy-rs ];
-        };
+        nixpkgs.lib.attrsets.mapAttrs (n: x: pkgs.callPackage x { }) minePkgs;
+
+      devShells =
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [
+
+              agenix-rekey.overlays.default
+
+              (final: prev:
+                nixpkgs.lib.attrsets.mapAttrs (n: x: pkgs.callPackage x { }) minePkgs
+              )
+
+              (final: prev: {
+                deploy-rs = deploy-rs.packages.${system}.deploy-rs;
+              })
+
+            ];
+          };
+        in
+        nixpkgs.lib.attrsets.mapAttrs (n: x: pkgs.callPackage x { }) shells;
     });
 }
