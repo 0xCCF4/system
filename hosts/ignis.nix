@@ -1,19 +1,39 @@
-{ ... }: {
+{ lib, pkgs, ... }: with lib; {
   imports = [
     ../hardware/lenovoThinkpadL14amd.nix
+    ../external/private/hosts/ignis.nix
+
+    # Users
     ../users/mx.nix
   ];
 
   config = {
     networking.hostName = "ignis";
-
     mine.presets.primary = "workstation";
 
-    mine.virtualization = {
-      flatpak = false;
-      distrobox = false;
+    # Battery management
+    mine.tlp.enable = true;
+
+    home-manager.users.mx = {
+      config = {
+        home.mine.traits.traits = [
+          "development"
+          "office"
+        ];
+        home.packages = with pkgs; [
+          binaryWallpapers
+        ];
+      };
     };
 
-    mine.tlp.enable = true;
+    virtualisation.vmVariant = {
+      # following configuration is added only when building VM with build-vm
+      virtualisation = {
+        memorySize = 4096;
+        cores = 8;
+      };
+      users.users.mx.hashedPasswordFile = lib.mkForce null;
+      users.users.mx.password = "mx";
+    };
   };
 }
