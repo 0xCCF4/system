@@ -17,7 +17,6 @@ with lib;
         extraPackages = with pkgs; [ marksman ];
         package = pkgs.evil-helix;
         settings = {
-          theme = "serika-dark";
           editor = {
             mouse = false;
 
