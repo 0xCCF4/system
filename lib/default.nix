@@ -20,4 +20,6 @@ rec {
     binaryWallpapers env params;
 
   optionalIfExist = path: lists.optional (pathExists path) path;
+
+  optionalsIfExist = paths: filter (path: pathExists path) paths;
 }

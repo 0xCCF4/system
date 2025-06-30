@@ -1,10 +1,11 @@
-{ lib, ... }: with lib; {
+{ lib, mine, ... }: with lib; {
   imports = [
     ../hardware/netcup.nix
-    ../external/private/hosts/lux.nix
 
     # Users
     ../users/mx.nix
+  ] ++ mine.lib.optionalsIfExist [
+    ../external/private/hosts/lux.nix
   ];
 
   config = {

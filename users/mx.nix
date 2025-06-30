@@ -1,5 +1,5 @@
-{ config, noxa, ... }: {
-  imports = [
+{ config, noxa, mine, ... }: {
+  imports = mine.lib.optionalsIfExist [
     ../external/private/users/mx.nix
   ];
 
