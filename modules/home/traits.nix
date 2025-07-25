@@ -2,6 +2,7 @@
 , lib
 , config
 , mine
+, noxa
 , ...
 }: with lib; with builtins;
 {
@@ -40,10 +41,10 @@
 
   config =
     {
-      assertions = [
+      assertions = with noxa.lib.ansi; [
         {
           assertion = config.home.mine.traits.traits == [ ] || (mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" true);
-          message = "Traits can only be set for workstations.";
+          message = "${fgYellow}Traits can only be set for workstations.${default}";
         }
       ];
     };
