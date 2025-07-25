@@ -5,11 +5,7 @@
 }@inputs:
 with lib; with builtins;
 let
-  shellPaths = noxa.lib.nixDirectoryToAttr ./.;
-
-  shells = (attrsets.mapAttrs'
-    (name: path: attrsets.nameValuePair (noxa.lib.filesystem.baseNameWithoutExtension name) path)
-    shellPaths);
+  shells = noxa.lib.nixDirectoryToAttr' ./.;
 in
 (removeAttrs shells [ "def" ]) // {
   default = shells.def;
