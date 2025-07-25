@@ -49,9 +49,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Deploy to different hosts with magic rollback
-    deploy-rs.url = "github:serokell/deploy-rs";
-
     # NixOS generators
     nixos-generators = {
       url = "github:nix-community/nixos-generators";
@@ -99,7 +96,6 @@
     , nixpkgs
     , nixos-hardware
     , nixos-generators
-    , deploy-rs
     , disko
     , impermanence
     , lanzaboote
@@ -114,82 +110,108 @@
     , stylix
     , ...
     }@inputs:
-    let
-      modules = import ./modules inputs;
-      lib = import ./lib inputs;
-      minePkgs = import ./pkgs inputs;
-      shells = import ./shells inputs;
-    in
-    {
-      nixosConfigurations = noxa.lib.nixos-instantiate {
-        hostLocations = ./hosts;
-        nixosConfigurations = self.nixosConfigurations;
-        additionalArgs = {
-          specialArgs = {
-            inherit nixos-hardware;
-            inherit disko;
-            inherit nixos-generators;
-            inherit impermanence;
-            inherit lanzaboote;
-            inherit agenix;
-            inherit agenix-rekey;
-            inherit proxmox-nixos;
-            inherit microvm;
-            inherit dns;
-            inherit home-manager;
-            inherit stylix;
-            mine.lib = lib;
-          };
+      with nixpkgs.lib; with builtins;
+      let
+        modules = import ./modules inputs;
+        minelib = import ./lib inputs;
+        minePkgs = import ./pkgs inputs;
+        shells = import ./shells inputs;
+
+        hosts = noxa.lib.nixDirectoryToAttr' ./hosts;
+
+        noxaConfiguration = noxa.lib.noxa-instantiate {
           modules = [
-            ./modules/nixos
-            ({ pkgs, lib, ... }: {
+            ./modules/noxa/mine
+            ({ lib, ... }: {
               # overlay own packages
-              nixpkgs.overlays = [ (final: prev: prev // lib.attrsets.mapAttrs (name: pkg: pkgs.callPackage pkg { }) minePkgs) ];
+              defaults.configuration.imports = [
+                modules.nixosModules.default
+                ./modules/nixos/mine
+                (
+                  { pkgs, lib, ... }: {
+                    nixpkgs.overlays = [ (final: prev: prev // lib.attrsets.mapAttrs (name: pkg: pkgs.callPackage pkg { }) minePkgs) ];
+                  }
+                )
+              ];
+              defaults.specialArgs = {
+                inherit nixos-hardware;
+                inherit disko;
+                inherit nixos-generators;
+                inherit impermanence;
+                inherit lanzaboote;
+                inherit agenix;
+                inherit agenix-rekey;
+                inherit proxmox-nixos;
+                inherit microvm;
+                inherit dns;
+                inherit home-manager;
+                inherit stylix;
+                mine = {
+                  lib = minelib;
+                  inherit (self) noxaModules;
+                  inherit (self) nixosModules;
+                  inherit (self) homeModules;
+                };
+              };
+
+              nodes = attrsets.mapAttrs
+                (name: path: {
+                  configuration = {
+                    imports = [ path ];
+                  };
+                })
+                hosts;
+
+              nodeNames = attrsets.mapAttrsToList (name: path: name) hosts;
             })
+            modules.noxaModules.default
           ];
         };
-      };
+      in
+      with nixpkgs.lib; with builtins; {
+        inherit noxaConfiguration;
 
-      agenix-rekey = agenix-rekey.configure {
-        userFlake = self;
-        nixosConfigurations = self.nixosConfigurations;
-      };
+        lib = minelib;
 
-      formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixpkgs-fmt;
+        # Agenix rekey module configuration
+        agenix-rekey = agenix-rekey.configure {
+          userFlake = self;
+          nixosConfigurations = attrsets.mapAttrs
+            (name: value: {
+              config = value.configuration;
+            })
+            self.noxaConfiguration.config.nodes;
+        };
 
-      checks = builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) deploy-rs.lib;
+        formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixpkgs-fmt;
 
-      nixosModules = modules.nixosModules;
-      noxaModules = modules.noxaModules;
-      homeModules = modules.homeModules;
-    } // flake-utils.lib.eachDefaultSystem (system: {
-      packages =
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-          };
-        in
-        nixpkgs.lib.attrsets.mapAttrs (n: x: pkgs.callPackage x { }) minePkgs;
+        nixosModules = modules.nixosModules;
+        noxaModules = modules.noxaModules;
+        homeModules = modules.homeModules;
+      } // flake-utils.lib.eachDefaultSystem (system: {
+        packages =
+          let
+            pkgs = import nixpkgs {
+              inherit system;
+            };
+          in
+          attrsets.mapAttrs (n: x: pkgs.callPackage x { }) minePkgs;
 
-      devShells =
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-            overlays = [
+        devShells =
+          let
+            pkgs = import nixpkgs {
+              inherit system;
+              overlays = [
 
-              agenix-rekey.overlays.default
+                agenix-rekey.overlays.default
 
-              (final: prev:
-                nixpkgs.lib.attrsets.mapAttrs (n: x: pkgs.callPackage x { }) minePkgs
-              )
+                (final: prev:
+                  attrsets.mapAttrs (n: x: pkgs.callPackage x { }) minePkgs
+                )
 
-              (final: prev: {
-                deploy-rs = deploy-rs.packages.${system}.deploy-rs;
-              })
-
-            ];
-          };
-        in
-        nixpkgs.lib.attrsets.mapAttrs (n: x: pkgs.callPackage x { }) shells;
-    });
+              ];
+            };
+          in
+          attrsets.mapAttrs (n: x: pkgs.callPackage x { }) shells;
+      });
 }
