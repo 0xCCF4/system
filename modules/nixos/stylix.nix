@@ -44,7 +44,10 @@
         let
           cfg = config.mine.wallpapers;
         in
-        ((pkgs.callPackage mine.lib.mkBinaryWallpaper { }) {
+        ((pkgs.callPackage mine.lib.mkBinaryWallpaper {
+          inherit pkgs;
+          inherit lib;
+        }) {
           name = "snowflake-binary-image";
           src_image = cfg.snowflake.sourceImage;
           src_data = cfg.snowflake.sourceData;
