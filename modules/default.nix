@@ -5,23 +5,11 @@
 }@inputs:
 with lib; with builtins;
 let
-  nixOSmodulePaths = noxa.lib.nixDirectoryToAttr ./nixos;
+  nixosModules = noxa.lib.nixDirectoryToAttr' ./nixos;
 
-  nixosModules = (attrsets.mapAttrs'
-    (name: path: attrsets.nameValuePair (noxa.lib.filesystem.baseNameWithoutExtension name) path)
-    nixOSmodulePaths);
+  noxaModules = noxa.lib.nixDirectoryToAttr' ./noxa;
 
-  noxaModulePaths = noxa.lib.nixDirectoryToAttr ./noxa;
-
-  noxaModules = (attrsets.mapAttrs'
-    (name: path: attrsets.nameValuePair (noxa.lib.filesystem.baseNameWithoutExtension name) path)
-    noxaModulePaths);
-
-  homeModulesPaths = noxa.lib.nixDirectoryToAttr ./home;
-
-  homeModules = (attrsets.mapAttrs'
-    (name: path: attrsets.nameValuePair (noxa.lib.filesystem.baseNameWithoutExtension name) path)
-    homeModulesPaths);
+  homeModules = noxa.lib.nixDirectoryToAttr' ./home;
 in
 {
   nixosModules = nixosModules // {
