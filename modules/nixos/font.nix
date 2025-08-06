@@ -23,10 +23,6 @@ with lib;
     mkIf config.mine.defaultFonts {
       fonts = {
         packages = with pkgs; [
-          jetbrains-mono
-          newcomputermodern
-          roboto
-          openmoji-color
           noto-fonts
           noto-fonts-cjk-sans
           noto-fonts-emoji
@@ -36,7 +32,12 @@ with lib;
           mplus-outline-fonts.githubRelease
           dina-font
           proggyfonts
-          wqy_zenhei
+          
+          jetbrains-mono
+          #newcomputermodern
+          #roboto
+          openmoji-color
+          #wqy_zenhei
           nerd-fonts.fira-code
           #google-fonts
           #(nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
