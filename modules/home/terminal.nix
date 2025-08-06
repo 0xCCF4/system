@@ -11,9 +11,17 @@ with lib; with builtins;
     in
     {
       programs.alacritty = {
-        enable = mkDefault true;
+        enable = mkDefault false;
         settings = {
           terminal.shell = mkIf shell.enable (mkDefault "${shell.package}/bin/${shell.package.pname}");
+        };
+      };
+
+      programs.kitty = {
+        enable = mkDefault true;
+        enableGitIntegration = mkDefault true;
+        settings = {
+          shell = mkIf shell.enable (mkDefault "${shell.package}/bin/${shell.package.pname}");
         };
       };
     };
