@@ -32,7 +32,7 @@ with lib;
           mplus-outline-fonts.githubRelease
           dina-font
           proggyfonts
-          
+
           jetbrains-mono
           #newcomputermodern
           #roboto

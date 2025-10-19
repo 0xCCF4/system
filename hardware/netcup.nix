@@ -9,27 +9,35 @@
 with lib;
 {
   imports = [
-    disko.nixosModules.disko
-    (import ./disks/disko-server.nix {
-      device = "/dev/vda";
-      bootType = "bios";
-      swapSize = "8G";
-    })
+    ./disks/disko-zfs.nix
     (modulesPath + "/profiles/qemu-guest.nix")
   ];
 
-  boot.loader.grub.enable = mkDefault true; # Use the boot drive for GRUB
-  #boot.loader.grub.device = "/dev/sda";
-  boot.growPartition = mkDefault true;
+  # ZFS configuration
+  mine.boot.zfs-disks = [
+    "/dev/disk/by-partlabel/disk-main-root"
+  ];
+  mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" ];
+
+  # Bootloader configuration
+  boot.loader.grub = {
+    enable = true;
+    zfsSupport = true;
+    efiSupport = true;
+    efiInstallAsRemovable = true;
+    mirroredBoots = [
+      { devices = [ "nodev" ]; path = "/boot"; }
+    ];
+  };
+  boot.loader.efi.canTouchEfiVariables = false;
+
+  # Drivers
   boot.initrd.availableKernelModules = [ "ata_piix" "uhci_hcd" "virtio_pci" "sr_mod" "virtio_blk" ];
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ ];
   boot.extraModulePackages = [ ];
 
-  boot.loader.grub.efiSupport = true;
-  boot.loader.grub.efiInstallAsRemovable = true;
-
+  # System configuration
   services.qemuGuest.enable = mkDefault true;
-
   nixpkgs.hostPlatform = mkDefault "x86_64-linux";
 }

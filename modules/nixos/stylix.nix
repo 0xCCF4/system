@@ -37,6 +37,7 @@
 
   config = {
     stylix.enable = mkDefault true;
+    stylix.targets.grub.enable = mkDefault false;
     stylix.base16Scheme = mkDefault "${pkgs.base16-schemes}/share/themes/gruvbox-dark-hard.yaml";
 
     mine.wallpapers = {

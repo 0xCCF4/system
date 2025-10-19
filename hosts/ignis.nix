@@ -36,5 +36,7 @@
       users.users.mx.hashedPasswordFile = lib.mkForce null;
       users.users.mx.password = "mx";
     };
+
+    networking.hostId = "cf5506f0";
   };
 }

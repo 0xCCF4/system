@@ -1,4 +1,4 @@
-{ lib, config, ... }: with lib; with builtins; {
+{ lib, config, pkgs, ... }: with lib; with builtins; {
   options.users.users = with types; mkOption {
     type = attrsOf (submodule (submodule: {
       options.passwordFileOverride = mkOption {
@@ -20,7 +20,7 @@
     let
       spec = mapAttrsToList
         (_: u: ''
-          cat ${escapeShellArg u.passwordFileOverride} | mkpasswd -s -m sha512crypt > ${escapeShellArg u.hashedPasswordFile}
+          cat ${escapeShellArg u.passwordFileOverride} | ${pkgs.mkpasswd}/bin/mkpasswd -s -m sha512crypt > ${escapeShellArg u.hashedPasswordFile}
         '')
         (filterAttrs (_: u: u.passwordFileOverride != null) config.users.users);
     in
