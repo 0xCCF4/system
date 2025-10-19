@@ -78,7 +78,7 @@
                   fi
                 }
                 trap cleanup EXIT
-                zpool import -N -d /dev/disk/by-id pool
+                zpool import -N -d /dev/disk/by-partlabel pool
 
                 # Check that the file systems we will mount have the right encryptionroot.
                 ${lib.concatStringsSep "\n" (lib.map checkFS (lib.filter shouldCheckFS config.system.build.fileSystems))}
@@ -147,13 +147,11 @@
       # in stage 1, we do need to explicitly add them, and we need to add
       # the 'zfsutil' option. For my pool, that's the '/', '/nix', and
       # '/var' datasets.
-      #
-      # All of that is incorrect if you just use 'mountpoint=legacy'
       fileSystems = lib.genAttrs cfg.zfs-mount-folders
         (fs: {
           device = "pool/crypt/system${lib.optionalString (fs != "/") fs}";
           fsType = "zfs";
-          options = [ "zfsutil" ];
+          #options = [ "zfsutil" ];
         }) // {
         "/boot" = {
           device = "LABEL=BOOT";
@@ -186,18 +184,19 @@
 # mount /dev/mapper/CREDSTORE /etc/credstore
 # nix-shell -p openssl --run "openssl rand -out /etc/credstore/zfs-sysroot.mount 32"
 # zfs create -o encryption=on -o keyformat=raw -o keylocation=file:///etc/credstore/zfs-sysroot.mount -o mountpoint=none pool/crypt
-# zfs create -o mountpoint=none pool/crypt/system
-# zfs create -o mountpoint=none pool/crypt/system/nix
-# zfs create -o mountpoint=none pool/crypt/system/var
-# zfs create -o mountpoint=none pool/crypt/system/persist
-# zfs create -o mountpoint=none -o canmount=off -o reservation=200GB pool/reserved
+# zfs create -o mountpoint=legacy pool/crypt/system
+# zfs create -o mountpoint=legacy pool/crypt/system/nix
+# zfs create -o mountpoint=legacy pool/crypt/system/var
+# zfs create -o mountpoint=legacy pool/crypt/system/persist
+# zfs create -o mountpoint=none -o canmount=off -o reservation=64GB -o quota=64GB pool/reserved
 # umount /etc/credstore
 # cryptsetup luksClose CREDSTORE
+# zpool export pool
 
 # Setting up the system for nixos-install
 # set -x
 # set -euo pipefail
-# zpool import -af
+# zpool import -f -N -d /dev/disk/by-partlabel/ pool
 # cryptsetup luksOpen --readonly /dev/zvol/pool/credstore CREDSTORE
 # mkdir -p /etc/credstore
 # mount -o ro /dev/mapper/CREDSTORE /etc/credstore
@@ -206,6 +205,7 @@
 # cryptsetup luksClose CREDSTORE
 # mkdir -p /mnt
 # mount -t zfs pool/crypt/system /mnt
+# sleep 1
 # mkdir -p /mnt/boot
 # mkdir -p /mnt/nix
 # mkdir -p /mnt/var
@@ -213,7 +213,8 @@
 # mount -t zfs pool/crypt/system/nix /mnt/nix
 # mount -t zfs pool/crypt/system/var /mnt/var
 # mount -t zfs pool/crypt/system/persist /mnt/persist
-# mount /dev/nvme0n1p1 /mnt/boot
-# nixos-install --flake .?submodules=1#eternis
+# mount /dev/vda1 /mnt/boot
+# sleep 1
+# nixos-install --flake .?submodules=1#lux
 # umount -R /mnt
 # zpool export pool
