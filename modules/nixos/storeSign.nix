@@ -2,6 +2,7 @@
 , lib
 , config
 , noxa
+, options
 , ...
 }:
 with lib;
@@ -16,7 +17,7 @@ in
     };
   };
 
-  config = mkIf config.mine.storeSign.enable {
+  config = mkIf (config.mine.storeSign.enable && config.noxa.secrets.enable) {
     noxa.secrets.def = [
       {
         ident = "nixos-store-signing-key";
@@ -25,9 +26,11 @@ in
       }
     ];
 
-    nix.settings.secret-key-files = config.age.secrets.${noxa.lib.secrets.computeIdentifier {
-      ident = "nixos-store-signing-key";
-      module = "mine.storeSign";
-    }}.path;
+    nix.settings.secret-key-files = mkIf (config.age.rekey.hostPubkey != options.age.rekey.hostPubkey.default) (
+      config.age.secrets.${noxa.lib.secrets.computeIdentifier {
+        ident = "nixos-store-signing-key";
+        module = "mine.storeSign";
+      }}.path
+    );
   };
 }

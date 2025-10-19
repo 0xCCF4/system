@@ -1,6 +1,8 @@
 { pkgs
 , lib
 , config
+, mine
+, osConfig
 , ...
 }:
 with lib;
@@ -20,7 +22,7 @@ with lib;
     ];
 
     programs.firefox = {
-      enable = true;
+      enable = mkDefault (mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false);
 
       # Privacy about:config settings
       profiles.default = {

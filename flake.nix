@@ -4,6 +4,7 @@
   inputs = {
     # Nixpkgs
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-stable.url = "github:nixos/nixpkgs/release-25.05";
 
     # Home Manager
     home-manager = {
@@ -59,6 +60,7 @@
     proxmox-nixos = {
       url = "github:SaumonNet/proxmox-nixos";
       inputs.nixpkgs-unstable.follows = "nixpkgs";
+      inputs.nixpkgs-stable.follows = "nixpkgs-stable";
       inputs.utils.follows = "flake-utils";
     };
 
@@ -94,6 +96,7 @@
   outputs =
     { self
     , nixpkgs
+    , nixpkgs-stable
     , nixos-hardware
     , nixos-generators
     , disko
@@ -120,9 +123,17 @@
         hosts = noxa.lib.nixDirectoryToAttr' ./hosts;
 
         noxaConfiguration = noxa.lib.noxa-instantiate {
+          specialArgs = {
+            mine = {
+              lib = minelib;
+              inherit (self) noxaModules;
+              inherit (self) nixosModules;
+              inherit (self) homeModules;
+            };
+          };
           modules = [
             ./modules/noxa/mine
-            ({ lib, ... }: {
+            ({ lib, specialArgs, ... }: {
               # overlay own packages
               defaults.configuration.imports = [
                 modules.nixosModules.default
@@ -146,12 +157,8 @@
                 inherit dns;
                 inherit home-manager;
                 inherit stylix;
-                mine = {
-                  lib = minelib;
-                  inherit (self) noxaModules;
-                  inherit (self) nixosModules;
-                  inherit (self) homeModules;
-                };
+                inherit nixpkgs-stable;
+                mine = specialArgs.mine;
               };
 
               nodes = attrsets.mapAttrs
@@ -180,7 +187,7 @@
             (name: value: {
               config = value.configuration;
             })
-            self.noxaConfiguration.config.nodes;
+            (attrsets.filterAttrs (name: value: name != "iso") self.noxaConfiguration.config.nodes);
         };
 
         formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixpkgs-fmt;
@@ -188,6 +195,13 @@
         nixosModules = modules.nixosModules;
         noxaModules = modules.noxaModules;
         homeModules = modules.homeModules;
+
+        # Backwards compatibility for nixos-anywhere
+        nixosConfigurations = attrsets.mapAttrs
+          (name: value: {
+            config = value.configuration;
+          })
+          noxaConfiguration.config.nodes;
       } // flake-utils.lib.eachDefaultSystem (system: {
         packages =
           let

@@ -32,8 +32,6 @@
 
     boot.kernelModules = [ "veth" "kvm" ];
 
-    networking.useNetworkd = true;
-
     virtualisation.vmVariant = {
       # following configuration is added only when building VM with build-vm
       virtualisation = {
@@ -43,5 +41,7 @@
       users.users.mx.hashedPasswordFile = mkForce null;
       users.users.mx.password = "changeme";
     };
+
+    networking.hostId = "9a5839bd";
   };
 }

@@ -2,43 +2,48 @@
   # Policy: Only me has access to this network
   # Use-case: Me connecting to the SSH of the server
   # Allowed services: SSH maintenance port
-  wireguard.cloud-maintenance = {
+  wireguard.cloud-admin = {
     networkAddress = "10.1.1.0/24";
     members = {
       lux.deviceAddresses = "10.1.1.0/32"; # cloud (server)
-      lux.advertise.server.listenPort = 51820;
+      lux.advertise.server.listenPort = 51823;
+      lux.backend = "wg-quick";
 
       ignis.deviceAddresses = "10.1.1.1/32"; # my laptop
+
+      # temporary solution
+      eternis.deviceAddresses = "10.1.1.2/32"; # home cluster
+      eternis.backend = "wg-quick";
     };
   };
-
-  # Policy: Many have access to this network
-  # Use-case: Someone uses the VPN to connect to the Internet
-  # Allowed services: NAT to the Internet
-  wireguard.cloud-vpn = {
-    networkAddress = "10.1.2.0/24";
-    members = {
-      lux.deviceAddresses = "10.1.2.0/32"; # cloud (server)
-      lux.advertise.server.listenPort = 51821;
-
-      ignis.deviceAddresses = "10.1.2.1/32"; # my laptop
-      ignis.backend = "wg-quick";
-      ignis.autostart = false;
-    };
-  };
-
-  # Policy: Many have access to this network
-  # Use-case: Someone using services hosted in the cloud
-  # Allowed services: Matrix, mail IMAP, ...
-  wireguard.cloud-shared = {
-    networkAddress = "10.1.3.0/24";
-    members = {
-      lux.deviceAddresses = "10.1.3.0/32"; # cloud (server)
-      lux.advertise.server.listenPort = 51822;
-
-      ignis.deviceAddresses = "10.1.3.1/32"; # my laptop
-    };
-  };
+  ##  
+  ##  # Policy: Many have access to this network
+  ##  # Use-case: Someone uses the VPN to connect to the Internet
+  ##  # Allowed services: NAT to the Internet
+  ##  wireguard.cloud-vpn = {
+  ##    networkAddress = "10.1.2.0/24";
+  ##    members = {
+  ##      lux.deviceAddresses = "10.1.2.0/32"; # cloud (server)
+  ##      lux.advertise.server.listenPort = 51821;
+  ##  
+  ##      ignis.deviceAddresses = "10.1.2.1/32"; # my laptop
+  ##      ignis.backend = "wg-quick";
+  ##      ignis.autostart = false;
+  ##    };
+  ##  };
+  ##  
+  ##  # Policy: Many have access to this network
+  ##  # Use-case: Someone using services hosted in the cloud
+  ##  # Allowed services: Matrix, mail IMAP, ...
+  ##  wireguard.cloud-shared = {
+  ##    networkAddress = "10.1.3.0/24";
+  ##    members = {
+  ##      lux.deviceAddresses = "10.1.3.0/32"; # cloud (server)
+  ##      lux.advertise.server.listenPort = 51822;
+  ##  
+  ##      ignis.deviceAddresses = "10.1.3.1/32"; # my laptop
+  ##    };
+  ##  };
 
   #  # Policy: The different locations connect via this network 
   #  # Use-case: Port forwarding services to the Internet

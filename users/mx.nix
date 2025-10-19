@@ -1,4 +1,4 @@
-{ config, noxa, mine, ... }: {
+{ config, noxa, mine, lib, ... }: with lib; {
   imports = mine.lib.optionalsIfExist [
     ../external/private/users/mx.nix
   ];
@@ -11,13 +11,15 @@
         createHome = true;
         homeMode = "700";
         uid = 1000;
-        passwordFileOverride = config.age.secrets.${noxa.lib.secrets.computeIdentifier {
-          ident = "mx-user-password";
-          module = "mine.users";
-        }}.path;
+        passwordFileOverride = mkIf config.noxa.secrets.enable (
+          config.age.secrets.${noxa.lib.secrets.computeIdentifier {
+            ident = "mx-user-password";
+            module = "mine.users";
+          }}.path
+        );
       };
 
-    noxa.secrets.def = [
+    noxa.secrets.def = mkIf config.noxa.secrets.enable [
       {
         ident = "mx-user-password";
         module = "mine.users";

@@ -21,7 +21,7 @@ with lib;
       networkmanager.dns = "none";
     };
 
-    services.dnscrypt-proxy2 = {
+    services.dnscrypt-proxy = {
       enable = mkDefault true;
       settings = {
         ipv6_servers = true;
@@ -36,7 +36,7 @@ with lib;
         };
         server_names =
           let
-            ipv6 = config.services.dnscrypt-proxy2.settings.ipv6_servers;
+            ipv6 = config.services.dnscrypt-proxy.settings.ipv6_servers;
             provider = config.mine.dns.provider;
           in
           [ ]
