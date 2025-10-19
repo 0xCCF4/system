@@ -7,6 +7,7 @@
     members = {
       lux.deviceAddresses = "10.1.1.0/32"; # cloud (server)
       lux.advertise.server.listenPort = 51823;
+      lux.advertise.server.firewallAllow = true;
       lux.backend = "wg-quick";
 
       ignis.deviceAddresses = "10.1.1.1/32"; # my laptop

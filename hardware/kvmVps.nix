@@ -36,8 +36,12 @@ with lib;
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ ];
   boot.extraModulePackages = [ ];
+  hardware.enableRedistributableFirmware = true;
 
   # System configuration
+  boot.kernelParams = [ "rd.systemd.debug_shell" ];
+  boot.initrd.systemd.emergencyAccess = true;
+
   services.qemuGuest.enable = mkDefault true;
   nixpkgs.hostPlatform = mkDefault "x86_64-linux";
 }
