@@ -33,6 +33,7 @@
             umask u=rw
           ''
         ] ++ spec);
+        deps = [ "agenix" ];
       };
       system.activationScripts.users.deps = [ "usersPre" ];
       system.activationScripts.usersPost = {

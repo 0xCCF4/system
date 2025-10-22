@@ -4,21 +4,24 @@
 , config
 , disko
 , nixos-hardware
+, modulesPath
 , ...
 }:
 with lib;
 {
   imports = [
-    disko.nixosModules.disko
-    (import ./disks/disko-impermanence.nix {
-      device = "/dev/nvme0n1";
-      rootTmpfs = (config.mine.persistence.enable or false) && (config.mine.persistence.rootTmpfs or false);
-    })
+    ./disks/disko-zfs.nix
+    ./modules/efi.nix
     nixos-hardware.nixosModules.lenovo-thinkpad-l14-amd
   ];
 
-  nixpkgs.hostPlatform = mkDefault "x86_64-linux";
+  # ZFS configuration
+  mine.boot.zfs-disks = [
+    "/dev/disk/by-partlabel/disk-main-root"
+  ];
+  mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" "/persist" ];
 
+  # Drivers
   boot.initrd.availableKernelModules = [
     "nvme"
     "xhci_pci"
@@ -27,31 +30,26 @@ with lib;
     "usbhid"
     "sd_mod"
   ];
-
   boot.swraid.enable = true;
   boot.swraid.mdadmConf = "PROGRAM /usr/bin/env true";
-  boot.initrd.kernelModules = [ ];
   boot.kernelModules = [
     "kvm-amd"
     "dm-snapshot"
   ];
-  boot.extraModulePackages = [ ];
-  swapDevices = [ ];
-  networking.useDHCP = mkDefault true;
-
-  powerManagement.cpuFreqGovernor = mkDefault "powersave";
   hardware.enableRedistributableFirmware = mkDefault true;
   hardware.cpu.amd.updateMicrocode = mkDefault true;
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-  networking.networkmanager.enable = true;
   hardware.graphics.enable = true;
   hardware.graphics.enable32Bit = true;
   hardware.graphics.extraPackages = [ pkgs.mesa ];
   services.lvm.enable = true;
-  services.lvm.boot.thin.enable = true;
   services.fprintd.enable = true;
   services.xserver.videoDrivers = [ "amdgpu" ];
+
+  # System configuration
+  nixpkgs.hostPlatform = mkDefault "x86_64-linux";
+  networking.useDHCP = mkDefault true;
+  powerManagement.cpuFreqGovernor = mkDefault "powersave";
+  networking.networkmanager.enable = true;
 
   boot.binfmt.registrations.appimage = {
     wrapInterpreterInShell = false;

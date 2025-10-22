@@ -15,6 +15,7 @@
       # temporary solution
       eternis.deviceAddresses = "10.1.1.2/32"; # home cluster
       eternis.backend = "wg-quick";
+      eternis.keepAlive = 30;
     };
   };
   ##  

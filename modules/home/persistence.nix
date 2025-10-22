@@ -65,7 +65,7 @@ with lib; with builtins;
     mkIf cfg.enable {
       assertions = [
         {
-          assertion = (hasAttr "persistence" (nixosConfig.mine or { })) != null;
+          assertion = (hasAttr "persistence" (osConfig.mine or { })) != null;
           message = with noxa.lib.ansi; "${bold+fgYellow}NixOS ${fgCyan}mine.${italic}persistence${fgYellow+noItalic} module option not found! Did you not import the ${fgCyan}mine.persistence${fgYellow} module?";
         }
       ];
@@ -90,14 +90,14 @@ with lib; with builtins;
         ".rustup"
       ];
 
-      home.persistence."${nixosConfig.mine.persistence.dataDirectory}/home/${config.home.username}" = {
+      home.persistence."${osConfig.mine.persistence.dataDirectory}/home/${config.home.username}" = {
         removePrefixDirectory = false;
         files = cfg.data.files;
         directories = cfg.data.directories;
         allowOther = true;
       };
 
-      home.persistence."${nixosConfig.mine.persistence.cacheDirectory}/home/${config.home.username}" = {
+      home.persistence."${osConfig.mine.persistence.cacheDirectory}/home/${config.home.username}" = {
         removePrefixDirectory = false;
         files = cfg.cache.files;
         directories = cfg.cache.directories;

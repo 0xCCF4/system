@@ -48,6 +48,7 @@ with lib;
 
         settings = {
           # General
+          "browser.sessionstore.resume_session_once" = true;
           "browser.startup.homepage" = "https://nixos.org";
           "privacy.donottrackheader.enabled" = true;
           "privacy.trackingprotection.enabled" = true;

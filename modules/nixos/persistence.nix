@@ -22,11 +22,11 @@ with lib;
         default = false;
         description = "Enable the persistence module; configuring the impermanence system.";
       };
-      nukeRoot = mkOption {
-        type = bool;
-        default = false;
-        description = "Nuke the root filesystem on boot.";
-      };
+      #nukeRoot = mkOption {
+      #  type = bool;
+      #  default = false;
+      #  description = "Nuke the root filesystem on boot.";
+      #};
 
       rootDirectory = mkOption {
         type = str;
@@ -125,38 +125,38 @@ with lib;
             serviceConfig.Type = "oneshot";
             unitConfig.DefaultDependencies = false;
             script = ''
-              install -d -m "${data.homeMode}" -o "${user}" "${persistence.dataDirectory}/home/${user}"
-              install -d -m "${data.homeMode}" -o "${user}" "${persistence.cacheDirectory}/home/${user}"
+              install -d -m "${data.homeMode}" -o "${user}" "${cfg.dataDirectory}/home/${user}"
+              install -d -m "${data.homeMode}" -o "${user}" "${cfg.cacheDirectory}/home/${user}"
             '';
           };
         })
         (lib.filterAttrs (key: value: value.isNormalUser) config.users.users);
 
-      boot.initrd.postDeviceCommands = lib.mkIf (persistence.nukeRoot && !persistence.rootTmpfs) (
-        lib.mkAfter ''
-          mkdir /btrfs_tmp
-          mount /dev/nixroot_vg/root /btrfs_tmp
-          if [[ -e /btrfs_tmp/root ]]; then
-              mkdir -p /btrfs_tmp/old_roots
-              timestamp=$(date --date="@$(stat -c %Y /btrfs_tmp/root)" "+%Y-%m-%-d_%H:%M:%S")
-              mv /btrfs_tmp/root "/btrfs_tmp/old_roots/$timestamp"
-          fi
-
-          delete_subvolume_recursively() {
-              IFS=$'\n'
-              for i in $(btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
-                  delete_subvolume_recursively "/btrfs_tmp/$i"
-              done
-              btrfs subvolume delete "$1"
-          }
-
-          for i in $(find /btrfs_tmp/old_roots/ -maxdepth 1 -mtime +30); do
-              delete_subvolume_recursively "$i"
-          done
-
-          btrfs subvolume create /btrfs_tmp/root
-          umount /btrfs_tmp
-        ''
-      );
+      #boot.initrd.postDeviceCommands = lib.mkIf (persistence.nukeRoot && !persistence.rootTmpfs) (
+      #  lib.mkAfter ''
+      #    mkdir /btrfs_tmp
+      #    mount /dev/nixroot_vg/root /btrfs_tmp
+      #    if [[ -e /btrfs_tmp/root ]]; then
+      #        mkdir -p /btrfs_tmp/old_roots
+      #        timestamp=$(date --date="@$(stat -c %Y /btrfs_tmp/root)" "+%Y-%m-%-d_%H:%M:%S")
+      #        mv /btrfs_tmp/root "/btrfs_tmp/old_roots/$timestamp"
+      #    fi
+      #
+      #    delete_subvolume_recursively() {
+      #        IFS=$'\n'
+      #        for i in $(btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
+      #            delete_subvolume_recursively "/btrfs_tmp/$i"
+      #        done
+      #        btrfs subvolume delete "$1"
+      #    }
+      #
+      #    for i in $(find /btrfs_tmp/old_roots/ -maxdepth 1 -mtime +30); do
+      #        delete_subvolume_recursively "$i"
+      #    done
+      #
+      #    btrfs subvolume create /btrfs_tmp/root
+      #    umount /btrfs_tmp
+      #  ''
+      #);
     };
 }
