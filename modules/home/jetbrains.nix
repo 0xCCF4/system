@@ -13,7 +13,7 @@ with lib;
   ];
 
   config = {
-    home.mine.persistence.cache.directories = mkIf config.traits.hasDevelopment [
+    home.mine.persistence.cache.directories = mkIf config.home.mine.traits.hasDevelopment [
       ".config/JetBrains"
       ".cache/JetBrains"
       ".local/share/JetBrains"

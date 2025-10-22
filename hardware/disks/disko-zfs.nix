@@ -197,6 +197,7 @@
 # set -x
 # set -euo pipefail
 # zpool import -f -N -d /dev/disk/by-partlabel/ pool
+# sleep 1
 # cryptsetup luksOpen --readonly /dev/zvol/pool/credstore CREDSTORE
 # mkdir -p /etc/credstore
 # mount -o ro /dev/mapper/CREDSTORE /etc/credstore

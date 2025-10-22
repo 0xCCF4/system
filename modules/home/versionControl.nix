@@ -25,7 +25,6 @@ with lib; with builtins;
     {
       programs.git = {
         enable = mkDefault true;
-        delta.enable = true;
         # delta.options = todo
         ignores = [
           "*~"
@@ -37,11 +36,10 @@ with lib; with builtins;
         # signing.key = todo
         # signing.signbydefault = true; todo
 
-        userEmail = cfg.userEmail;
-        userName = cfg.userName;
-
-        extraConfig = {
+        settings = {
           init.defaultBranch = "main";
+          user.email = cfg.userEmail;
+          user.name = cfg.userName;
         };
       };
 
@@ -51,6 +49,11 @@ with lib; with builtins;
           user.email = cfg.userEmail;
           user.name = cfg.userName;
         };
+      };
+
+      programs.delta = {
+        enable = mkDefault true;
+        enableGitIntegration = mkDefault true;
       };
     };
 }

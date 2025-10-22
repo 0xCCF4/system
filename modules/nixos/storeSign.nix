@@ -17,20 +17,21 @@ in
     };
   };
 
-  config = mkIf (config.mine.storeSign.enable && config.noxa.secrets.enable) {
-    noxa.secrets.def = [
-      {
-        ident = "nixos-store-signing-key";
-        module = "mine.storeSign";
-        generator.script = "nix-store-key";
-      }
-    ];
+  config = mkIf (config.mine.storeSign.enable && config.noxa.secrets.enable)
+    {
+      noxa.secrets.def = [
+        {
+          ident = "nixos-store-signing-key";
+          module = "mine.storeSign";
+          generator.script = "nix-store-key";
+        }
+      ];
 
-    nix.settings.secret-key-files = mkIf (config.age.rekey.hostPubkey != options.age.rekey.hostPubkey.default) (
-      config.age.secrets.${noxa.lib.secrets.computeIdentifier {
-        ident = "nixos-store-signing-key";
-        module = "mine.storeSign";
-      }}.path
-    );
-  };
+      nix.settings.secret-key-files = mkIf (!config.age.rekey.initialRollout) (
+        config.age.secrets.${noxa.lib.secrets.computeIdentifier {
+          ident = "nixos-store-signing-key";
+          module = "mine.storeSign";
+        }}.path
+      );
+    };
 }

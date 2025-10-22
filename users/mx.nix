@@ -11,7 +11,7 @@
         createHome = true;
         homeMode = "700";
         uid = 1000;
-        passwordFileOverride = mkIf (config.noxa.secrets.enable && options.age.rekey.hostPubkey.default != config.age.rekey.hostPubkey) (
+        passwordFileOverride = mkIf (!config.age.rekey.initialRollout) (
           config.age.secrets.${noxa.lib.secrets.computeIdentifier {
             ident = "mx-user-password";
             module = "mine.users";

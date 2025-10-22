@@ -90,6 +90,7 @@ with lib;
       systemd.services.clamav-init = {
         description = "ClamAV initialization script";
         before = [ "clamav-daemon.service" ];
+        requiredBy = [ "clamav-daemon.service" ];
         wantedBy = [ "multi-user.target" ];
         restartTriggers = [ "/etc/clamav/clamd.conf" ];
 
@@ -129,6 +130,7 @@ with lib;
           PrivateTmp = "yes";
           PrivateDevices = "yes";
           PrivateNetwork = "yes";
+          Restart = "on-failure";
         };
       };
 
