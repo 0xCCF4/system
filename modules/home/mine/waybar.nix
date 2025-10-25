@@ -7,6 +7,11 @@
 }:
 # Originally from https://github.com/vimjoyer/nixconf Licensed under the MIT License.
 with lib;
+let
+  pamixer = "${pkgs.pamixer}/bin/pamixer";
+  pavucontrol = "${pkgs.pavucontrol}/bin/pavucontrol";
+  hyprctl = "${if config.wayland.windowManager.hyprland.package != null then config.wayland.windowManager.hyprland.package else osConfig.programs.hyprland.package}/bin/hyprctl";
+in
 {
   config =
     let
@@ -14,15 +19,26 @@ with lib;
         cat /sys/class/power_supply/BAT0/capacity
       '';
 
+      submapScript = pkgs.writeShellScriptBin "submap-status" ''
+        handle() {
+          case $1 in
+            submap*) echo ''${1#*>>} ;;
+          esac
+        }
+
+        ${hyprctl} submap | tr -d '\n\r'
+        echo ""
+        ${pkgs.socat}/bin/socat -U - UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock | while read -r line; do handle "$line"; done
+      '';
+
       workspaces = {
-        format = "{icon}";
+        format = "{name}{icon}";
         format-icons = {
-          "1" = "1";
-          "2" = "2";
-          "3" = "3";
           active = "";
+          empty = "";
           default = "";
           urgent = "";
+          special = "";
         };
         on-click = "activate";
         # persistent_workspaces = { "*" = 10; };
@@ -32,10 +48,7 @@ with lib;
       programs.waybar = {
         enable = mkDefault ((mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable));
 
-        settings = let
-          pamixer = "${pkgs.pamixer}/bin/pamixer";
-          pavucontrol = "${pkgs.pavucontrol}/bin/pavucontrol";
-        in {
+        settings = {
           mainBar = {
             mod = "dock";
             layer = "top";
@@ -46,6 +59,7 @@ with lib;
             modules-left = [
               "custom/logo"
               "hyprland/workspaces"
+              "custom/submap"
             ];
             modules-center = [
               "mpris"
@@ -56,8 +70,10 @@ with lib;
               # "memory"
               "network"
               "bluetooth"
+              "pulseaudio"
               "pulseaudio#microphone"
               "custom/battery"
+              "idle_inhibitor"
               "clock"
               "tray"
             ];
@@ -147,6 +163,11 @@ with lib;
               format = "{}";
             };
 
+            "custom/submap" = {
+              exec = "${submapScript}/bin/submap-status";
+              format = "{}";
+            };
+
             "hyprland/window" = {
               format = "  {}";
               rewrite = {
@@ -195,7 +216,7 @@ with lib;
                 phone = " ";
                 portable = " ";
               };
-              format-muted = "󰝟 {volume}%";
+              format-muted = " {volume}%";
               on-click = "${pavucontrol} -t 3";
               on-click-middle = "${pamixer} -t";
               on-scroll-down = "${pamixer} -d 5";
@@ -218,6 +239,14 @@ with lib;
             tray = {
               icon-size = 15;
               spacing = 5;
+            };
+
+            idle_inhibitor = {
+              format = "{icon}";
+              format-icons = {
+                activated = "";
+                deactivated = "";
+              };
             };
           };
         };
@@ -282,6 +311,8 @@ with lib;
           #pulseaudio,
           #custom-wallchange,
           #custom-mode,
+          #custom-submap,
+          #idle_inhibitor,
           #tray {
               color: @theme_text_color;
               background: shade(alpha(@theme_text_colors, 0.9), 1.25);
