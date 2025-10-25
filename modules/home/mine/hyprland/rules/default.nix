@@ -4,6 +4,8 @@
   wayland.windowManager.hyprland.settings = {
     windowrulev2 = [
       "suppressevent maximize, class:.*"
+
+      "bordersize 10, pinned:1"
     ];
   };
 }

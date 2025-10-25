@@ -58,11 +58,7 @@ in
       # Move to scratchpad
       "$mainMod, c, togglespecialworkspace,"
       "$mainMod SHIFT, c, movetoworkspace, special"
-      "$mainMod ALT, c, movetoworkspace, previous" 
-    ];
-
-    windowrule = [
-      "bordersize 10, pinned:1"
+      "$mainMod ALT, c, movetoworkspace, previous"
     ];
   };
 }
