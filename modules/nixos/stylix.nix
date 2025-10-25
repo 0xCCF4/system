@@ -64,5 +64,6 @@
     };
 
     stylix.image = mkDefault config.mine.wallpapers.snowflake.wallpaper;
+    stylix.polarity = mkDefault "dark";
   };
 }

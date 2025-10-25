@@ -23,9 +23,12 @@ in
 
       # Toggle floating
       "$mainMod, V, togglefloating,"
-      
+
       # Toggle fullscreen
       "$mainMod, F, fullscreen,"
+
+      # Toggle split
+      "$mainMod, G, togglesplit,"
     ];
   };
 }

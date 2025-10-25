@@ -45,7 +45,7 @@ in
       };
     in
     {
-      programs.waybar = {
+      programs.waybar = with config.lib.stylix.colors; {
         enable = mkDefault ((mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable));
 
         settings = {
@@ -113,11 +113,11 @@ in
               };
               calendar = {
                 format = {
-                  days = "<span color='#ecc6d9'><b>{}</b></span>";
-                  months = "<span color='#ffead3'><b>{}</b></span>";
-                  today = "<span color='#ff6699'><b><u>{}</u></b></span>";
-                  weekdays = "<span color='#ffcc66'><b>{}</b></span>";
-                  weeks = "<span color='#99ffdd'><b>W{:%V}</b></span>";
+                  days = "<span color='#${base04-hex}'><b>{}</b></span>";
+                  months = "<span color='#${base09-hex}'><b>{}</b></span>";
+                  today = "<span color='#${base08-hex}'><b><u>{}</u></b></span>";
+                  weekdays = "<span color='#${base0A-hex}'><b>{}</b></span>";
+                  weeks = "<span color='#${base0C-hex}'><b>W{:%V}</b></span>";
                 };
                 mode = "year";
                 mode-mon-col = 3;
@@ -244,14 +244,16 @@ in
             idle_inhibitor = {
               format = "{icon}";
               format-icons = {
-                activated = "";
-                deactivated = "";
+                activated = "";
+                deactivated = "";
               };
             };
           };
         };
 
         style = ''
+          /* colors: https://github.com/nix-community/stylix/blob/master/modules/gtk/gtk.css.mustache */
+
           * {
               border: none;
               border-radius: 0px;
@@ -267,10 +269,10 @@ in
           tooltip {
               background: @theme_unfocused_base_color;
               color: @theme_text_color;
-              border-radius: 10px;
+              /* border-radius: 10px; */
               border-width: 1px;
               border-style: solid;
-              border-color: shade(alpha(@theme_text_colors, 0.9), 1.25);
+              border-color: @accent_bg_color;
           }
 
           #workspaces button {
@@ -346,8 +348,8 @@ in
           /* date time block */
           #clock {
               color: @yellow_1;
-              padding-left: 12px;
-              padding-right: 12px;
+              padding-left: 4px;
+              padding-right: 4px;
           }
 
 
@@ -402,9 +404,9 @@ in
           }
 
           #pulseaudio {
-              color: @purple_1;
+              color: @red_1;
               padding-left: 4px;
-              padding-right: 4px;
+              padding-right: 0px;
           }
 
           #pulseaudio.microphone {
@@ -413,6 +415,11 @@ in
               padding-right: 4px;
           }
 
+          #idle_inhibitor {
+              color: @blue_1;
+              padding-left: 8px;
+              padding-right: 8px;
+          }
 
           /* system tray block */
           #custom-mode {

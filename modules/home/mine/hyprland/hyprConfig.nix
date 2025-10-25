@@ -1,4 +1,4 @@
-{ pkgs, lib, config, osConfig,... }: with pkgs; with builtins; with lib; let
+{ pkgs, lib, config, osConfig, ... }: with pkgs; with builtins; with lib; let
   waybar = "${config.programs.waybar.package}/bin/waybar";
   terminal = "${config.programs.kitty.package}/bin/kitty";
   fileManager = "nautilus";
