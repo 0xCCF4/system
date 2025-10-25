@@ -9,7 +9,7 @@ with lib;
 {
   config = {
     services.mako = {
-      enable = mkDefault ((mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && osConfig.programs.hyprland.enable);
+      enable = mkDefault ((mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable));
       settings = {
         #backgroundColor = "#${colors.base01}";
         #borderColor = "#${colors.base0E}";

@@ -40,6 +40,11 @@
     stylix.targets.grub.enable = mkDefault false;
     stylix.base16Scheme = mkDefault "${pkgs.base16-schemes}/share/themes/gruvbox-dark-hard.yaml";
 
+    stylix.fonts.monospace = {
+      name = "Fira Code";
+      package = pkgs.fira-code;
+    };
+
     mine.wallpapers = {
       snowflake.wallpaper =
         let
