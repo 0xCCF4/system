@@ -48,7 +48,8 @@ with lib; with builtins;
       mutableExtensionsDir = mkDefault true;
 
       profiles.default.userSettings = {
-        #"editor.fontFamily" = "'Droid Sans Mono', 'monospace', monospace, 'FiraCode Nerd Font'";
+        "editor.fontFamily" = mkForce "'Fira Code', 'Droid Sans Mono', 'monospace', monospace, 'FiraCode Nerd Font'";
+        "editor.fontLigatures" = true;
         "cSpell.language" = "en,de-DE";
         "terminal.integrated.defaultProfile.linux" = "fish";
         "diffEditor.ignoreTrimWhitespace" = false;

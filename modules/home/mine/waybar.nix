@@ -29,14 +29,13 @@ with lib;
       };
     in
     {
-      home.packages = mkIf config.programs.waybar.enable [
-        pkgs.playerctl
-      ];
-
       programs.waybar = {
-        enable = mkDefault ((mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && osConfig.programs.hyprland.enable);
+        enable = mkDefault ((mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable));
 
-        settings = {
+        settings = let
+          pamixer = "${pkgs.pamixer}/bin/pamixer";
+          pavucontrol = "${pkgs.pavucontrol}/bin/pavucontrol";
+        in {
           mainBar = {
             mod = "dock";
             layer = "top";
@@ -48,6 +47,9 @@ with lib;
               "custom/logo"
               "hyprland/workspaces"
             ];
+            modules-center = [
+              "mpris"
+            ];
             modules-right = [
               "hyprland/language"
               # "cpu"
@@ -58,9 +60,6 @@ with lib;
               "custom/battery"
               "clock"
               "tray"
-            ];
-            modules-center = [
-              "mpris"
             ];
 
             "wlr/workspaces" = workspaces;
@@ -102,7 +101,7 @@ with lib;
                   months = "<span color='#ffead3'><b>{}</b></span>";
                   today = "<span color='#ff6699'><b><u>{}</u></b></span>";
                   weekdays = "<span color='#ffcc66'><b>{}</b></span>";
-                  weeks = "<span color='#99ffdd'><b>W{}</b></span>";
+                  weeks = "<span color='#99ffdd'><b>W{:%V}</b></span>";
                 };
                 mode = "year";
                 mode-mon-col = 3;
@@ -112,7 +111,7 @@ with lib;
               };
               format = "󰥔 {:%H:%M}";
               format-alt = "󰥔 {:%A, %B %d, %Y (%R)} ";
-              tooltip-format = ''<span size='9pt' font='WenQuanYi Zen Hei Mono'>{calendar}</span>'';
+              tooltip-format = ''<span size='9pt' font='Fira Code'>{calendar}</span>'';
             };
 
             cpu = {
@@ -196,11 +195,11 @@ with lib;
                 phone = " ";
                 portable = " ";
               };
-              format-muted = "婢 {volume}%";
-              on-click = "pavucontrol -t 3";
-              on-click-middle = "pamixer -t";
-              on-scroll-down = "pamixer -d 5";
-              on-scroll-up = "pamixer -i 5";
+              format-muted = "󰝟 {volume}%";
+              on-click = "${pavucontrol} -t 3";
+              on-click-middle = "${pamixer} -t";
+              on-scroll-down = "${pamixer} -d 5";
+              on-scroll-up = "${pamixer} -i 5";
               scroll-step = 5;
               tooltip-format = "{icon} {desc} {volume}%";
             };
@@ -209,10 +208,10 @@ with lib;
               format = "{format_source}";
               format-source = "  {volume}%";
               format-source-muted = "  {volume}%";
-              on-click = "pavucontrol -t 4";
-              on-click-middle = "pamixer --default-source -t";
-              on-scroll-down = "pamixer --default-source -d 5";
-              on-scroll-up = "pamixer --default-source -i 5";
+              on-click = "${pavucontrol} -t 4";
+              on-click-middle = "${pamixer} --default-source -t";
+              on-scroll-down = "${pamixer} --default-source -d 5";
+              on-scroll-up = "${pamixer} --default-source -i 5";
               scroll-step = 5;
             };
 

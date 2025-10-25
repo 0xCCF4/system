@@ -22,6 +22,7 @@ with lib; with builtins;
         enableGitIntegration = mkDefault true;
         settings = {
           shell = mkIf shell.enable (mkDefault "${shell.package}/bin/${shell.package.pname}");
+          disable_ligatures = "cursor";
         };
       };
     };

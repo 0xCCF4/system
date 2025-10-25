@@ -20,11 +20,12 @@
     let
       spec = mapAttrsToList
         (_: u: ''
+          echo "[users] creating hashed password file for user: ${escapeShellArg u.name}"
           cat ${escapeShellArg u.passwordFileOverride} | ${pkgs.mkpasswd}/bin/mkpasswd -s -m sha512crypt > ${escapeShellArg u.hashedPasswordFile}
         '')
         (filterAttrs (_: u: u.passwordFileOverride != null) config.users.users);
     in
-    {
+    mkIf (!config.age.rekey.initialRollout) {
       system.activationScripts.usersPre = {
         supportsDryActivation = true;
         text = concatStringsSep "\n" ([
@@ -33,7 +34,7 @@
             umask u=rw
           ''
         ] ++ spec);
-        deps = [ "agenix" ];
+        deps = [ "agenix" "agenixInstall" "agenixChown" ];
       };
       system.activationScripts.users.deps = [ "usersPre" ];
       system.activationScripts.usersPost = {
