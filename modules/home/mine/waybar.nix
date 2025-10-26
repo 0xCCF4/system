@@ -28,11 +28,12 @@ in
 
         ${hyprctl} submap | tr -d '\n\r'
         echo ""
+        
         ${pkgs.socat}/bin/socat -U - UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock | while read -r line; do handle "$line"; done
       '';
 
       workspaces = {
-        format = "{name}{icon}";
+        format = "{name} {icon}";
         format-icons = {
           active = "";
           empty = "";
