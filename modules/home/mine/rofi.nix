@@ -5,7 +5,7 @@
 , mine
 , ...
 }:
-with lib;
+with lib; with builtins;
 {
   config = {
     programs.rofi = {
@@ -38,9 +38,31 @@ with lib;
       };
       theme =
         let
+          /* adapted from https://github.com/nix-community/stylix/blob/master/modules/rofi/hm.nix */
           inherit (config.lib.formats.rasi) mkLiteral;
+          mkRgba = opacity: color:
+            let
+              r = config.lib.stylix.colors."${color}-rgb-r";
+              g = config.lib.stylix.colors."${color}-rgb-g";
+              b = config.lib.stylix.colors."${color}-rgb-b";
+            in
+            mkLiteral "rgba ( ${r}, ${g}, ${b}, ${opacity} % )";
+          mkRgb = mkRgba "100";
+          rofiOpacity = toString (builtins.ceil (config.stylix.opacity.popups * 100));
+          /* end from */
         in
         {
+          "*" = {
+            "font" = "${config.stylix.fonts.monospace.name}, FiraCode Nerd Font 15";
+          };
+
+          "window" = {
+            "background-color" = mkLiteral "@background";
+            "border-color" = mkRgba rofiOpacity "base0D";
+            "border-width" = "${toString config.wayland.windowManager.hyprland.settings.general.border_size}px";
+            "border" = mkLiteral "2";
+          };
+
           "element-icon" = { };
 
           "element-icon selected" = {
