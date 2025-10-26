@@ -46,6 +46,8 @@ in
       };
     in
     {
+      home.packages = [ pkgs.playerctl ];
+
       programs.waybar = with config.lib.stylix.colors; {
         enable = mkDefault ((mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable));
 
@@ -92,8 +94,8 @@ in
             };
 
             mpris = {
-              format = "DEFAULT: {player_icon} {dynamic}";
-              format-paused = "DEFAULT: {status_icon} {dynamic}";
+              format = "{player_icon} {dynamic}";
+              format-paused = "{status_icon} {dynamic}";
               player-icons = {
                 "default" = "▶";
                 "mpv" = "🎵";
