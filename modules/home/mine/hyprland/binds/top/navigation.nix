@@ -60,5 +60,11 @@ in
       "$mainMod SHIFT, c, movetoworkspace, special"
       "$mainMod ALT, c, movetoworkspace, previous"
     ];
+
+    gesture = [
+      "3, horizontal, workspace"
+      "3, horizontal, mod: SHIFT, move"
+      "3, down, dispatcher, togglespecialworkspace"
+    ];
   };
 }

@@ -30,5 +30,9 @@ in
       # Toggle split
       "$mainMod, G, togglesplit,"
     ];
+
+    gesture = [
+      "3, up, dispatcher, togglefloating"
+    ];
   };
 }
