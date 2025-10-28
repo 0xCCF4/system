@@ -19,6 +19,8 @@ in
 
   config = mkIf (config.mine.storeSign.enable && config.noxa.secrets.enable)
     {
+      # nix sign-paths --all -k  {private_key}
+
       noxa.secrets.def = [
         {
           ident = "nixos-store-signing-key";

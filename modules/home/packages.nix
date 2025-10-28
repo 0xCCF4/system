@@ -50,7 +50,7 @@ with lib; with builtins;
       };
       hardwareDesign = mkOption {
         type = bool;
-        default = traits.hasDevelopment;
+        default = false;
         description = "Install hardware design tools";
       };
       office = mkOption {

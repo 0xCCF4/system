@@ -97,11 +97,12 @@ in
               format = "{player_icon} {dynamic}";
               format-paused = "{status_icon} {dynamic}";
               player-icons = {
-                "default" = "▶";
-                "mpv" = "🎵";
+                "default" = "󰐊";
+                "mpv" = "󰝚";
+                "ncspot" = "󰝚";
               };
               status-icons = {
-                "paused" = "⏸";
+                "paused" = "󰏤";
               };
               # "ignored-players": ["firefox"]
             };
