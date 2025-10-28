@@ -16,6 +16,10 @@
 
     mine.persistence.enable = true;
 
+    specialisation."no-persistence".configuration = {
+      mine.persistence.enable = mkForce false;
+    };
+
     # Battery management
     mine.tlp.enable = true;
 
@@ -45,6 +49,6 @@
     security.sudo.wheelNeedsPassword = mkIf config.age.rekey.initialRollout false;
 
     mine.desktop.hyprland.enable = true;
-    mine.desktop.gnome.enable = true;
+    mine.desktop.gnome.enable = mkForce false;
   };
 }

@@ -16,25 +16,29 @@ with lib;
         default = true;
         description = "Enable ClamAV antivirus services";
       };
-      accessScanning = {
-        enable = mkOption {
-          type = bool;
-          default = true;
-          description = "Enable on-access file scanning";
+      accessScanning =
+        let
+          presets = config.mine.presets;
+        in
+        {
+          enable = mkOption {
+            type = bool;
+            default = presets.isWorkstation;
+            description = "Enable on-access file scanning";
+          };
+          homeDirectories = mkOption {
+            type = listOf str;
+            default = [
+              "Downloads"
+            ];
+            description = "Directories to scan on access, relative to the home directory of each user";
+          };
+          directories = mkOption {
+            type = listOf str;
+            default = [ ];
+            description = "Additional directories to scan on access. Must be absolute paths.";
+          };
         };
-        homeDirectories = mkOption {
-          type = listOf str;
-          default = [
-            "Downloads"
-          ];
-          description = "Directories to scan on access, relative to the home directory of each user";
-        };
-        directories = mkOption {
-          type = listOf str;
-          default = [ ];
-          description = "Additional directories to scan on access. Must be absolute paths.";
-        };
-      };
     };
   };
 
@@ -125,6 +129,7 @@ with lib;
 
         serviceConfig = {
           Type = "simple";
+          ExecStartPre = "${pkgs.coreutils}/bin/sleep 30";
           ExecStart = "${pkgs.systemd}/bin/systemd-cat --identifier=av-scan ${pkgs.clamav}/bin/clamonacc --allmatch -F --fdpass";
           ExecReload = "${pkgs.coreutils}/bin/kill -USR2 $MAINPID";
           PrivateTmp = "yes";

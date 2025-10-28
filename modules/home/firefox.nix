@@ -131,7 +131,7 @@ with lib;
           "pdfjs.enableScripting" = false;
 
           # Harden SSL
-          "security.ssl.require_safe_negotiation" = true;
+          "security.require_safe_negotiation" = true;
 
           # Extra
           "identity.fxaccounts.enabled" = false;

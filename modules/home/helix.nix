@@ -1,6 +1,8 @@
 { config
 , pkgs
 , lib
+, mine
+, osConfig
 , ...
 }:
 with lib;
@@ -11,6 +13,24 @@ with lib;
       colors = config.colorScheme.palette;
     in
     {
+      home.packages = mkIf
+        (
+          config.programs.helix.enable &&
+          (mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
+        ) [
+        pkgs.tinymist
+        pkgs.bash-language-server
+        pkgs.texlab
+        pkgs.bibtex-tidy
+        pkgs.yaml-language-server
+        pkgs.docker-compose-language-service
+        pkgs.fish-lsp
+        pkgs.vscode-json-languageserver
+        pkgs.markdown-oxide
+        pkgs.nil
+        pkgs.nixd
+        pkgs.taplo
+      ];
       programs.helix = {
         enable = mkDefault true;
         defaultEditor = mkDefault true;
