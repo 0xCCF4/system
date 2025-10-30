@@ -7,5 +7,6 @@
     openssl
     coreutils
     nftables
+    unixtools.netstat
   ];
 }

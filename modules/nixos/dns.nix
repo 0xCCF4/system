@@ -18,8 +18,9 @@ with lib;
     networking = {
       nameservers = [ "127.0.0.1" "::1" ];
       dhcpcd.extraConfig = "nohook resolv.conf";
-      networkmanager.dns = "none";
+      networkmanager.dns = mkForce "none";
     };
+    services.resolved.enable = false;
 
     services.dnscrypt-proxy = {
       enable = mkDefault true;

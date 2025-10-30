@@ -22,4 +22,15 @@ rec {
   optionalIfExist = path: lists.optional (pathExists path) path;
 
   optionalsIfExist = paths: filter (path: pathExists path) paths;
+
+  enumerateAttrs = attrs:
+    let
+      enumeratedKeys = (imap0 (index: name: { inherit index; inherit name; }) (attrNames attrs));
+    in
+    map
+      (entry: {
+        inherit (entry) index name;
+        value = attrs.${entry.name};
+      })
+      enumeratedKeys;
 }

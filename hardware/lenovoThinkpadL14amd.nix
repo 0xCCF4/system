@@ -44,6 +44,7 @@ with lib;
   services.lvm.enable = true;
   services.fprintd.enable = true;
   services.xserver.videoDrivers = [ "amdgpu" ];
+  hardware.bluetooth.enable = true;
 
   # System configuration
   nixpkgs.hostPlatform = mkDefault "x86_64-linux";

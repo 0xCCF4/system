@@ -1,10 +1,21 @@
-{ lib, mine, ... }: with lib; {
+{ lib
+, mine
+, microvm
+, config
+, pkgs
+, ...
+}:
+with lib;
+{
   imports = [
     ../hardware/minisforumMS1.nix
 
     # Users
     ../users/mx.nix
-  ] ++ mine.lib.optionalsIfExist [
+
+    microvm.nixosModules.host
+  ]
+  ++ mine.lib.optionalsIfExist [
     ../external/private/hosts/eternis.nix
   ];
 
@@ -19,7 +30,10 @@
     # SSH
     services.openssh = {
       enable = true;
-      ports = [ 5555 22 ];
+      ports = [
+        5555
+        22
+      ];
       settings = {
         PermitRootLogin = "no";
         PasswordAuthentication = false;
@@ -35,5 +49,78 @@
     # Remote unlock luks via ssh+tor
     mine.boot.remoteUnlock = true;
     mine.boot.tor.enable = true;
+
+    #mine.vm.networks = {
+    #  vm-test = {
+    #    members = [ "green" "red" ];
+    #    address = "10.1.0.0/24";
+    #  };
+    #  abc = {
+    #    members = [ "red" ];
+    #    address = "10.2.0.0/24";
+    #  };
+    #};
+    #
+    #microvm = {
+    #  autostart = [ "green" "red" ];
+    #  vms.green = {
+    #    restartIfChanged = true;
+    #    config = {
+    #      system.stateVersion = config.system.stateVersion;
+    #
+    #      environment.systemPackages = config.environment.systemPackages;
+    #
+    #      networking.hostName = "microvm";
+    #      services.getty.autologinUser = "root";
+    #      users.users.root.password = "vm";
+    #
+    #      networking.enableIPv6 = false;
+    #
+    #      services.openssh = {
+    #        enable = true;
+    #        settings.PermitRootLogin = "yes";
+    #        settings.PasswordAuthentication = true;
+    #      };
+    #
+    #      microvm.shares = [{
+    #        tag = "ro-store";
+    #        source = "/nix/store";
+    #        mountPoint = "/nix/.ro-store";
+    #      }];
+    #
+    #      microvm.hypervisor = "qemu";
+    #    };
+    #  };
+    #
+    #  vms.red = {
+    #    restartIfChanged = true;
+    #    config = {
+    #      system.stateVersion = config.system.stateVersion;
+    #
+    #      environment.systemPackages = config.environment.systemPackages;
+    #
+    #      networking.hostName = "microvm";
+    #      services.getty.autologinUser = "root";
+    #      users.users.root.password = "vm";
+    #
+    #      networking.enableIPv6 = false;
+    #
+    #      services.openssh = {
+    #        enable = true;
+    #        settings.PermitRootLogin = "yes";
+    #        settings.PasswordAuthentication = true;
+    #      };
+    #
+    #      microvm.shares = [{
+    #        tag = "ro-store";
+    #        source = "/nix/store";
+    #        mountPoint = "/nix/.ro-store";
+    #      }];
+    #
+    #      microvm.hypervisor = "qemu";
+    #
+    #    };
+    #  };
+    #};
   };
 }
