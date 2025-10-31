@@ -15,10 +15,6 @@ in
 {
   config =
     let
-      battery = pkgs.writeShellScriptBin "battery" ''
-        cat /sys/class/power_supply/BAT0/capacity
-      '';
-
       submapScript = pkgs.writeShellScriptBin "submap-status" ''
         handle() {
           case $1 in
@@ -75,7 +71,7 @@ in
               "bluetooth"
               "pulseaudio"
               "pulseaudio#microphone"
-              "custom/battery"
+              "battery"
               "idle_inhibitor"
               "clock"
               "tray"
@@ -150,10 +146,16 @@ in
               interval = 10;
             };
 
-            "custom/battery" = {
-              exec = "${battery}/bin/battery";
-              format = " 󰁹 {}";
-              interval = 10;
+            "battery" = {
+              format = "{icon} {capacity}";
+              #interval = 60;
+              format-icons = [
+                "󰂎" "󰂎" "󰁾" "󰁾" "󰁾" "󰁹" "󰁹"
+              ];
+              states = {
+                  warning  = 30;
+                  critical = 15;
+              };
             };
 
             "custom/gpu-usage" = {
@@ -319,6 +321,7 @@ in
           #custom-mode,
           #custom-submap,
           #idle_inhibitor,
+          #battery
           #tray {
               color: @theme_text_color;
               background: shade(alpha(@theme_text_colors, 0.9), 1.25);
@@ -327,7 +330,7 @@ in
               margin: 3px 3px 3px 3px;
           }
 
-          #custom-battery {
+          #battery {
               color: @green_1
           }
 
@@ -368,6 +371,17 @@ in
               /* padding-right: 12px; */
           }
 
+          window#waybar {
+              border-width: 4px 0 4px 0;
+              border-style: solid;
+              border-color: @yellow_1;
+          }
+
+          window#waybar.battery-critical {
+              border-width: 4px 0 4px 0;
+              border-style: solid;
+              border-color: @red_1;
+          }
 
           /* control center block */
           #custom-updates {
