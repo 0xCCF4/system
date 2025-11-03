@@ -60,67 +60,17 @@ with lib;
     #    address = "10.2.0.0/24";
     #  };
     #};
-    #
+
     #microvm = {
-    #  autostart = [ "green" "red" ];
-    #  vms.green = {
-    #    restartIfChanged = true;
-    #    config = {
-    #      system.stateVersion = config.system.stateVersion;
+    #autostart = [ "log" ];
+    #vms.prometheus = {
+    #  restartIfChanged = true;
+    #  config = {
+    #    #imports = [../hardware/microvm.nix];
+    #    
     #
-    #      environment.systemPackages = config.environment.systemPackages;
-    #
-    #      networking.hostName = "microvm";
-    #      services.getty.autologinUser = "root";
-    #      users.users.root.password = "vm";
-    #
-    #      networking.enableIPv6 = false;
-    #
-    #      services.openssh = {
-    #        enable = true;
-    #        settings.PermitRootLogin = "yes";
-    #        settings.PasswordAuthentication = true;
-    #      };
-    #
-    #      microvm.shares = [{
-    #        tag = "ro-store";
-    #        source = "/nix/store";
-    #        mountPoint = "/nix/.ro-store";
-    #      }];
-    #
-    #      microvm.hypervisor = "qemu";
-    #    };
     #  };
-    #
-    #  vms.red = {
-    #    restartIfChanged = true;
-    #    config = {
-    #      system.stateVersion = config.system.stateVersion;
-    #
-    #      environment.systemPackages = config.environment.systemPackages;
-    #
-    #      networking.hostName = "microvm";
-    #      services.getty.autologinUser = "root";
-    #      users.users.root.password = "vm";
-    #
-    #      networking.enableIPv6 = false;
-    #
-    #      services.openssh = {
-    #        enable = true;
-    #        settings.PermitRootLogin = "yes";
-    #        settings.PasswordAuthentication = true;
-    #      };
-    #
-    #      microvm.shares = [{
-    #        tag = "ro-store";
-    #        source = "/nix/store";
-    #        mountPoint = "/nix/.ro-store";
-    #      }];
-    #
-    #      microvm.hypervisor = "qemu";
-    #
-    #    };
-    #  };
+    #};
     #};
   };
 }
