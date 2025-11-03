@@ -91,6 +91,12 @@
       url = "github:danth/stylix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Timetrax
+    timetrax = {
+      url = "github:0xCCF4/timetrax";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -111,6 +117,7 @@
     , flake-utils
     , home-manager
     , stylix
+    , timetrax
     , ...
     }@inputs:
       with nixpkgs.lib; with builtins;
@@ -139,8 +146,11 @@
                 modules.nixosModules.default
                 ./modules/nixos/mine
                 (
-                  { pkgs, lib, ... }: {
-                    nixpkgs.overlays = [ (final: prev: prev // lib.attrsets.mapAttrs (name: pkg: pkgs.callPackage pkg { }) minePkgs) ];
+                  { pkgs, lib, config, ... }: {
+                    nixpkgs.overlays = [
+                      (final: prev: prev // lib.attrsets.mapAttrs (name: pkg: pkgs.callPackage pkg { }) minePkgs)
+                      (final: prev: prev // {timetrax = timetrax.packages."x86_64-linux".tt; } )
+                      ];
                   }
                 )
               ];
