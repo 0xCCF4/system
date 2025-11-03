@@ -1,6 +1,6 @@
 { lib, pkgs, mine, config, ... }: with lib; {
   imports = [
-    ../hardware/lenovoThinkpadL14amd.nix
+    ../hardware/lenovoThinkpadP14.nix
 
     # Users
     ../users/mx.nix
