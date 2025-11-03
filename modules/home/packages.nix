@@ -102,6 +102,7 @@ with lib; with builtins;
         dust # du alternative
         dua # directory disk usage analyzer
         yazi # terminal file manager
+        timetrax
       ]
       ++ lists.optionals cfg.latex [ texliveFull typst ]
       ++ lists.optionals cfg.jabref [ jabref ]
