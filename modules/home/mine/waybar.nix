@@ -371,7 +371,7 @@ in
               /* padding-right: 12px; */
           }
 
-          window#waybar {
+          window#waybar.battery-warning {
               border-width: 4px 0 4px 0;
               border-style: solid;
               border-color: @yellow_1;
