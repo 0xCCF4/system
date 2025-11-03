@@ -149,8 +149,8 @@
                   { pkgs, lib, config, ... }: {
                     nixpkgs.overlays = [
                       (final: prev: prev // lib.attrsets.mapAttrs (name: pkg: pkgs.callPackage pkg { }) minePkgs)
-                      (final: prev: prev // {timetrax = timetrax.packages."x86_64-linux".tt; } )
-                      ];
+                      (final: prev: prev // { timetrax = timetrax.packages."x86_64-linux".tt; })
+                    ];
                   }
                 )
               ];

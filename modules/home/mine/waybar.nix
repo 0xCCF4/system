@@ -150,11 +150,17 @@ in
               format = "{icon} {capacity}";
               #interval = 60;
               format-icons = [
-                "󰂎" "󰂎" "󰁾" "󰁾" "󰁾" "󰁹" "󰁹"
+                "󰂎"
+                "󰂎"
+                "󰁾"
+                "󰁾"
+                "󰁾"
+                "󰁹"
+                "󰁹"
               ];
               states = {
-                  warning  = 30;
-                  critical = 15;
+                warning = 30;
+                critical = 15;
               };
             };
 

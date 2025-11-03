@@ -21,7 +21,7 @@ in
       "$mainMod" = "SUPER";
 
       input = {
-        kb_layout = mkDefault "de";
+        kb_layout = mkDefault osConfig.mine.locale.keyboardLayout;
 
         touchpad = {
           natural_scroll = mkDefault true;
