@@ -43,6 +43,7 @@ with lib; with builtins;
         james-yu.latex-workshop
         streetsidesoftware.code-spell-checker
         streetsidesoftware.code-spell-checker-german
+        vscodevim.vim
         # myriad-dreamin.tinymist
       ];
       mutableExtensionsDir = mkDefault true;
