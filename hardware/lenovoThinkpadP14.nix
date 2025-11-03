@@ -22,6 +22,9 @@ with lib;
   mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" "/persist" ];
 
   # Drivers
+  hardware.logitech.wireless.enable = true;
+  hardware.logitech.wireless.enableGraphical = true;
+  services.udev.packages = with pkgs; [ logitech-udev-rules ];
   boot.initrd.availableKernelModules = [
     "nvme"
     "xhci_pci"
