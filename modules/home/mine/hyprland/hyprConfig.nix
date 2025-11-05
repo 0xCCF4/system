@@ -3,7 +3,6 @@
   terminal = "${config.programs.kitty.package}/bin/kitty";
   fileManager = "nautilus";
   rofi = "${config.programs.rofi.package}/bin/rofi";
-  snip = "${config.services.flameshot.package}/bin/flameshot";
   lock = "${config.programs.hyprlock.package}/bin/hyprlock";
   hyprctl = "${if config.wayland.windowManager.hyprland.package != null then config.wayland.windowManager.hyprland.package else osConfig.programs.hyprland.package}/bin/hyprctl";
 in
@@ -14,7 +13,6 @@ in
       "$fileManager" = "${fileManager}";
       "$menu" = "${rofi} -show drun";
       "$reload_waybar" = "pkill waybar; ${waybar} &";
-      "$snip" = "${snip}";
       "$lock" = "${lock}";
       "$hyprctl" = "${hyprctl}";
 

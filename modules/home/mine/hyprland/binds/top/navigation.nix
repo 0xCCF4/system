@@ -5,8 +5,8 @@ in
   wayland.windowManager.hyprland.settings = {
     bind = [
       # Move focus
-      "$mainMod, l, movefocus, l"
-      "$mainMod, h, movefocus, r"
+      "$mainMod, l, movefocus, r"
+      "$mainMod, h, movefocus, l"
       "$mainMod, k, movefocus, u"
       "$mainMod, j, movefocus, d"
       "$mainMod, Left, movefocus, l"
@@ -15,8 +15,8 @@ in
       "$mainMod, Down, movefocus, d"
 
       # Move windows
-      "$mainMod SHIFT, l, movewindow, l"
-      "$mainMod SHIFT, h, movewindow, r"
+      "$mainMod SHIFT, l, movewindow, r"
+      "$mainMod SHIFT, h, movewindow, l"
       "$mainMod SHIFT, k, movewindow, u"
       "$mainMod SHIFT, j, movewindow, d"
       "$mainMod SHIFT, Left, movewindow, l"

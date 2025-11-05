@@ -18,6 +18,9 @@
     home.packages = with pkgs; [
       hyprpicker
       hyprsysteminfo
+      grim
+      slurp
+      wl-clipboard
     ];
   };
 

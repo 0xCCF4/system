@@ -13,9 +13,9 @@ in
       # Lock, reload, exit
       "$mainMod, P, exec, $hyprctl reload"
       "$mainMod, M, exit,"
-      "$mainMod SHIFT, L, exec, $lock"
-      "$mainMod SHIFT CONTROL, L, exec, $lock"
-      "$mainMod SHIFT CONTROL, L, exec, sleep 1 && systemctl suspend"
+      "$mainMod ALT, L, exec, $lock"
+      "$mainMod ALT CONTROL, L, exec, $lock"
+      "$mainMod ALT CONTROL, L, exec, sleep 1 && systemctl suspend"
 
       # Close windows
       "$mainMod, Q, killactive,"
