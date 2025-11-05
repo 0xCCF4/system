@@ -45,7 +45,22 @@ with lib; with builtins;
         streetsidesoftware.code-spell-checker-german
         vscodevim.vim
         # myriad-dreamin.tinymist
-      ];
+      ]
+        # ++ (pkgs.vscode-utils.extensionsFromVscodeMarketplace [
+        #  {
+        #    name = "lean4";
+        #    publisher = "leanprover";
+        #   version = "0.0.219";
+        #   sha256 = "m/k/JTYyqjr++zHAuHcRNCULdW6cJ5hSoveNSmOnOVc=";
+        #  }
+        # {
+        #    name = "even-better-toml";
+        #    publisher = "tamasfe";
+        #    version = "0.21.2";
+        #    sha256 = "IbjWavQoXu4x4hpEkvkhqzbf/NhZpn8RFdKTAnRlCAg=";
+        #  }
+        #]);
+      ;
       mutableExtensionsDir = mkDefault true;
 
       profiles.default.userSettings = {
