@@ -32,7 +32,7 @@ with lib;
       home.packages = [
         cfg.package
       ];
-      wayland.windowManager.hyprland.settings.permissions = [
+      wayland.windowManager.hyprland.settings.permission = [
         "${cfg.package}/bin/slack, screencopy, allow"
       ];
       home.mine.unfree.allowList = [
