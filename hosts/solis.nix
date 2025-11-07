@@ -34,6 +34,7 @@
           "development"
           "office"
         ];
+        home.mine.slack.enable = true;
       };
     };
 

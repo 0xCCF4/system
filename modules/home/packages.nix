@@ -126,6 +126,7 @@ with lib; with builtins;
         keepassxc
         vlc
         gimp
+        libnotify
       ]
       ++ lists.optionals cfg.hardwareDesign [
         kicad
