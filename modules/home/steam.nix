@@ -14,7 +14,7 @@ with lib;
 
   config = mkIf ((mine.lib.evalMissingOption osConfig "mine.steam" false) && config.home.mine.traits.hasGaming) {
     home.packages = with pkgs; [
-      protonup
+      protonup-ng
     ];
 
     home.sessionVariables = {
