@@ -5,6 +5,7 @@
   rofi = "${config.programs.rofi.package}/bin/rofi";
   lock = "${config.programs.hyprlock.package}/bin/hyprlock";
   hyprctl = "${if config.wayland.windowManager.hyprland.package != null then config.wayland.windowManager.hyprland.package else osConfig.programs.hyprland.package}/bin/hyprctl";
+  portalPackage = if config.wayland.windowManager.hyprland.portalPackage != null then config.wayland.windowManager.hyprland.portalPackage else osConfig.programs.hyprland.portalPackage;
 in
 {
   wayland.windowManager.hyprland = {
@@ -45,6 +46,10 @@ in
         "XDG_CURRENT_DESKTOP,Hyprland"
         "XDG_SESSION_TYPE,wayland"
       ];
+
+      permission = [
+          "${portalPackage}/bin/xdg-desktop-portal-hyprland, screencopy, allow"
+      ];        
     };
   };
 }
