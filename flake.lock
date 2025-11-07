@@ -1155,11 +1155,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1762156565,
-        "narHash": "sha256-eV3yiyvzjo81WZi+Way1cx3pVEht8BFCVAcvVc9ZHL8=",
+        "lastModified": 1762464640,
+        "narHash": "sha256-bEwhc2OeXABSKW7V6pgL3zqeLMEgtCp+Jg0m1Pu+BNU=",
         "owner": "0xCCF4",
         "repo": "timetrax",
-        "rev": "b9f09327c1abca3c3647c222e69374ec60896108",
+        "rev": "42d9a496296b4ad3e6caa757c1fb6e728fbfc6be",
         "type": "github"
       },
       "original": {
