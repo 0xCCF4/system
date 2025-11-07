@@ -85,7 +85,6 @@ with lib;
       # };
 
       mine.persistence.files = [
-        "/etc/machine-id"
       ] ++ (builtins.concatLists (builtins.map (k: [ k.path "${k.path}.pub" ]) config.services.openssh.hostKeys));
 
       mine.persistence.directories = [

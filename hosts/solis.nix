@@ -18,9 +18,6 @@
 
     mine.locale.keyboardLayout = "us";
 
-    specialisation."no-store-sign".configuration = {
-      mine.storeSign.enable = mkForce false;
-    };
     specialisation."de-keyboard".configuration = {
       mine.locale.keyboardLayout = mkForce "de";
     };
