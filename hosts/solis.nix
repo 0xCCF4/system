@@ -38,6 +38,6 @@
     security.sudo.wheelNeedsPassword = mkIf config.age.rekey.initialRollout false;
 
     mine.desktop.hyprland.enable = true;
-    mine.desktop.gnome.enable = mkForce false;
+    mine.desktop.gnome.enable = true;
   };
 }
