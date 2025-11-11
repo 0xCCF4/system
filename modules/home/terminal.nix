@@ -1,6 +1,8 @@
 { config
 , pkgs
 , lib
+, osConfig
+, mine
 , ...
 }:
 with lib; with builtins;
@@ -8,6 +10,7 @@ with lib; with builtins;
   config =
     let
       shell = config.programs.fish;
+      isWorkstation = mine.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
     in
     {
       programs.alacritty = {
@@ -18,7 +21,7 @@ with lib; with builtins;
       };
 
       programs.kitty = {
-        enable = mkDefault true;
+        enable = mkDefault isWorkstation;
         enableGitIntegration = mkDefault true;
         settings = {
           shell = mkIf shell.enable (mkDefault "${shell.package}/bin/${shell.package.pname}");
