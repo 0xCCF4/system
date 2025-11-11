@@ -12,6 +12,8 @@
 
       ignis.deviceAddresses = "10.1.1.1/32"; # my laptop
 
+      solis.deviceAddresses = "10.1.1.3/32"; # workstation
+
       # temporary solution
       eternis.deviceAddresses = "10.1.1.2/32"; # home cluster
       eternis.backend = "wg-quick";
