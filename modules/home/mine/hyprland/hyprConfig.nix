@@ -48,8 +48,8 @@ in
       ];
 
       permission = [
-          "${portalPackage}/bin/xdg-desktop-portal-hyprland, screencopy, allow"
-      ];        
+        "${portalPackage}/bin/xdg-desktop-portal-hyprland, screencopy, allow"
+      ];
     };
   };
 }
