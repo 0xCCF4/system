@@ -78,7 +78,8 @@
 
     # Multi-host configuration framework
     noxa = {
-      url = "github:0xCCF4/noxa";
+      # url = "github:0xCCF4/noxa";
+      url = "/home/mx/Documents/noxa";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.home-manager.follows = "home-manager";
       inputs.agenix.follows = "agenix";
