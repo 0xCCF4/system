@@ -13,7 +13,7 @@ let
 in
 {
   imports = [
-    ../persistence.nix
+    ../../persistence.nix
   ];
 
   options.home.mine = {
