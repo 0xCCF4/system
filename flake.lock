@@ -826,11 +826,11 @@
     },
     "nixpkgs-stable": {
       "locked": {
-        "lastModified": 1762881507,
-        "narHash": "sha256-P59mF2fC4/ijf5ZoCQA+wcaN6b0OgKKA3BQZpfPqHtY=",
+        "lastModified": 1762902871,
+        "narHash": "sha256-qkvNQi/r5lfTV2zWr5r9DMuYFcEHt/qcYdOtusD32ec=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "2bbfb713196ae4cf5428530e8387cadcf95d3e2f",
+        "rev": "ce78c1cb66a39621c5bec800fdc74c2aae485997",
         "type": "github"
       },
       "original": {
@@ -861,14 +861,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1762801477,
-        "narHash": "sha256-DVYzrWMoN/JjdX2YlCiLK8zIfEDt20L9Ggyn74fLo9I=",
-        "path": "/home/mx/Documents/noxa",
-        "type": "path"
+        "lastModified": 1761839307,
+        "narHash": "sha256-XEHt6gxMsd54CL2Ll9u20ZeBLL7dmFX9sCtctt1ALsc=",
+        "owner": "0xCCF4",
+        "repo": "noxa",
+        "rev": "6483f919bb658c9887fd47c46f27a84ecf8a2d60",
+        "type": "github"
       },
       "original": {
-        "path": "/home/mx/Documents/noxa",
-        "type": "path"
+        "owner": "0xCCF4",
+        "repo": "noxa",
+        "type": "github"
       }
     },
     "nur": {
