@@ -45,7 +45,8 @@ with lib; with builtins;
       };
       jabref = mkOption {
         type = bool;
-        default = traits.hasOffice;
+        #default = traits.hasOffice;
+        default = false;
         description = "Install JabRef";
       };
       hardwareDesign = mkOption {
