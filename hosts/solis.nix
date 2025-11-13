@@ -32,6 +32,7 @@
           "office"
         ];
         home.mine.slack.enable = true;
+        services.gromit-mpx.enable = true;
       };
     };
 
