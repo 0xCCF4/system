@@ -44,7 +44,7 @@ with lib; with builtins;
         streetsidesoftware.code-spell-checker
         streetsidesoftware.code-spell-checker-german
         vscodevim.vim
-        # myriad-dreamin.tinymist
+        myriad-dreamin.tinymist
       ]
         # ++ (pkgs.vscode-utils.extensionsFromVscodeMarketplace [
         #  {

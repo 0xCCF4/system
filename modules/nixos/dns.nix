@@ -2,15 +2,24 @@
 , pkgs
 , lib
 , config
+, noxa
 , ...
 }:
 with lib;
 {
-  options.mine.dns = with types; {
+  options.mine.dns = with types; with noxa.lib.net.types; {
     provider = mkOption {
       type = enum [ "quad9" ];
       default = "quad9";
       description = "The DNS provider to use.";
+    };
+    hosts = mkOption {
+      type = attrsOf (listOf ipNoMask);
+      default = { };
+      description = "Custom host entries to add to /etc/hosts.";
+      example = {
+        "*.example[0-9].*" = [ "127.0.0.1" "127.0.0.2" ];
+      };
     };
   };
 
@@ -44,6 +53,13 @@ with lib;
           ++ (lists.optional (provider == "quad9") "quad9-dnscrypt-ip4-filter-pri")
           ++ (lists.optional (provider == "quad9" && ipv6) "quad9-dnscrypt-ip6-filter-pri")
         ;
+        cloaking_rules = pkgs.writeTextFile {
+          name = "dnscrypt-proxy-cloaking-rules";
+          text = builtins.concatStringsSep "\n"
+            (mapAttrsToList
+              (name: ips: concatStringsSep "\n" (map (ip: "${name} ${ip}") ips))
+              config.mine.dns.hosts);
+        };
       };
     };
   };
