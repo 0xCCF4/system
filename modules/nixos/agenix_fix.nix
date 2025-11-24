@@ -17,7 +17,7 @@ with lib;
     system.activationScripts.agenixBugfix = {
       text = ''
         echo "[agenix] deleting ${config.age.secretsDir} to workaround agenix bug"
-        rm -Rf "${config.age.secretsDir}"
+        rm -f "${config.age.secretsDir}"
       '';
       deps = [ "specialfs" ];
     };

@@ -9,6 +9,7 @@
         from.user = "mx";
         to.node = to;
         to.user = "mx";
+        #to.sshFingerprint = config.nodes.${to}.configuration.noxa.secrets.options.hostPubkey;
       }))
       (filter (name: name != "ignis") config.nodeNames))
     ++
@@ -19,6 +20,7 @@
         from.user = "mx";
         to.node = to;
         to.user = "mx";
+        #to.sshFingerprint = config.nodes.${to}.configuration.noxa.secrets.options.hostPubkey;
       }))
       (filter (name: name != "solis") config.nodeNames));
 }

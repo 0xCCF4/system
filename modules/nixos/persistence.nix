@@ -58,6 +58,11 @@ with lib;
         description = "List of files to persist.";
         default = [ ];
       };
+      sshHostKeySupply =  mkOption {
+        type = enum [ "none" "install" "persistence" ];
+        default = "install";
+        description = "How to handle SSH host keys with persistence.";
+      };
     };
 
   config =
@@ -68,24 +73,23 @@ with lib;
     lib.mkIf cfg.enable {
       fileSystems."${cfg.rootDirectory}".neededForBoot = true;
 
-      # system.activationScripts = lib.mkIf (inputs.settings.modules.agenix) {
-      #   agenixInstall.deps = [ "agenixImpermanenceFix" ];
-      # 
-      #   agenixImpermanenceFix = {
-      #     deps = [ "agenixNewGeneration" ];
-      #     text = ''
-      #       echo '[agenix] impermanence fixing' 
-      #       install -d -m 0755 -o 0 -g 0 "/etc/ssh"
-      #       install -Dm 0400 -o 0 -g 0 "${persistence.rootDirectory}/system/etc/ssh/ssh_host_ed25519_key" "/etc/ssh/ssh_host_ed25519_key"
-      #       install -Dm 0444 -o 0 -g 0 "${persistence.rootDirectory}/system/etc/ssh/ssh_host_ed25519_key.pub" "/etc/ssh/ssh_host_ed25519_key.pub"
-      #       install -Dm 0400 -o 0 -g 0 "${persistence.rootDirectory}/system/etc/ssh/ssh_host_rsa_key" "/etc/ssh/ssh_host_rsa_key"
-      #       install -Dm 0444 -o 0 -g 0 "${persistence.rootDirectory}/system/etc/ssh/ssh_host_rsa_key.pub" "/etc/ssh/ssh_host_rsa_key.pub"
-      #     '';
-      #   };
-      # };
+      system.activationScripts = lib.mkIf (cfg.sshHostKeySupply == "install") {
+        agenixInstall.deps = [ "agenixImpermanenceFix" ];
+       
+         agenixImpermanenceFix = {
+           deps = [ "agenixNewGeneration" ];
+           text = ''
+             echo '[agenix] impermanence fixing' 
+             install -d -m 0755 -o 0 -g 0 "/etc/ssh"
+             install -Dm 0400 -o 0 -g 0 "${cfg.rootDirectory}/system/etc/ssh/ssh_host_ed25519_key" "/etc/ssh/ssh_host_ed25519_key"
+             install -Dm 0444 -o 0 -g 0 "${cfg.rootDirectory}/system/etc/ssh/ssh_host_ed25519_key.pub" "/etc/ssh/ssh_host_ed25519_key.pub"
+             install -Dm 0400 -o 0 -g 0 "${cfg.rootDirectory}/system/etc/ssh/ssh_host_rsa_key" "/etc/ssh/ssh_host_rsa_key"
+             install -Dm 0444 -o 0 -g 0 "${cfg.rootDirectory}/system/etc/ssh/ssh_host_rsa_key.pub" "/etc/ssh/ssh_host_rsa_key.pub"
+           '';
+         };
+       };
 
-      mine.persistence.files = [
-      ] ++ (builtins.concatLists (builtins.map (k: [ k.path "${k.path}.pub" ]) config.services.openssh.hostKeys));
+      mine.persistence.files = mkIf (cfg.sshHostKeySupply == "persistence") (builtins.concatLists (builtins.map (k: [ k.path "${k.path}.pub" ]) config.services.openssh.hostKeys));
 
       mine.persistence.directories = [
         "/var/log"

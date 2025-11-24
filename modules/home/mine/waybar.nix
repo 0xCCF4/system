@@ -100,6 +100,7 @@ in
               status-icons = {
                 "paused" = "󰏤";
               };
+              interval = 30;
               # "ignored-players": ["firefox"]
             };
 
