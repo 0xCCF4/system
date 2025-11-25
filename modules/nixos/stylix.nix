@@ -45,6 +45,8 @@
       package = pkgs.fira-code;
     };
 
+    stylix.fonts.sizes.popups = mkDefault 16;
+
     mine.wallpapers = {
       snowflake.wallpaper =
         let
