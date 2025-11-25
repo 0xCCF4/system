@@ -2,9 +2,10 @@
   wayland.windowManager.hyprland.settings =
     let
       gromit = config.services.gromit-mpx.package;
+      gromit-execstart = "${toString config.systemd.user.services.gromit-mpx.Service.ExecStart}";
     in
     mkIf config.services.gromit-mpx.enable {
-      workspace = [ "special:gromit, gapsin:0, gapsout:0, on-created-empty: ${gromit}/bin/gromit-mpx -a" ];
+      workspace = [ "special:gromit, gapsin:0, gapsout:0, on-created-empty: ${gromit-execstart}" ];
       windowrulev2 = [
         "workspace special:gromit silent, class:^(Gromit-mpx)$"
         "noblur, class:^(Gromit-mpx)$"

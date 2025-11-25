@@ -17,6 +17,7 @@ with lib;
         #borderSize = 2;
         #textColor = "#${colors.base04}";
         layer = "overlay";
+        width = 500;
       };
     };
   };

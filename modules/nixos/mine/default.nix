@@ -5,6 +5,8 @@
   config = {
     environment.etc.nixos.source = ../../..;
 
+    services.orca.enable = false;
+
     noxa.secrets.options.masterIdentities = [
       {
         identity = "/home/mx/Documents/nixos-new/external/private/secrets/master.age";
