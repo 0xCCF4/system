@@ -64,6 +64,7 @@ in
               "mpris"
             ];
             modules-right = [
+              "custom/tomat"
               "hyprland/language"
               # "cpu"
               # "memory"
@@ -179,6 +180,15 @@ in
             "custom/submap" = {
               exec = "${submapScript}/bin/submap-status";
               format = "{}";
+            };
+
+            "custom/tomat" = mkIf (config.services.tomat.enable) {
+              exec = "${config.services.tomat.package}/bin/tomat status -f \"{phase} {time}\"";
+              return-type = "json";
+              format = "{text}";
+              format-alt = "{tooltip}";
+              tooltip = true;
+              interval = 1;
             };
 
             "hyprland/window" = {
@@ -327,6 +337,7 @@ in
           #custom-wallchange,
           #custom-mode,
           #custom-submap,
+          #custom-tomat
           #idle_inhibitor,
           #battery
           #tray {

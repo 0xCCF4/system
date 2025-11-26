@@ -30,10 +30,15 @@
         supportsDryActivation = true;
         text = concatStringsSep "\n" ([
           ''
+            OLD_UMASK=$(umask)
             install -m 700 -d /pass/
-            umask u=rw
+            umask 600
           ''
-        ] ++ spec);
+        ] ++ spec ++ [
+          ''
+            umask $OLD_UMASK
+          ''
+        ]);
         deps = [ "agenix" "agenixInstall" "agenixChown" ];
       };
       system.activationScripts.users.deps = [ "usersPre" ];
