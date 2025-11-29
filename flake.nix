@@ -2,6 +2,8 @@
   description = "Nixos system configuration";
 
   inputs = {
+    self.submodules = true;
+
     # Nixpkgs
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-stable.url = "github:nixos/nixpkgs/release-25.05";

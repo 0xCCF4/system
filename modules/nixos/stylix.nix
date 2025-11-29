@@ -45,6 +45,9 @@
       package = pkgs.fira-code;
     };
 
+    # fix stylix warning about release mismatch, may cause issues when set?
+    stylix.enableReleaseChecks = false;
+
     stylix.fonts.sizes.popups = mkDefault 16;
 
     mine.wallpapers = {
