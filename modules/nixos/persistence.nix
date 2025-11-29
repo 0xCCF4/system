@@ -89,6 +89,8 @@ with lib;
         };
       };
 
+      noxa.sshHostKeys.impermanencePathOverride = "${cfg.rootDirectory}/system/etc/ssh/";
+
       mine.persistence.files = mkIf (cfg.sshHostKeySupply == "persistence") (builtins.concatLists (builtins.map (k: [ k.path "${k.path}.pub" ]) config.services.openssh.hostKeys));
 
       mine.persistence.directories = [

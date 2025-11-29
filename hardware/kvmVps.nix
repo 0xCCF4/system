@@ -18,7 +18,7 @@ with lib;
   mine.boot.zfs-disks = [
     "/dev/disk/by-partlabel/disk-main-root"
   ];
-  mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" ];
+  mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" "/persist" ];
 
   # Drivers
   boot.initrd.availableKernelModules = [ "ata_piix" "uhci_hcd" "virtio_pci" "sr_mod" "virtio_blk" "virtio_net" ];

@@ -17,7 +17,7 @@ with lib;
   mine.boot.zfs-disks = [
     "/dev/disk/by-partlabel/disk-main-root"
   ];
-  mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" ];
+  mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" "/persist" ];
 
   # Network configuration in initrd
   boot.initrd.systemd = {

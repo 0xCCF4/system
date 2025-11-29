@@ -7,6 +7,8 @@
 
     services.orca.enable = false;
 
+    noxa.sshHostKeys.generate = true;
+
     noxa.secrets.options.masterIdentities = [
       {
         identity = "/home/mx/Documents/nixos-new/external/private/secrets/master.age";
