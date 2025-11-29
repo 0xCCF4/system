@@ -840,14 +840,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1764436968,
-        "narHash": "sha256-OBCLNhogNvtS5UkV0AAqNvvOhovGCqY5Mam6JqOQSJU=",
-        "path": "/home/mx/Documents/noxa",
-        "type": "path"
+        "lastModified": 1764439162,
+        "narHash": "sha256-Z4rr6/iyXwZKJpTJ9qmIdwDWJHjhk6hujP+c1gr3zM0=",
+        "owner": "0xCCF4",
+        "repo": "noxa",
+        "rev": "ce2fb273d1cbac0b0ee4566828d17b41e989741c",
+        "type": "github"
       },
       "original": {
-        "path": "/home/mx/Documents/noxa",
-        "type": "path"
+        "owner": "0xCCF4",
+        "repo": "noxa",
+        "type": "github"
       }
     },
     "nur": {
