@@ -40,6 +40,10 @@ in
         on-click = "activate";
         # persistent_workspaces = { "*" = 10; };
       };
+
+      tomatScript = pkgs.writeShellScriptBin "tomat-status" ''
+        ${config.services.tomat.package}/bin/tomat watch -f "{state} {phase} {time}"
+      '';
     in
     {
       home.packages = [ pkgs.playerctl ];
@@ -183,12 +187,12 @@ in
             };
 
             "custom/tomat" = mkIf (config.services.tomat.enable) {
-              exec = "${config.services.tomat.package}/bin/tomat status -f \"{phase} {time}\"";
+              exec = "${tomatScript}/bin/tomat-status";
               return-type = "json";
               format = "{text}";
-              format-alt = "{tooltip}";
               tooltip = true;
-              interval = 1;
+              on-click = "${config.services.tomat.package}/bin/tomat toggle";
+              exec-on-event = false;
             };
 
             "hyprland/window" = {

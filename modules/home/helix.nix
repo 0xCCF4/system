@@ -30,6 +30,7 @@ with lib;
         pkgs.nil
         pkgs.nixd
         pkgs.taplo
+        pkgs.metals
       ];
       programs.helix = {
         enable = mkDefault true;

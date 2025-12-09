@@ -7,7 +7,7 @@
     in
     mkMerge (map
       (from: ({
-        "${from}".ssh.grants = mkMerge (map
+        "${from}".configuration.ssh.grants = mkMerge (map
           (to: {
             "${to}" = {
               from = "mx";
