@@ -53,70 +53,68 @@
       mine.desktop.hyprland.enable = true;
       mine.desktop.gnome.enable = true;
 
-      services.kea.dhcp4 = {
-        enable = true;
-        settings = {
-          interfaces-config.interfaces = [ ifaceInternal ];
+      specialisation."external-dhcp-server".configuration = {
+        services.kea.dhcp4 = {
+          enable = true;
+          settings = {
+            interfaces-config.interfaces = [ ifaceInternal ];
 
-          lease-database = {
-            name = "/var/lib/kea/dhcp4-leases.csv";
-            type = "memfile";
-            persist = true;
-            lfc-interval = 3600;
+            lease-database = {
+              name = "/var/lib/kea/dhcp4-leases.csv";
+              type = "memfile";
+              persist = true;
+              lfc-interval = 3600;
+            };
+
+            valid-lifetime = 4000;
+            renew-timer = 1000;
+            rebind-timer = 2000;
+
+            subnet4 = [
+              {
+                id = 1;
+                subnet = "10.10.10.0/24";
+                pools = [
+                  {
+                    pool = "10.10.10.16 - 10.10.10.128";
+                  }
+                ];
+
+                option-data = [
+                  {
+                    name = "routers";
+                    data = "10.10.10.1";
+                  }
+                  {
+                    name = "domain-name-servers";
+                    data = "9.9.9.9";
+                  }
+                ];
+              }
+            ];
           };
-
-          valid-lifetime = 4000;
-          renew-timer = 1000;
-          rebind-timer = 2000;
-
-          subnet4 = [
-            {
-              id = 1;
-              subnet = "10.10.10.0/24";
-              pools = [
-                {
-                  pool = "10.10.10.16 - 10.10.10.128";
-                }
-              ];
-
-              option-data = [
-                {
-                  name = "routers";
-                  data = "10.10.10.1";
-                }
-                {
-                  name = "domain-name-servers";
-                  data = "9.9.9.9";
-                }
-              ];
-            }
-          ];
         };
-      };
 
-      networking.nat = {
-        enable = true;
-        internalInterfaces = [ ifaceInternal ];
-        externalInterface = ifaceExternal;
-      };
-
-      networking.interfaces = {
-        enp0s13f0u3u4u5 = {
-          # connect to private network
-          useDHCP = false;
-          ipv4.addresses = [
-            {
-              address = "10.10.10.1";
-              prefixLength = 24;
-            }
-          ];
+        networking.nat = {
+          enable = true;
+          internalInterfaces = [ ifaceInternal ];
+          externalInterface = ifaceExternal;
         };
-      };
 
-      networking.firewall.allowedUDPPorts = [ 67 ]; # DHCP
+        networking.interfaces = {
+          enp0s13f0u3u4u5 = {
+            # connect to private network
+            useDHCP = false;
+            ipv4.addresses = [
+              {
+                address = "10.10.10.1";
+                prefixLength = 24;
+              }
+            ];
+          };
+        };
 
-      boot.kernel.sysctl = {
-        "net.ipv4.conf.all.forwarding" = true;
+        networking.firewall.allowedUDPPorts = [ 67 ]; # DHCP
       };
     };
 }
