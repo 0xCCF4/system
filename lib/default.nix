@@ -2,17 +2,20 @@
   binaryWallpapers = import ./binaryWallpapers;
 in
 rec {
-  evalMissingOption = config: option: default:
+  evalMissingOption = config: option: default: evalMissingOption' false config option default;
+  evalMissingOption' = silence: config: option: default:
     let
       options = if typeOf option == "string" then strings.splitString "." option else option;
 
       optionStartsWithMine = (head options) == "mine";
       optionBeforeMine = if optionStartsWithMine then "mine." else "";
       optionAfterMine = if optionStartsWithMine then strings.concatStringsSep "." (tail options) else option;
+
+      optionalTrace = msg: if silence then (a: a) else trace msg;
     in
     (attrsets.attrByPath options
       (
-        with noxa.lib.ansi; (trace "${bold+fgMagenta+underline}Warning${noUnderline}: ${noBold+fgYellow} nixos module option ${fgCyan+optionBeforeMine+italic+optionAfterMine+fgYellow+noItalic} module not found! Did you not import the module in your NixOS settings?" default)
+        with noxa.lib.ansi; (optionalTrace "${bold+fgMagenta+underline}Warning${noUnderline}: ${noBold+fgYellow} nixos module option ${fgCyan+optionBeforeMine+italic+optionAfterMine+fgYellow+noItalic} module not found! Did you not import the module in your NixOS settings?" default)
       )
       config);
 
