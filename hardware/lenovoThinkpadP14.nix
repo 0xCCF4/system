@@ -35,6 +35,7 @@ with lib;
   ];
   boot.swraid.enable = true;
   boot.swraid.mdadmConf = "PROGRAM /usr/bin/env true";
+  services.lvm.boot.thin.enable = true;
   boot.kernelModules = [
     "kvm-amd"
     "dm-snapshot"

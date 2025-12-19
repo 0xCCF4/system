@@ -46,6 +46,7 @@ with lib; with builtins;
         vscodevim.vim
         myriad-dreamin.tinymist
         usernamehw.errorlens
+        rust-lang.rust-analyzer
       ]
       ++ (pkgs.vscode-utils.extensionsFromVscodeMarketplace [
         {
@@ -60,6 +61,12 @@ with lib; with builtins;
           version = "0.21.2";
           sha256 = "IbjWavQoXu4x4hpEkvkhqzbf/NhZpn8RFdKTAnRlCAg=";
         }
+        {
+          name = "dioxus";
+          publisher = "DioxusLabs";
+          version = "0.6.0";
+          sha256 = "sha256-UYMJf0F8YjH1s7szIdTDG7t31/xjryD3wxogQM4ywOU=";
+        }
       ]);
       mutableExtensionsDir = mkDefault true;
 
@@ -69,6 +76,7 @@ with lib; with builtins;
         "cSpell.language" = "en,de-DE";
         "terminal.integrated.defaultProfile.linux" = "fish";
         "diffEditor.ignoreTrimWhitespace" = false;
+        "rust-analyzer.server.path" = "rust-analyzer";
       };
     };
   };

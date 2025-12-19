@@ -187,12 +187,10 @@ in
             };
 
             "custom/tomat" = mkIf (config.services.tomat.enable) {
-              exec = "${tomatScript}/bin/tomat-status";
+              exec = "${config.services.tomat.package}/bin/tomat watch -f \"{phase} {time}\"";
               return-type = "json";
               format = "{text}";
               tooltip = true;
-              on-click = "${config.services.tomat.package}/bin/tomat toggle";
-              exec-on-event = false;
             };
 
             "hyprland/window" = {
