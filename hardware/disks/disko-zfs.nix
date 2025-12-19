@@ -154,7 +154,7 @@
           #options = [ "zfsutil" ];
         }) // {
         "/boot" = {
-          device = "LABEL=BOOT";
+          device = "PARTLABEL=ESP";
           fsType = "vfat";
           options = [ "umask=0077" ];
         };

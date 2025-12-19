@@ -213,6 +213,7 @@
         nixosConfigurations = attrsets.mapAttrs
           (name: value: {
             config = value.configuration;
+            options = value.options;
           })
           noxaConfiguration.config.nodes;
       } // flake-utils.lib.eachDefaultSystem (system: {

@@ -50,6 +50,11 @@ in
       permission = [
         "${portalPackage}/bin/xdg-desktop-portal-hyprland, screencopy, allow"
       ];
+
+      ecosystem = {
+        no_update_news = true;
+        no_donation_nag = true;
+      };
     };
   };
 }

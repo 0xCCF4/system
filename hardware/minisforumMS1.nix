@@ -16,6 +16,7 @@ with lib;
   # ZFS configuration
   mine.boot.zfs-disks = [
     "/dev/disk/by-partlabel/disk-main-root"
+    "/dev/disk/by-partlabel/disk-main-mirror"
   ];
   mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" "/persist" ];
 
