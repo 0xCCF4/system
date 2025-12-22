@@ -102,7 +102,7 @@
         };
 
         networking.interfaces = {
-          enp0s13f0u3u4u5 = {
+          "${ifaceInternal}" = {
             # connect to private network
             useDHCP = false;
             ipv4.addresses = [
