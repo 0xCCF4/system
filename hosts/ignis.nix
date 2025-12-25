@@ -1,4 +1,4 @@
-{ lib, pkgs, mine, config, ... }: with lib; {
+{ lib, pkgs, mine, config, noxa, ... }: with lib; {
   imports = [
     ../hardware/lenovoThinkpadL14amd.nix
 
@@ -33,5 +33,41 @@
 
     mine.desktop.hyprland.enable = true;
     mine.desktop.gnome.enable = true;
+
+
+    programs.adb.enable = true;
+    users.users.mx.extraGroups = [ "adbusers" "kvm" ];
+
+
+    # HOMEVPN VPN
+    noxa.secrets.def = [
+      {
+        ident = "homevpn-keypair";
+        module = "mine.wireguard";
+      }
+      {
+        ident = "homevpn-presharedkey";
+        module = "mine.wireguard";
+      }
+    ];
+    networking.wg-quick.interfaces.homevpn = {
+      address = [ "192.168.200.205/24" ];
+      privateKeyFile = config.age.secrets.${noxa.lib.secrets.computeIdentifier {
+        ident = "homevpn-keypair";
+        module = "mine.wireguard";
+      }}.path;
+      autostart = false;
+      peers = [
+        {
+          publicKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          presharedKeyFile = config.age.secrets.${noxa.lib.secrets.computeIdentifier {
+            ident = "homevpn-presharedkey";
+            module = "mine.wireguard";
+          }}.path;
+          allowedIPs = [ "192.168.200.0/24" ];
+          endpoint = "vpn.example.net:51820"; # ToDo: route to endpoint not automatically configured https://wiki.archlinux.org/index.php/WireGuard#Loop_routing https://discourse.nixos.org/t/solved-minimal-firewall-setup-for-wireguard-client/7577
+        }
+      ];
+    };
   };
 }
