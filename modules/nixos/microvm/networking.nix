@@ -1,13 +1,10 @@
 { config, lib, noxa, mine, options, ... }:
 with lib; with noxa.lib.net.types; with builtins;
+let
+  enumeratedNetworks = imap1 (networkIndex: name: { inherit name networkIndex; }) (attrNames config.mine.vm.networks);
+in
 {
   options = with types; {
-    mine.vm.externalInterface = mkOption {
-      type = str;
-      description = ''
-        Name of the external network interface on the host to use for NAT/Internet access for microVM networks.
-      '';
-    };
     mine.vm.networks = mkOption {
       default = { };
       description = ''
@@ -32,30 +29,36 @@ with lib; with noxa.lib.net.types; with builtins;
               List of microVM names to attach this network to.
             '';
             default = [ ];
+            example = [ "vm1" "vm2" ];
           };
 
           address = mkOption {
             type = ipNetwork;
             description = ''
-              Address of the host side of the network and its network range. The host will always be .0.0.0. if it is part of the subnet.
+              Address of the host side of the network and its network range. The host will always be x.y.z.0. if it is part of the subnet.
             '';
             default = null;
+            example = "10.33.0.0/24";
           };
 
           host = mkOption {
             type = bool;
             description = ''
               Whether to assign the host an IP address on this network. (This will be the .0 address of the subnet.)
+              If set to false, the host will not have an IP on this network and will not be part of the subnet.
             '';
             default = true;
+            example = false;
           };
 
           nat = mkOption {
             type = bool;
             description = ''
               Whether to enable NAT/Internet access for this network. Uses the `mine.vm.externalInterface` as upstream interface.
+              This requires that the host has an IP address on this network (i.e., `host` is true).
             '';
             default = false;
+            example = true;
           };
 
           memberAddresses = mkOption {
@@ -64,33 +67,85 @@ with lib; with noxa.lib.net.types; with builtins;
               Map of microVM name to IP address to assign to that microVM on this network.
             '';
             readOnly = true;
+            example = {
+              vm1 = "10.33.0.1";
+              vm2 = "10.33.0.2";
+            };
+          };
+
+          memberMacs = mkOption {
+            type = attrsOf str;
+            description = ''
+              Map of microVM name to MAC address to assign to that microVM on this network.
+            '';
+            readOnly = true;
+            example = {
+              vm1 = "02:7a:01:00:00:01";
+              vm2 = "02:7a:01:00:00:02";
+            };
           };
 
           netdevRuleName = mkOption {
             type = str;
             description = ''
-              Name of the netdev config rule created for this network's bridge.
-              Defaults to "10-microvm-<network name>".
+              Name of the netdev config rule that created the virtual switch/network.
+              This rule must be processed before the memberRule.
             '';
             default = "10-microvm-${last mod._prefix}";
+            example = "10-microvm-vm-net";
           };
 
           memberRuleName = mkOption {
             type = str;
             description = ''
-              Name of the network config rule created for this network's member interfaces.
-              Defaults to "11-microvm-<network name>".
+              Name of the network config rule that created network interfaces for each virtual machine parts of this network.
+              This rule must be processed after the netdevRule.
             '';
             default = "11-microvm-${last mod._prefix}";
+            example = "11-microvm-vm-net";
+          };
+
+          vmInterface = mkOption {
+            type = str;
+            description = ''
+              Name of the network interface inside the microVMs.
+              Defaults to the same name as the host interface name.
+            '';
+            default = mod.config.interface;
+            example = "wan";
+          };
+
+          vmLinkRenameRuleName = mkOption {
+            type = str;
+            description = ''
+              Name of the link config rule created for this network's member interfaces inside the microVMs.
+              Defaults to "10-wan-<interface>".
+            '';
+            default = "10-wan";
+            example = "10-wan";
           };
         };
 
-        config = {
-          memberAddresses = mkMerge (imap1
-            (index: vm: {
-              "${vm}" = noxa.lib.net.assignAddress mod.config.address index;
+        config = let
+          enumeratedMembers = imap1 (memberIndex: name: { inherit name memberIndex; }) mod.config.members;
+          networkIndex = (head (filter (entry: entry.name == last mod._prefix) enumeratedNetworks)).networkIndex;
+         in
+         {
+          memberAddresses = mkMerge (map
+            (entry: {
+              "${entry.name}" = noxa.lib.net.assignAddress mod.config.address entry.memberIndex;
             })
-            mod.config.members);
+            enumeratedMembers);
+
+          memberMacs = mkMerge (map
+            (entry: {
+              "${entry.name}" = let
+                  spaceZero = x: if x < 16 then "0${toHexString x}" else toHexString x;
+                      mac = "02:7a:${spaceZero networkIndex}:00:00:${spaceZero entry.memberIndex}";
+                in
+                trace "Debug: Assigning MAC address ${mac} to microVM ${entry.name} on network ${mod.config.interface}" mac;
+            })
+            enumeratedMembers);
         };
       }));
     };
@@ -128,7 +183,15 @@ with lib; with noxa.lib.net.types; with builtins;
                   assertion = network.netdevRuleName != network.memberRuleName;
                   message = "${bold+fgYellow}MicroVM network configuration error: The netdev rule name and member rule name for network ${fgCyan+network.netdevRuleName+fgYellow} are identical. They must be different.${reset}";
                 }
-
+                # check max length of interface names
+                {
+                  assertion = stringLength network.interface <= 15;
+                  message = "${bold+fgYellow}MicroVM network configuration error: The interface name ${fgCyan+network.interface+fgYellow} is too long (max 15 characters due to Linux limitations).${reset}";
+                }
+                {
+                  assertion = stringLength network.vmInterface <= 15;
+                  message = "${bold+fgYellow}MicroVM network configuration error: The VM interface name ${fgCyan+network.vmInterface+fgYellow} is too long (max 15 characters due to Linux limitations).${reset}";
+                }
                 {
                   assertion = length network.members < 255;
                   message = "You reached the artificial limit of 255 members per network. This limitations is due to the lack of MAC parsing. Feel free to open a pull request.";
@@ -184,7 +247,6 @@ with lib; with noxa.lib.net.types; with builtins;
 
         networking.nat = mkIf (any (network: network.nat) (attrValues cfg.networks)) {
           enable = true;
-          externalInterface = cfg.externalInterface;
           internalInterfaces = map (network: network.interface) (filter (network: network.nat) (attrValues cfg.networks));
         };
 
@@ -202,15 +264,15 @@ with lib; with noxa.lib.net.types; with builtins;
                   microvm.interfaces = [{
                     type = "tap";
                     id = "${network.interface}-${toString member.memberIndex}";
-                    mac =
-                      let
-                        spaceZero = x: if x < 16 then "0${toHexString x}" else toHexString x;
-                        mac = "02:7a:${spaceZero entry.index}:00:00:${spaceZero member.memberIndex}";
-                      in
-                      trace "Debug: Assigning MAC address ${mac} to microVM ${member.name} on network ${network.interface}" mac;
+                    mac = network.memberMacs.${member.name};
                   }];
 
-                  networking.interfaces."enp0s3" = {
+                  systemd.network.links."${network.vmLinkRenameRuleName}" = {
+                    matchConfig.PermanentMACAddress = network.memberMacs.${member.name};
+                    linkConfig.Name = network.interface;
+                  };
+
+                  networking.interfaces."${network.interface}" = {
                     ipv4.addresses =
                       let
                         address = noxa.lib.net.decompose network.memberAddresses.${member.name};
@@ -222,8 +284,8 @@ with lib; with noxa.lib.net.types; with builtins;
                   };
 
                   networking.defaultGateway = {
-                    address = (noxa.lib.net.decompose network.address).deviceNoMask;
-                    interface = "enp0s3";
+                    address = (noxa.lib.net.decompose network.address).networkNoMask;
+                    interface = network.interface;
                   };
                 };
               })
