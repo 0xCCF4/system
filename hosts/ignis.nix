@@ -88,7 +88,6 @@
           tag = "data";
           source = "/var/lib/microvms/paperless/data";
           mountPoint = "/paperless";
-          readOnly = true;
         }];
     
         services.postgresql.dataDir = "/paperless/database";
@@ -99,6 +98,8 @@
           mediaDir = "/paperless/media";
           database.createLocally = true;
           configureTika = true;
+          address = "0.0.0.0";
+          port = 8000;
           settings = {
             PAPERLESS_CONSUMER_IGNORE_PATTERN = [
               ".DS_STORE/*"
@@ -109,9 +110,11 @@
               optimize = 1;
               pdfa_image_compression = "lossless";
             };
-            PAPERLESS_URL = "https://10.20.0.1/";
+            PAPERLESS_URL = "https://10.20.0.1";
           };
         };
+
+        networking.firewall.allowedTCPPorts = [ 8000 ];
     
         services.openssh.enable = true;
         services.openssh.settings.PermitRootLogin = "yes";
