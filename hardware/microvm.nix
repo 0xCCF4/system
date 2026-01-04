@@ -13,7 +13,7 @@ with lib;
 
     networking.enableIPv6 = false;
 
-    microvm.hypervisor = "qemu";
+    microvm.hypervisor = mkDefault "qemu";
 
     microvm.shares = [{
       tag = "ro-store";

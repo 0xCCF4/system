@@ -74,5 +74,70 @@ with lib;
     #  };
     #};
     #};
+
+    microvm.vms.paperless = {
+      restartIfChanged = true;
+      config = {
+        microvm.mem = 4096;
+        imports = [ ../hardware/microvm.nix ];
+        _module.args.vmName = "paperless";
+        _module.args.hostConfig = config;
+
+        microvm.shares = [{
+          proto = "virtiofs";
+          tag = "data";
+          source = "/var/lib/microvms/paperless/data";
+          mountPoint = "/paperless";
+        }];
+
+        services.postgresql.dataDir = "/paperless/database";
+        services.paperless = {
+          enable = true;
+          consumptionDirIsPublic = true;
+          dataDir = "/paperless/data";
+          database.createLocally = true;
+          configureTika = true;
+          address = "0.0.0.0";
+          port = 8000;
+          settings = {
+            PAPERLESS_CONSUMER_IGNORE_PATTERN = [
+              ".DS_STORE/*"
+              "desktop.ini"
+            ];
+            PAPERLESS_OCR_LANGUAGE = "deu+eng";
+            PAPERLESS_OCR_USER_ARGS = {
+              optimize = 1;
+              pdfa_image_compression = "lossless";
+            };
+            PAPERLESS_URL = "https://10.20.0.1";
+          };
+        };
+
+        networking.firewall.allowedTCPPorts = [ 8000 ];
+
+        services.openssh.enable = true;
+        services.openssh.settings.PermitRootLogin = "yes";
+        users.users.root.password = "root";
+
+        environment.systemPackages = with pkgs; [
+          coreutils-full
+          net-tools
+          iproute2
+          pciutils
+        ];
+      };
+    };
+    mine.vm.networks.vm-paperless = {
+      members = [ "paperless" ];
+      address = "10.20.0.0/24";
+      nat = false;
+    };
+    networking.nat.forwardPorts = [
+      {
+        sourcePort = 80;
+        proto = "tcp";
+        destinationAddress = "${mine.vm.networks.vm-paperless.memberAddresses.paperless}:8000";
+      }
+    ];
   };
 }
