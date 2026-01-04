@@ -126,27 +126,29 @@ in
           };
         };
 
-        config = let
-          enumeratedMembers = imap1 (memberIndex: name: { inherit name memberIndex; }) mod.config.members;
-          networkIndex = (head (filter (entry: entry.name == last mod._prefix) enumeratedNetworks)).networkIndex;
-         in
-         {
-          memberAddresses = mkMerge (map
-            (entry: {
-              "${entry.name}" = noxa.lib.net.assignAddress mod.config.address entry.memberIndex;
-            })
-            enumeratedMembers);
+        config =
+          let
+            enumeratedMembers = imap1 (memberIndex: name: { inherit name memberIndex; }) mod.config.members;
+            networkIndex = (head (filter (entry: entry.name == last mod._prefix) enumeratedNetworks)).networkIndex;
+          in
+          {
+            memberAddresses = mkMerge (map
+              (entry: {
+                "${entry.name}" = noxa.lib.net.assignAddress mod.config.address entry.memberIndex;
+              })
+              enumeratedMembers);
 
-          memberMacs = mkMerge (map
-            (entry: {
-              "${entry.name}" = let
-                  spaceZero = x: if x < 16 then "0${toHexString x}" else toHexString x;
-                      mac = "02:7a:${spaceZero networkIndex}:00:00:${spaceZero entry.memberIndex}";
-                in
-                trace "Debug: Assigning MAC address ${mac} to microVM ${entry.name} on network ${mod.config.interface}" mac;
-            })
-            enumeratedMembers);
-        };
+            memberMacs = mkMerge (map
+              (entry: {
+                "${entry.name}" =
+                  let
+                    spaceZero = x: if x < 16 then "0${toHexString x}" else toHexString x;
+                    mac = "02:7a:${spaceZero networkIndex}:00:00:${spaceZero entry.memberIndex}";
+                  in
+                  trace "Debug: Assigning MAC address ${mac} to microVM ${entry.name} on network ${mod.config.interface}" mac;
+              })
+              enumeratedMembers);
+          };
       }));
     };
   };
