@@ -7,21 +7,20 @@
 }:
 with lib;
 {
-  options.home.mine.neofetch.startup = with types; mkOption {
+  options.home.mine.fastfetch.startup = with types; mkOption {
     type = bool;
     default = mine.lib.evalMissingOption osConfig "mine.presets.isServer" false;
-    description = "Run neofetch on shell startup";
+    description = "Run fastfetch on shell startup";
   };
 
-  config = mkIf config.home.mine.neofetch.startup {
-    home.packages = [ pkgs.neofetch ];
-
+  config = mkIf config.home.mine.fastfetch.startup {
+    home.packages = [ pkgs.fastfetch ];
     programs.zsh.initContent = lib.mkAfter ''
-      ${pkgs.neofetch}/bin/neofetch
+      ${pkgs.fastfetch}/bin/fastfetch
     '';
 
     programs.fish.shellInitLast = lib.mkAfter ''
-      ${pkgs.neofetch}/bin/neofetch
+      ${pkgs.fastfetch}/bin/fastfetch
     '';
   };
 }
