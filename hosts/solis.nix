@@ -10,8 +10,8 @@
 
   config =
     let
-      ifaceExternal = "enp0s20f0u1u2u3";
-      ifaceInternal = "enp0s13f0u3u4u5";
+      ifaceExternal = "ethMonRight";
+      ifaceInternal = "ethDocking";
     in
     {
       # General settings
@@ -109,6 +109,10 @@
               {
                 address = "10.10.10.1";
                 prefixLength = 24;
+              }
+              {
+                address = "130.83.162.129";
+                prefixLength = 29;
               }
             ];
           };
