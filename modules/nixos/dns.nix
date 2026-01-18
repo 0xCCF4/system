@@ -29,7 +29,9 @@ with lib;
       dhcpcd.extraConfig = "nohook resolv.conf";
       networkmanager.dns = mkForce "none";
     };
-    services.resolved.enable = false;
+    services.resolved.enable = true;
+    services.resolved.settings.Resolve.FallbackDNS = [ "" ];
+    services.resolved.settings.Resolve.Domains = [ "~." ];
 
     services.dnscrypt-proxy = {
       enable = mkDefault true;

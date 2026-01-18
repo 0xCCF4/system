@@ -3,6 +3,7 @@
 , microvm
 , config
 , pkgs
+, noxa
 , ...
 }:
 with lib;
@@ -90,7 +91,24 @@ with lib;
           mountPoint = "/paperless";
         }];
 
+        users.users.postgres.uid = mkForce 2000;
+        users.users.postgres.isSystemUser = true;
+        users.users.paperless.uid = mkForce 2001;
+        users.users.paperless.isSystemUser = true;
+
         services.postgresql.dataDir = "/paperless/database";
+        services.postgresql.package = pkgs.postgresql_16;
+        #    services.postgresql.authentication = pkgs.lib.mkOverride 10 ''
+        #  #type database  DBuser  auth-method
+        #  local all       all     trust
+        #'';
+        services.postgresql.identMap = ''
+          # ArbitraryMapName systemUser DBUser
+             superuser_map      root      postgres
+             superuser_map      postgres  postgres
+             # Let other names not login
+             superuser_map      /^(.*)$   nouser
+        '';
         services.paperless = {
           enable = true;
           consumptionDirIsPublic = true;
@@ -113,7 +131,26 @@ with lib;
           };
         };
 
-        networking.firewall.allowedTCPPorts = [ 8000 ];
+        users.users.caddy = {
+          uid = mkForce 2002;
+          isSystemUser = true;
+        };
+        services.caddy = {
+          enable = true;
+          dataDir = "/paperless/caddy";
+          virtualHosts."192.168.0.229".extraConfig = ''
+            reverse_proxy http://localhost:8000
+            tls internal
+            log default {
+                level debug
+            }
+          '';
+          globalConfig = ''
+            default_sni 192.168.0.229
+          '';
+        };
+
+        networking.firewall.allowedTCPPorts = [ 80 443 ];
 
         services.openssh.enable = true;
         services.openssh.settings.PermitRootLogin = "yes";
@@ -124,19 +161,27 @@ with lib;
           net-tools
           iproute2
           pciutils
+          kitty
+          caddy
+          nss.tools
         ];
       };
     };
     mine.vm.networks.vm-paperless = {
       members = [ "paperless" ];
       address = "10.20.0.0/24";
-      nat = false;
+      nat = true;
     };
     networking.nat.forwardPorts = [
       {
         sourcePort = 80;
         proto = "tcp";
-        destinationAddress = "${mine.vm.networks.vm-paperless.memberAddresses.paperless}:8000";
+        destination = "${(noxa.lib.net.decompose config.mine.vm.networks.vm-paperless.memberAddresses.paperless).addressNoMask}:80";
+      }
+      {
+        sourcePort = 443;
+        proto = "tcp";
+        destination = "${(noxa.lib.net.decompose config.mine.vm.networks.vm-paperless.memberAddresses.paperless).addressNoMask}:443";
       }
     ];
   };

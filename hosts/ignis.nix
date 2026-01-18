@@ -37,7 +37,9 @@
     mine.desktop.gnome.enable = true;
 
 
-    programs.adb.enable = true;
+    environment.systemPackages = with pkgs; [
+      android-tools
+    ];
     users.users.mx.extraGroups = [ "adbusers" "kvm" ];
 
 
