@@ -19,7 +19,8 @@ with lib; with builtins;
           "$username"
           "[](bg:base0A fg:base09)"
           "$directory"
-          "$nix_shell"
+          #"$nix_shell"
+          "$hostname"
           #"[](fg:base09 bg:base0C)"
           #"$git_branch"
           #"$git_status"
@@ -223,6 +224,13 @@ with lib; with builtins;
           symbol = "❄️ ";
           style = "bg:base02";
           format = "[ via [$symbol$state( \($name\))]($style)";
+        };
+
+        hostname = {
+          ssh_only = false;
+          detect_env_vars = ["!TMUX" "SSH_CONNECTION"];
+          style = "bg:base0A fg:base0C";
+          format = "[@ $hostname ]($style)";
         };
 
         time = {

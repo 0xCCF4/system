@@ -32,6 +32,11 @@ with lib;
         pkgs.taplo
         pkgs.metals
       ];
+
+      # MANPAGER = "sh -c 'col -bx | hx'";
+      # MANWIDTH = 87;
+      # MANROFFOPT = "-c";
+
       programs.helix = {
         enable = mkDefault true;
         defaultEditor = mkDefault true;
