@@ -78,6 +78,8 @@ with lib; with builtins;
         borgbackup # backup tool
         openssl # cryptographic operations
         wget # download files from the web
+        inotify-tools # filesystem event monitoring
+        cifs-utils # mount and manage CIFS filesystems
       ]
       ++ lists.optionals cfg.cmdlineExtras [
         uutils-coreutils-noprefix
