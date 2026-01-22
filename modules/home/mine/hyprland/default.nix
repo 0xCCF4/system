@@ -3,6 +3,12 @@
 
   config = mkIf osConfig.programs.hyprland.enable {
     programs.kitty.enable = mkDefault true;
+    programs.kitty.settings = {
+      scrollback_pager = if config.programs.helix.enable then
+        "bash -c \"${pkgs.colorized-logs}/bin/ansi2txt | ${config.programs.helix.package}/bin/hx\""
+      else
+        "${pkgs.less}/bin/less --chop-long-lines --RAW-CONTROL-CHARS -N";
+    };
 
     wayland.windowManager.hyprland = {
       enable = mkDefault true;
