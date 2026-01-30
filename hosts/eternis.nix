@@ -127,7 +127,7 @@ with lib;
               optimize = 1;
               pdfa_image_compression = "lossless";
             };
-            PAPERLESS_URL = "https://10.20.0.1";
+            PAPERLESS_URL = "https://192.168.0.229";
           };
         };
 

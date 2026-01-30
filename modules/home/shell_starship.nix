@@ -221,6 +221,7 @@ with lib; with builtins;
         };
 
         nix_shell = {
+          disable = true;
           symbol = "❄️ ";
           style = "bg:base02";
           format = "[ via [$symbol$state( \($name\))]($style)";
