@@ -2,10 +2,18 @@
   imports = noxa.lib.nixDirectoryToList ./.;
 
   wayland.windowManager.hyprland.settings = {
-    windowrulev2 = [
-      "suppressevent maximize, class:.*"
+    windowrule = [
+      {
+        name = "suppress-maximize";
+        "match:class" = ".*";
 
-      "bordersize 10, pinned:1"
+        suppress_event = [ "maximize" ];
+      }
+      {
+        name = "pinned-border-size";
+        "match:pin" = 1;
+        border_size = 10;
+      }
     ];
   };
 }
