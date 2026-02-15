@@ -1,16 +1,15 @@
-{ lib, pkgs, mine, config, noxa, microvm, ... }: with lib; {
+{ lib, pkgs, config, microvm, noxa, self, ... }: with lib; {
   imports = [
     ../hardware/lenovoThinkpadL14amd.nix
-
-    # Users
-    ../users/mx.nix
-    ../users/games.nix
-  ] ++ mine.lib.optionalsIfExist [
+  ] ++ self.lib.optionalsIfExist [
     ../external/private/hosts/ignis.nix
   ];
 
   config = {
     services.lvm.boot.thin.enable = true;
+
+    mine.admins = [ "mx" ];
+    mine.users = [ "games" ];
 
     # General settings
     networking.hostName = "ignis";
@@ -21,15 +20,6 @@
 
     # Battery management
     mine.tlp.enable = true;
-
-    home-manager.users.mx = {
-      config = {
-        home.mine.traits.traits = [
-          "development"
-          "office"
-        ];
-      };
-    };
 
     security.sudo.wheelNeedsPassword = mkIf config.age.rekey.initialRollout false;
 
@@ -61,17 +51,6 @@
         module = "mine.wireguard";
       }}.path;
       autostart = false;
-      peers = [
-        {
-          publicKey = "hMAUZ1zVQIfpgQJef5mgHb40MC7rUvsAzs0l6j8qVkQ=";
-          presharedKeyFile = config.age.secrets.${noxa.lib.secrets.computeIdentifier {
-            ident = "bgl-presharedkey";
-            module = "mine.wireguard";
-          }}.path;
-          allowedIPs = [ "192.168.138.0/24" ];
-          endpoint = "1pmo4cjrsego920r.myfritz.net:53841"; # ToDo: route to endpoint not automatically configured https://wiki.archlinux.org/index.php/WireGuard#Loop_routing https://discourse.nixos.org/t/solved-minimal-firewall-setup-for-wireguard-client/7577
-        }
-      ];
     };
   };
 
