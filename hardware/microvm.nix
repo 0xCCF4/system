@@ -1,5 +1,4 @@
 { lib
-, mine
 , hostConfig
 , vmName
 , config

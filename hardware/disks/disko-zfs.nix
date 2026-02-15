@@ -1,4 +1,4 @@
-{ config, lib, pkgs, utils, ... }:
+{ config, lib, pkgs, utils, ... }: with lib;
 # https://discourse.nixos.org/t/import-zpool-before-luks-with-systemd-on-boot/65400/2
 {
   options = with lib; with types; {
@@ -134,7 +134,7 @@
             Type = "oneshot";
             ImportCredential = "zfs-sysroot.mount";
             RemainAfterExit = true;
-            ExecStart = "${config.boot.zfs.package}/bin/zfs load-key -L file://\"\${CREDENTIALS_DIRECTORY}\"/zfs-sysroot.mount pool/crypt";
+            ExecStart = "${getExe' config.boot.zfs.package "zfs"} load-key -L file://\"\${CREDENTIALS_DIRECTORY}\"/zfs-sysroot.mount pool/crypt";
           };
         };
       };
