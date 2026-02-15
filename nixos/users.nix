@@ -15,7 +15,7 @@
 
   imports = mapAttrsToList
     (username: data: {
-      config = mkIf (elem username config.mine.users) (data.osConfig or { });
+      config = mkIf (elem username config.mine.users) ((data.os or ({ ... }: { })) inputs);
     })
     users;
 
