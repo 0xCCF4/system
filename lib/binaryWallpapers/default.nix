@@ -16,7 +16,7 @@ let
 
         installPhase = ''
           mkdir -p $out
-          ${pkgs.binaryWallpapers}/bin/binary-wallpapers --image ${src_image} --data ${src_data} --primary-color ${primaryColor} --secondary-color ${secondaryColor} --output $out/${outputName}
+          ${getExe pkgs.binary-wallpapers} --image ${src_image} --data ${src_data} --primary-color ${primaryColor} --secondary-color ${secondaryColor} --output $out/${outputName}
         '';
 
         passthru = {

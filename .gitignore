@@ -1,3 +1,7 @@
+master.age
+*.master.age
+.vscode
+
 # Ignore build outputs from performing a nix-build or `nix build` command
 result
 result-*
@@ -6,3 +10,12 @@ result-*
 .direnv
 
 *.qcow2
+
+noxa/.*
+noxa/!.gitignore
+nixos/.*
+nixos/!.gitignore
+home/.*
+home/!.gitignore
+users/.*
+users/!.gitignore

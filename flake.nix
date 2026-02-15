@@ -1,5 +1,5 @@
 {
-  description = "Nixos system configuration";
+  description = "NixOS configuration";
 
   inputs = {
     # Nixpkgs
@@ -56,14 +56,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # NixOS proxmox
-    proxmox-nixos = {
-      url = "github:SaumonNet/proxmox-nixos";
-      inputs.nixpkgs-unstable.follows = "nixpkgs";
-      inputs.nixpkgs-stable.follows = "nixpkgs-stable";
-      inputs.utils.follows = "flake-utils";
-    };
-
     # NixOS configurable VMs
     microvm = {
       url = "github:astro/microvm.nix";
@@ -100,144 +92,15 @@
     };
   };
 
-  outputs =
-    { self
-    , nixpkgs
-    , nixpkgs-stable
-    , nixos-hardware
-    , nixos-generators
-    , disko
-    , impermanence
-    , lanzaboote
-    , agenix
-    , agenix-rekey
-    , proxmox-nixos
-    , microvm
-    , dns
-    , noxa
-    , flake-utils
-    , home-manager
-    , stylix
-    , timetrax
-    , ...
-    }@inputs:
-      with nixpkgs.lib; with builtins;
-      let
-        modules = import ./modules inputs;
-        minelib = import ./lib inputs;
-        minePkgs = import ./pkgs inputs;
-        shells = import ./shells inputs;
-
-        hosts = noxa.lib.nixDirectoryToAttr' ./hosts;
-
-        noxaConfiguration = noxa.lib.noxa-instantiate {
-          specialArgs = {
-            mine = {
-              lib = minelib;
-              inherit (self) noxaModules;
-              inherit (self) nixosModules;
-              inherit (self) homeModules;
-            };
-          };
-          modules = [
-            ./modules/noxa/mine
-            ({ lib, specialArgs, ... }: {
-              # overlay own packages
-              defaults.configuration.imports = [
-                modules.nixosModules.default
-                ./modules/nixos/mine
-                (
-                  { pkgs, lib, config, ... }: {
-                    nixpkgs.overlays = [
-                      (final: prev: prev // lib.attrsets.mapAttrs (name: pkg: pkgs.callPackage pkg { }) minePkgs)
-                      (final: prev: prev // { timetrax = timetrax.packages."x86_64-linux".default; })
-                    ];
-                  }
-                )
-              ];
-              defaults.specialArgs = {
-                inherit nixos-hardware;
-                inherit disko;
-                inherit nixos-generators;
-                inherit impermanence;
-                inherit lanzaboote;
-                inherit agenix;
-                inherit agenix-rekey;
-                inherit proxmox-nixos;
-                inherit microvm;
-                inherit dns;
-                inherit home-manager;
-                inherit stylix;
-                inherit nixpkgs-stable;
-                mine = specialArgs.mine;
-              };
-
-              nodes = attrsets.mapAttrs
-                (name: path: {
-                  configuration = {
-                    imports = [ path ];
-                  };
-                })
-                hosts;
-
-              nodeNames = attrsets.mapAttrsToList (name: path: name) hosts;
-            })
-            modules.noxaModules.default
-          ];
-        };
-      in
-      with nixpkgs.lib; with builtins; {
-        inherit noxaConfiguration;
-
-        lib = minelib;
-
-        # Agenix rekey module configuration
-        agenix-rekey = agenix-rekey.configure {
-          userFlake = self;
-          nixosConfigurations = attrsets.mapAttrs
-            (name: value: {
-              config = value.configuration;
-            })
-            (attrsets.filterAttrs (name: value: name != "iso") self.noxaConfiguration.config.nodes);
-        };
-
-        formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixpkgs-fmt;
-
-        nixosModules = modules.nixosModules;
-        noxaModules = modules.noxaModules;
-        homeModules = modules.homeModules;
-
-        # Backwards compatibility for nixos-anywhere
-        nixosConfigurations = attrsets.mapAttrs
-          (name: value: {
-            config = value.configuration;
-            options = value.options;
-          })
-          noxaConfiguration.config.nodes;
-      } // flake-utils.lib.eachDefaultSystem (system: {
-        packages =
-          let
-            pkgs = import nixpkgs {
-              inherit system;
-            };
-          in
-          attrsets.mapAttrs (n: x: pkgs.callPackage x { }) minePkgs;
-
-        devShells =
-          let
-            pkgs = import nixpkgs {
-              inherit system;
-              overlays = [
-
-                agenix-rekey.overlays.default
-
-                (final: prev:
-                  attrsets.mapAttrs (n: x: pkgs.callPackage x { }) minePkgs
-                )
-
-              ];
-            };
-          in
-          attrsets.mapAttrs (n: x: pkgs.callPackage x { }) shells;
-      });
+  outputs = inputs@{ flake-parts, ... }:
+    # https://flake.parts/module-arguments.html
+    flake-parts.lib.mkFlake { inherit inputs; } (top@{ config, withSystem, moduleWithSystem, ... }: {
+      imports = [
+        ./parts
+      ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+    });
 }

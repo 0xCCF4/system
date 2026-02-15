@@ -1,10 +1,7 @@
-{ lib, pkgs, mine, config, ... }: with lib; {
+{ lib, pkgs, self, config, ... }: with lib; {
   imports = [
     ../hardware/lenovoThinkpadP14.nix
-
-    # Users
-    ../users/mx.nix
-  ] ++ mine.lib.optionalsIfExist [
+  ] ++ self.lib.optionalsIfExist [
     ../external/private/hosts/solis.nix
   ];
 
@@ -19,6 +16,8 @@
       mine.presets.primary = "workstation";
       networking.hostId = "57c565f7";
 
+      mine.admins = [ "mx" ];
+
       mine.persistence.enable = true;
 
       mine.locale.keyboardLayout = "us";
@@ -32,10 +31,6 @@
 
       home-manager.users.mx = {
         config = {
-          home.mine.traits.traits = [
-            "development"
-            "office"
-          ];
           home.mine.slack.enable = true;
           services.gromit-mpx.enable = false;
         };
