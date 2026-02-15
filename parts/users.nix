@@ -1,10 +1,10 @@
 { inputs, lib, ... }: with lib; with builtins; let
   modules = removeAttrs (inputs.noxa.lib.nixDirectoryToAttr' ../users) [ "default" ];
-  modulesExternal = removeAttrs (inputs.noxa.lib.nixDirectoryToAttr' ../external/users) [ "default" ];
+  modulesExternal = removeAttrs (inputs.noxa.lib.nixDirectoryToAttr' ../external/private/users) [ "default" ];
   uidMapping = fromJSON (readFile ../users/_mapping.json);
-  uidExternalMapping = fromJSON (readFile ../external/users/_mapping.json);
+  uidExternalMapping = fromJSON (readFile ../external/private/users/_mapping.json);
 
-  uidMappingAll = recursiveUpdate uidMapping (if (pathExists ../external/users) then uidExternalMapping else { });
+  uidMappingAll = recursiveUpdate uidMapping (if (pathExists ../external/private/users/_mapping.json) then uidExternalMapping else { });
 
   users = mapAttrs
     (name: module: (import module inputs) // {
@@ -19,26 +19,28 @@
 
   allUserNames = lists.unique (attrNames users ++ attrNames usersExternal);
 
-  allUsers = (mkMerge (map
-    (name: {
-      "${name}" = {
-        description = usersExternal.${name}.description or users.${name}.description;
+  allUsers = listToAttrs
+    (map
+      (name: nameValuePair name {
+        description = usersExternal.${name}.description or users.${name}.description or "No description provided.";
         authorizedKeys = (usersExternal.${name}.authorizedKeys or [ ]) ++ (users.${name}.authorizedKeys or [ ]);
-        shell = usersExternal.${name}.shell or users.${name}.shell;
-        hashedPassword = usersExternal.${name}.hashedPassword or users.${name}.hashedPassword;
-        trustedNixKeys = usersExternal.${name}.trustedNixKeys or users.${name}.trustedNixKeys;
+        shell = usersExternal.${name}.shell or users.${name}.shell or "bash";
+        hashedPassword = usersExternal.${name}.hashedPassword or users.${name}.hashedPassword or null;
+        trustedNixKeys = usersExternal.${name}.trustedNixKeys or users.${name}.trustedNixKeys or [ ];
         home = { ... }: {
-          imports = [ usersExternal.${name}.home ] ++ [ users.${name}.home ];
+          imports = [ usersExternal.${name}.home or { } ] ++ [ users.${name}.home or { } ];
         };
-        os = { ... }: {
-          imports = [ usersExternal.${name}.os ] ++ [ users.${name}.os ];
-        };
-      };
-    })
-    allUserNames)).contents;
+        os = { ... }@inputs:
+          let
+            modules = [ ((users.${name}.os or ({ ... }: { })) inputs) ] ++ [ ((usersExternal.${name}.os or ({ ... }: { })) inputs) ];
+          in
+          foldl recursiveUpdate { } modules;
+        uid = usersExternal.${name}.uid or users.${name}.uid;
+      })
+      allUserNames);
 in
 {
   flake = {
-    users = if (pathExists ../external/users) then allUsers else users;
+    users = if (pathExists ../external/private/users) then allUsers else users;
   };
 }
