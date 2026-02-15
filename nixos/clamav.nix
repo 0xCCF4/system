@@ -7,13 +7,14 @@ with lib;
 {
   imports = [
     ./persistence.nix
+    ./presets.nix
   ];
 
   options = with types; {
     mine.clamav = {
       enable = mkOption {
         type = bool;
-        default = false;
+        default = config.mine.presets.isWorkstation;
         description = "Enable ClamAV antivirus services";
       };
       accessScanning =
@@ -61,7 +62,7 @@ with lib;
         # Send an alert to all graphical users.
         for ADDRESS in /run/user/*; do
             USERID=''${ADDRESS#/run/user/}
-          /run/wrappers/bin/sudo -u "#$USERID" DBUS_SESSION_BUS_ADDRESS="unix:path=$ADDRESS/bus" ${getExe pkgs.libnotify "notify-send"} -i dialog-warning "Virus found!" "$ALERT"
+          /run/wrappers/bin/sudo -u "#$USERID" DBUS_SESSION_BUS_ADDRESS="unix:path=$ADDRESS/bus" ${getExe' pkgs.libnotify "notify-send"} -i dialog-warning "Virus found!" "$ALERT"
         done
       '';
     in
@@ -71,7 +72,7 @@ with lib;
 
       security.sudo = {
         extraConfig = ''
-          clamav ALL = (ALL) NOPASSWD: SETENV: ${getExe pkgs.libnotify "notify-send"}
+          clamav ALL = (ALL) NOPASSWD: SETENV: ${getExe' pkgs.libnotify "notify-send"}
         '';
       };
 
