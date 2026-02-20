@@ -5,7 +5,7 @@
 
     noxa.secrets.options.masterIdentities = [
       {
-        identity = "/home/mx/Documents/system/external/private/secrets/master.age";
+        identity = "/home/mx/master-agenix.age";
         pubkey = "age139u6cdr527jm5x4e3fffqpd76gewwydlz2ekgr78n6yffeh3ce3q0mk2ma";
       }
     ];
