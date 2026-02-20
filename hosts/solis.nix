@@ -90,6 +90,8 @@
           };
         };
 
+        services.hardware.bolt.enable = true;
+
         networking.nat = {
           enable = true;
           internalInterfaces = [ ifaceInternal ];
