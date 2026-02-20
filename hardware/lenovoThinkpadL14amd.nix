@@ -61,6 +61,6 @@ with lib;
     magicOrExtension = ''\x7fELF....AI\x02'';
   };
 
-  boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
-  nix.settings.extra-platforms = [ "aarch64-linux arm-linux" ];
+  boot.binfmt.emulatedSystems = [ "aarch64-linux" "riscv64-linux" ];
+  nix.settings.extra-platforms = [ "aarch64-linux arm-linux" "riscv64-linux" ];
 }

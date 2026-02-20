@@ -25,14 +25,14 @@ with lib; with builtins;
       };
     };
 
-  config =
-    let
-      cfg = config.home.mine.unfree;
-    in
-    mkIf cfg.enable {
-      nixpkgs.config = mkIf (!osConfig.home-manager.useGlobalPkgs) {
-        allowUnfree = cfg.allowAll;
-        allowUnfreePredicate = pkg: builtins.elem (getName pkg) cfg.allowList;
-      };
-    };
+  #config =
+  #  let
+  #    cfg = config.home.mine.unfree;
+  #  in
+  #  mkIf cfg.enable {
+  #    nixpkgs.config = mkIf (!osConfig.home-manager.useGlobalPkgs) {
+  #      allowUnfree = cfg.allowAll;
+  #      allowUnfreePredicate = pkg: builtins.elem (getName pkg) cfg.allowList;
+  #    };
+  #  };
 }

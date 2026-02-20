@@ -74,7 +74,7 @@
           inherit self;
           inherit pkgs;
 
-          osConfig = foldl recursiveUpdate { } ([ config ] ++ (map (username: users."${username}".homeConfigOverwrite or { }) uniqUsers));
+          osConfig = foldl recursiveUpdate { } ([ config ] ++ (map (username: (users."${username}".homeConfigOverwrite or ({ ... }: { }) inputs)) uniqUsers));
         };
 
         users = mkMerge (map

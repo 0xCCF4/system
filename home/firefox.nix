@@ -158,7 +158,7 @@ with lib;
     };
 
     home.mine.unfree.allowList = [
-      "enhancer-for-youtube"
+      # "enhancer-for-youtube"
     ];
   };
 }
