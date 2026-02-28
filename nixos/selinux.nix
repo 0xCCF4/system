@@ -8,8 +8,6 @@
   };
 
   config = mkIf config.mine.selinux.enable {
-    security.selinux.enable = true;
-
     boot.kernelParams = [ "security=selinux" ];
     # compile kernel with SELinux support - but also support for other LSM modules
     boot.kernelPatches = [{
