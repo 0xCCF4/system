@@ -8,6 +8,7 @@
     coreutils
     nftables
     unixtools.netstat
+    kitty # for TERMINFO
     pciutils
   ];
 }
