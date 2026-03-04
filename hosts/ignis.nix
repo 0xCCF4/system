@@ -52,6 +52,9 @@
       }}.path;
       autostart = false;
     };
-  };
 
+    specialisation.selinux.configuration = {
+      security.selinux.enable = true;
+    };
+  };
 }

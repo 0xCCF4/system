@@ -1,31 +1,117 @@
-{ lib, pkgs, config, ... }: with lib; {
-  options.mine.selinux = with types; {
-    enable = mkOption {
-      type = bool;
-      default = false;
-      description = "Enable SELinux support.";
+{ config
+, lib
+, pkgs
+, ...
+}:
+# https://github.com/ExpidusOS/nixpkgs/blob/9fca8ff71604aeec7eaf5d776c480cf90aa631f6/nixos/modules/security/selinux.nix
+let
+  cfg = config.security.selinux;
+in
+{
+  meta.maintainers = with lib.maintainers; [
+    RossComputerGuy
+  ];
+
+  options.security.selinux = {
+    enable = lib.mkEnableOption "SELinux";
+    policy = lib.mkOption {
+      type = lib.types.path;
+      description = "The path to the SELinux policy";
+      defaultText = lib.literalExpression ''"''${pkgs.selinux-refpolicy.override { inherit (config.security.selinux) policyVersion; }}/share/selinux/refpolicy"'';
+      default = "${
+        pkgs.selinux-refpolicy.override {
+          inherit (config.security.selinux) policyVersion;
+        }
+      }/share/selinux/refpolicy";
+    };
+    policyVersion = lib.mkOption {
+      type = lib.types.nullOr lib.types.int;
+      description = "The version of the SELinux policy";
+      default = null;
+    };
+    type = lib.mkOption {
+      type = lib.types.str;
+      description = "The SELinux policy type to load";
+      default = "refpolicy";
+    };
+    mode = lib.mkOption {
+      type = lib.types.enum [
+        "enforcing"
+        "permissive"
+        "disabled"
+      ];
+      description = "The enforcement mode";
+      default = "permissive";
     };
   };
 
-  config = mkIf config.mine.selinux.enable {
-    boot.kernelParams = [ "security=selinux" ];
-    # compile kernel with SELinux support - but also support for other LSM modules
-    boot.kernelPatches = [{
-      name = "selinux-config";
-      patch = null;
-      extraConfig = ''
-        SECURITY_SELINUX y
-        SECURITY_SELINUX_BOOTPARAM n
-        SECURITY_SELINUX_DISABLE n
-        SECURITY_SELINUX_DEVELOP y
-        SECURITY_SELINUX_AVC_STATS y
-        SECURITY_SELINUX_CHECKREQPROT_VALUE 0
-        DEFAULT_SECURITY_SELINUX n
+  config = lib.mkIf cfg.enable {
+    boot.kernelPatches = [
+      {
+        name = "selinux";
+        structuredExtraConfig = with lib.kernel; {
+          SECURITY_SELINUX = yes;
+        };
+        patch = null;
+      }
+    ];
+
+    security.lsm = [ "selinux" ];
+
+    system.activationScripts.selinux = {
+      deps = [ "etc" ];
+      text = ''
+        install -d -m0755 /var/lib/selinux
+        cmd="${lib.getExe' pkgs.policycoreutils "semodule"} -s ${lib.escapeShellArg cfg.type} -i ${lib.escapeShellArg cfg.policy}/*.pp"
+        skipSELinuxActivation=0
+
+        if [ -f /var/lib/selinux/activate-check ]; then
+          if [ "$(cat /var/lib/selinux/activate-check)" == "$cmd" ]; then
+            skipSELinuxActivation=1
+          fi
+        fi
+
+        if [ $skipSELinuxActivation -eq 0 ]; then
+          eval "$cmd"
+          echo "$cmd" >/var/lib/selinux/activate-check
+        fi
       '';
-    }];
-    # policycoreutils is for load_policy, fixfiles, setfiles, setsebool, semodile, and sestatus.
-    environment.systemPackages = with pkgs; [ policycoreutils ];
-    # build systemd with SELinux support so it loads policy at boot and supports file labelling
-    systemd.package = pkgs.systemd.override { withSelinux = true; };
+    };
+
+    systemd.package = pkgs.systemd.override {
+      withSelinux = true;
+    };
+
+    environment = {
+      etc."selinux/config".text = ''
+        SELINUX=${cfg.mode}
+        SELINUXTYPE=${cfg.type}
+      '';
+      etc."selinux/semanage.conf".text =
+        lib.optionalString (cfg.policyVersion != null) ''
+          policy-version = ${toString cfg.policyVersion}
+        ''
+        + ''
+          compiler-directory = ${pkgs.policycoreutils}/libexec/selinux/hll
+
+          [load_policy]
+          path = ${lib.getExe' pkgs.policycoreutils "load_policy"}
+          [end]
+
+          [setfiles]
+          path = ${lib.getExe' pkgs.policycoreutils "setfiles"}
+          args = -q -c $@ $<
+          [end]
+
+          [sefcontext_compile]
+          path = ${lib.getExe' pkgs.libselinux "sefcontext_compile"}
+          args = -r $@
+          [end]
+        '';
+      systemPackages = with pkgs; [
+        libselinux
+        policycoreutils
+      ];
+    };
   };
 }

@@ -2,7 +2,7 @@
   config = {
     services.prometheus.exporters = {
       node = {
-        enable = mkDefault true;
+        enable = mkDefault false;
         openFirewall = mkDefault true;
 
         enabledCollectors = [
@@ -15,7 +15,7 @@
       };
 
       zfs = {
-        enable = mkDefault true;
+        enable = mkDefault false;
         openFirewall = mkDefault true;
       };
     };
