@@ -90,6 +90,12 @@
       url = "github:0xCCF4/timetrax";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Mailserver
+    mailserver = {
+      url = "gitlab:simple-nixos-mailserver/nixos-mailserver";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{ flake-parts, ... }:
