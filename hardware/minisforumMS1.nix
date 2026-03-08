@@ -25,14 +25,14 @@ with lib;
     enable = true;
     network = {
       enable = true;
-      networks."enp87s0" = {
+      networks."lanLeft" = {
         enable = true;
-        name = "enp87s0";
+        name = "lanLeft";
         DHCP = "yes";
       };
-      networks."enp88s0" = {
+      networks."lanRight" = {
         enable = true;
-        name = "enp88s0";
+        name = "lanRight";
         DHCP = "yes";
       };
     };

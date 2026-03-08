@@ -1,4 +1,11 @@
 { config, options, specialArgs, lib, ... }: with lib; {
+  options = with types; {
+    mine.microvm.names = mkOption {
+      type = listOf str;
+      default = [ ];
+      description = "List of microvm names to augment with specialArgs";
+    };
+  };
   config = ({ } // (
     if options ? "microvm" then
       {
@@ -7,12 +14,12 @@
             "${vmName}" = {
               inherit specialArgs;
               config._module.args = {
-                hostConfig = config;
                 inherit vmName;
+                hostConfig = config;
               };
             };
           })
-          (attrNames config.microvm.vms));
+          (config.mine.microvm.names));
       }
     else
       { }

@@ -25,13 +25,22 @@ with lib;
 
   config = {
     networking = {
-      nameservers = [ "127.0.0.1" "::1" ];
-      dhcpcd.extraConfig = "nohook resolv.conf";
-      networkmanager.dns = mkForce "none";
+      networkmanager.dns = "systemd-resolved";
     };
-    services.resolved.enable = true;
-    services.resolved.settings.Resolve.FallbackDNS = [ "" ];
-    services.resolved.settings.Resolve.Domains = [ "~." ];
+    services.resolved = {
+      enable = mkDefault true;
+      llmnr = false;
+      settings.Resolve = {
+        DNS = [ "127.0.0.1:53" "[::1]:53" ];
+        FallbackDNS = [ "127.0.0.1:53" "[::1]:53" ];
+        Domains = [ "~." ];
+      };
+      dnsDelegates.default.Delegate = {
+        DNS = [ "127.0.0.1:53" "[::1]:53" ];
+        Domains = [ "~." ];
+        DefaultRoute = true;
+      };
+    };
 
     services.dnscrypt-proxy = {
       enable = mkDefault true;

@@ -77,6 +77,8 @@ with lib; with builtins;
         "terminal.integrated.defaultProfile.linux" = "fish";
         "diffEditor.ignoreTrimWhitespace" = false;
         "rust-analyzer.server.path" = "rust-analyzer";
+        "telemetry.editStats.enabled" = false;
+        "telemetry.feedback.enabled" = false;
       };
     };
   };
