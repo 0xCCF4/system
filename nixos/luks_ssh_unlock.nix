@@ -12,7 +12,7 @@
       cfg = config.mine.boot.remoteUnlock;
 
       startsWith = prefix: str: substring 0 (stringLength prefix) str == prefix;
-  
+
       removeRestrictionsFromKey = key: concatStringsSep " " (let splitted = (splitString " " key); in if startsWith "ssh" (head splitted) then splitted else tail splitted);
     in
     mkIf cfg {

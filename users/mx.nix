@@ -5,7 +5,8 @@
   ];
   hashedPassword = null;
   trustedNixKeys = [
-    "solis:gp+DKUG3A2ZMjTkrtCXD7XwflSNlou61F0yWv7nIG50="
+    # todo: automate configuration of this
+    "solis:84gzBysV+RuXK7l8YQFVwuGY16Bzjmdb8xByirJtEQo="
     "ignis:zhWq+p6//VSVJiSKFitrqdJfzrJ1ajvPsXPz+M2n2Ao="
   ];
   home = { lib, config, nixosConfig, pkgs, ... }: with pkgs; with lib; {
