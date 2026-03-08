@@ -14,6 +14,7 @@
               to.node = to;
               to.user = "mx";
               options.pty = true;
+              to.hostname = mkDefault "${to}.vlan";
             };
           })
           (filter (name: name != from) to));

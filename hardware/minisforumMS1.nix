@@ -28,12 +28,12 @@ with lib;
       networks."lanLeft" = {
         enable = true;
         name = "lanLeft";
-        DHCP = "yes";
+        DHCP = mkDefault "yes";
       };
       networks."lanRight" = {
         enable = true;
         name = "lanRight";
-        DHCP = "yes";
+        DHCP = mkDefault "yes";
       };
     };
   };

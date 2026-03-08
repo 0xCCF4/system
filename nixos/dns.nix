@@ -21,6 +21,26 @@ with lib;
         "*.example[0-9].*" = [ "127.0.0.1" "127.0.0.2" ];
       };
     };
+    listenAddresses = mkOption {
+      type = listOf str;
+      default = [ "127.0.0.60:54" "[::60]:54" ];
+    };
+    upstreamResolvers = mkOption {
+      type = listOf str;
+      readOnly = true;
+      default = map
+        (addr:
+          let
+            split = splitString ":" addr;
+            noBrackets = map (s: lib.replaceStrings [ "[" "]" ] [ "" "" ] s) split;
+            lastElement = last noBrackets;
+            beforeElements = sublist 0 (length noBrackets - 1) noBrackets;
+            before = concatStringsSep ":" beforeElements;
+          in
+          "${before}#${lastElement}")
+        config.mine.dns.listenAddresses;
+      description = "The upstream DNS resolvers to use. Port is seperated by # instead of : .";
+    };
   };
 
   config = {
@@ -30,13 +50,13 @@ with lib;
     services.resolved = {
       enable = mkDefault true;
       settings.Resolve = {
-        DNS = [ "127.0.0.1:53" "[::1]:53" ];
-        FallbackDNS = [ "127.0.0.1:53" "[::1]:53" ];
+        DNS = config.mine.dns.listenAddresses;
+        FallbackDNS = config.mine.dns.listenAddresses;
         Domains = [ "~." ];
         LLMNR = false;
       };
       dnsDelegates.default.Delegate = {
-        DNS = [ "127.0.0.1:53" "[::1]:53" ];
+        DNS = config.mine.dns.listenAddresses;
         Domains = [ "~." ];
         DefaultRoute = true;
       };
@@ -45,6 +65,7 @@ with lib;
     services.dnscrypt-proxy = {
       enable = mkDefault true;
       settings = {
+        listen_addresses = config.mine.dns.listenAddresses;
         ipv6_servers = true;
         require_dnssec = true;
         sources.public-resolvers = {
