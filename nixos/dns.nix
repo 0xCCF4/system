@@ -29,11 +29,11 @@ with lib;
     };
     services.resolved = {
       enable = mkDefault true;
-      llmnr = false;
       settings.Resolve = {
         DNS = [ "127.0.0.1:53" "[::1]:53" ];
         FallbackDNS = [ "127.0.0.1:53" "[::1]:53" ];
         Domains = [ "~." ];
+        LLMNR = false;
       };
       dnsDelegates.default.Delegate = {
         DNS = [ "127.0.0.1:53" "[::1]:53" ];
