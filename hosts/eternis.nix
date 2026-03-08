@@ -71,13 +71,12 @@ with lib;
     #};
     #};
 
+    mine.microvm.names = [ "paperless" ];
     microvm.vms.paperless = {
       restartIfChanged = true;
       config = {
         microvm.mem = 4096;
         imports = [ ../hardware/microvm.nix ];
-        _module.args.vmName = "paperless";
-        _module.args.hostConfig = config;
 
         microvm.shares = [{
           proto = "virtiofs";
@@ -122,7 +121,7 @@ with lib;
               optimize = 1;
               pdfa_image_compression = "lossless";
             };
-            PAPERLESS_URL = "https://192.168.0.229";
+            PAPERLESS_URL = "https://eternis.lan";
           };
         };
 
@@ -133,15 +132,26 @@ with lib;
         services.caddy = {
           enable = true;
           dataDir = "/paperless/caddy";
-          virtualHosts."192.168.0.229".extraConfig = ''
+          virtualHosts."eternis.lan".extraConfig = ''
             reverse_proxy http://localhost:8000
             tls internal
             log default {
                 level debug
             }
           '';
+          virtualHosts."eternis.vlan".extraConfig = ''
+            reverse_proxy {
+              to http://localhost:8000
+              header_up Host eternis.lan
+              header_up X-Forwarded-Host eternis.lan
+            }
+            tls internal
+            log default {
+                level debug
+            }
+          '';
           globalConfig = ''
-            default_sni 192.168.0.229
+            default_sni eternis.lan
           '';
         };
 
