@@ -22,14 +22,19 @@
     };
   };
 
-  config = {
-    systemd.network.links = mkMerge (map
-      (entry: {
-        "${config.mine.linkNetDevRulePrefix}${entry.name}" = {
-          matchConfig.PermanentMACAddress = entry.mac;
-          linkConfig.Name = entry.name;
-        };
-      })
-      config.mine.links);
-  };
+  config =
+    let
+      links = mkMerge (map
+        (entry: {
+          "${config.mine.linkNetDevRulePrefix}${entry.name}-${entry.mac}" = {
+            matchConfig.PermanentMACAddress = entry.mac;
+            linkConfig.Name = entry.name;
+          };
+        })
+        config.mine.links);
+    in
+    {
+      systemd.network.links = links;
+      boot.initrd.systemd.network.links = links;
+    };
 }

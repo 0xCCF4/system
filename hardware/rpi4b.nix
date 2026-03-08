@@ -37,11 +37,6 @@ with lib;
       };
     };
 
-    systemd.network.links."10-eth" = {
-      matchConfig.PermanentMACAddress = "02:00:00:00:00:01";
-      linkConfig.Name = "eth0";
-    };
-
     hardware.enableRedistributableFirmware = true;
   };
 

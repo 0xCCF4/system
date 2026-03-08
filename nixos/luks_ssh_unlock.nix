@@ -10,6 +10,10 @@
   config =
     let
       cfg = config.mine.boot.remoteUnlock;
+
+      startsWith = prefix: str: substring 0 (stringLength prefix) str == prefix;
+  
+      removeRestrictionsFromKey = key: concatStringsSep " " (let splitted = (splitString " " key); in if startsWith "ssh" (head splitted) then splitted else tail splitted);
     in
     mkIf cfg {
       mine.boot.tor.ports = [
@@ -32,7 +36,7 @@
           ssh = mkIf (!config.age.rekey.initialRollout) {
             enable = true;
             port = mkDefault 22;
-            authorizedKeys = flatten (mapAttrsToList (username: user: user.openssh.authorizedKeys.keys) config.users.users);
+            authorizedKeys = flatten (mapAttrsToList (username: user: map removeRestrictionsFromKey user.openssh.authorizedKeys.keys) config.users.users);
             authorizedKeyFiles = flatten (mapAttrsToList (username: user: user.openssh.authorizedKeys.keyFiles) config.users.users);
             hostKeys = [ "/etc/ssh/host_key" ];
             extraConfig = ''

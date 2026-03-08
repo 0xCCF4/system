@@ -1,4 +1,4 @@
-{ config, lib, noxa, options, ... }:
+{ config, lib, noxa, options, self, ... }:
 with lib; with noxa.lib.net.types; with builtins;
 let
   enumeratedNetworks = imap1 (networkIndex: name: { inherit name networkIndex; }) (attrNames config.mine.vm.networks);
@@ -145,7 +145,8 @@ in
                     spaceZero = x: if x < 16 then "0${toHexString x}" else toHexString x;
                     mac = "02:7a:${spaceZero networkIndex}:00:00:${spaceZero entry.memberIndex}";
                   in
-                  trace "Debug: Assigning MAC address ${mac} to microVM ${entry.name} on network ${mod.config.interface}" mac;
+                  #trace "Debug: Assigning MAC address ${mac} to microVM ${entry.name} on network ${mod.config.interface}" mac;
+                  mac;
               })
               enumeratedMembers);
           };
@@ -156,7 +157,7 @@ in
   config =
     let
       cfg = config.mine.vm;
-      microvm = mine.lib.evalMissingOption config "microvm" { vms = { }; };
+      microvm = self.lib.evalMissingOption config "microvm" { vms = { }; };
     in
     mkIf ((options.microvm or null) != null) (
       {
@@ -235,7 +236,7 @@ in
                 "${network.netdevRuleName}" = {
                   matchConfig.Name = "${network.interface}";
                   addresses = [{
-                    addressConfig.Address = network.address;
+                    Address = network.address;
                   }];
                 };
                 "${network.memberRuleName}" = {
@@ -267,6 +268,7 @@ in
                     type = "tap";
                     id = "${network.interface}-${toString member.memberIndex}";
                     mac = network.memberMacs.${member.name};
+                    tap.vhost = true;
                   }];
 
                   systemd.network.links."${network.vmLinkRenameRuleName}" = {
@@ -293,7 +295,7 @@ in
               })
               entry.value.membersEnumerated)
           )
-          (mine.lib.enumerateAttrs
+          (self.lib.enumerateAttrs
             (mapAttrs
               (name: value: {
                 membersEnumerated = imap1 (memberIndex: name: { inherit name memberIndex; }) value.members;
