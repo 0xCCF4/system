@@ -3,11 +3,21 @@
 , lib
 , config
 , noxa
+, adblock
 , ...
 }:
 with lib;
 {
+  imports = [
+    adblock.nixosModule
+  ];
+
   options.mine.dns = with types; with noxa.lib.net.types; {
+    enable = mkOption {
+      type = bool;
+      default = true;
+      description = "Whether to enable the custom DNS configuration.";
+    };
     provider = mkOption {
       type = enum [ "quad9" ];
       default = "quad9";
@@ -43,9 +53,17 @@ with lib;
     };
   };
 
-  config = {
+  config = mkIf config.mine.dns.enable {
     networking = {
       networkmanager.dns = "systemd-resolved";
+      stevenBlackHosts = {
+        enable = mkDefault true;
+
+        blockFakenews = mkDefault true;
+        blockPorn = mkDefault true;
+        blockSocial = mkDefault (if (config.mine.presets.isWorkstation or false) then false else true);
+        blockGambling = mkDefault true;
+      };
     };
     services.resolved = {
       enable = mkDefault true;
