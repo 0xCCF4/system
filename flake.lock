@@ -1,5 +1,25 @@
 {
   "nodes": {
+    "adblock": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1772904411,
+        "narHash": "sha256-nn/dCHZnxyQJq9uCrylIpKNVovLyeWhhQLAWqRSk/KY=",
+        "owner": "StevenBlack",
+        "repo": "hosts",
+        "rev": "b32ed2a83ceb820bd9d2bb8cfad48244923008aa",
+        "type": "github"
+      },
+      "original": {
+        "owner": "StevenBlack",
+        "repo": "hosts",
+        "type": "github"
+      }
+    },
     "agenix": {
       "inputs": {
         "darwin": "darwin",
@@ -990,6 +1010,7 @@
     },
     "root": {
       "inputs": {
+        "adblock": "adblock",
         "agenix": "agenix",
         "agenix-rekey": "agenix-rekey",
         "disko": "disko",
