@@ -71,6 +71,17 @@ with lib;
     #};
     #};
 
+    services.resolved.enable = false;
+    mine.services.unbound.enable = true;
+
+    services.avahi = {
+      enable = true;
+      reflector = true;
+      interfaces = [
+        "lanLeft"
+      ];
+    };
+
     mine.microvm.names = [ "paperless" ];
     microvm.vms.paperless = {
       restartIfChanged = true;
