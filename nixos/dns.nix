@@ -47,7 +47,7 @@ with lib;
             beforeElements = sublist 0 (length noBrackets - 1) noBrackets;
             before = concatStringsSep ":" beforeElements;
           in
-          "${before}#${lastElement}")
+          "${before}@${lastElement}")
         config.mine.dns.listenAddresses;
       description = "The upstream DNS resolvers to use. Port is seperated by # instead of : .";
     };
