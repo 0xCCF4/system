@@ -24,8 +24,13 @@ with lib; with builtins;
       };
       keyboardLayout = mkOption {
         type = str;
-        default = "de";
+        default = "us";
         description = "The keyboard layout to use for the system.";
+      };
+      keyboardVariant = mkOption {
+        type = str;
+        default = "de_se_fi,nodeadkeys";
+        description = "The keyboard variant to use for the system.";
       };
     };
 
@@ -49,7 +54,7 @@ with lib; with builtins;
       };
       services.xserver.xkb = {
         layout = mkDefault cfg.keyboardLayout;
-        variant = mkDefault "";
+        variant = mkDefault cfg.keyboardVariant;
       };
       console.keyMap = mkDefault cfg.keyboardLayout;
     };

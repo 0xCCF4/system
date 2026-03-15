@@ -3,7 +3,7 @@
     mine.services.unbound = {
       enable = mkOption {
         type = bool;
-        default = true;
+        default = false;
         description = "Whether to enable unbound as public facing DNS resolver.";
       };
       openFirewall = mkOption {
