@@ -58,6 +58,7 @@ in
             inherit (inputs) stylix;
             inherit (inputs) nixpkgs-stable;
             inherit (inputs) adblock;
+            inherit (inputs) mailserver;
             inherit (inputs.self) users;
             inherit (inputs) self;
           };
