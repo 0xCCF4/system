@@ -20,10 +20,9 @@
 
       mine.persistence.enable = true;
 
-      mine.locale.keyboardLayout = "us";
-
       specialisation."de-keyboard".configuration = {
         mine.locale.keyboardLayout = mkForce "de";
+        mine.locale.keyboardVariant = mkForce "nodeadkeys";
       };
 
       # Battery management

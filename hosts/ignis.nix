@@ -54,7 +54,7 @@
     };
 
     specialisation.selinux.configuration = {
-      security.selinux.enable = true;
+      #security.selinux.enable = true;
     };
   };
 }

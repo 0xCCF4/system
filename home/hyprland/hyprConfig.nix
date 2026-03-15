@@ -21,6 +21,8 @@ in
 
       input = {
         kb_layout = mkDefault osConfig.mine.locale.keyboardLayout;
+        kb_variant = mkDefault osConfig.mine.locale.keyboardVariant;
+        numlock_by_default = true;
 
         touchpad = {
           natural_scroll = mkDefault true;
