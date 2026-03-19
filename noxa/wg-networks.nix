@@ -1,9 +1,14 @@
 { ... }: {
+  imports = [
+    ./wireguard_dns.nix
+  ];
+
   # Policy: Only me has access to this network
   # Use-case: Me connecting to the SSH of the server
   # Allowed services: SSH maintenance port
   wireguard.cloud-admin = {
     networkAddress = "10.1.1.0/24";
+    dns.domain = ".vlan";
     members = {
       lux.deviceAddresses = "10.1.1.0/32"; # cloud (server)
       lux.advertise.server.listenPort = 51823;
@@ -13,6 +18,7 @@
       ignis.deviceAddresses = "10.1.1.1/32"; # my laptop
 
       solis.deviceAddresses = "10.1.1.3/32"; # workstation
+      solis.keepAlive = 30;
 
       # temporary solution
       eternis.deviceAddresses = "10.1.1.2/32"; # home cluster
