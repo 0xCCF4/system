@@ -79,6 +79,11 @@ with lib; with builtins;
         "rust-analyzer.server.path" = "rust-analyzer";
         "telemetry.editStats.enabled" = false;
         "telemetry.feedback.enabled" = false;
+        "github.copilot.enable" = {
+          "*" = true;
+          "scminput" = false;
+          "markdown" = true;
+        };
       };
     };
   };

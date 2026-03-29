@@ -40,6 +40,7 @@ with lib; with builtins;
           init.defaultBranch = "main";
           user.email = cfg.userEmail;
           user.name = cfg.userName;
+          alias.fix-perm = "!f(){ git diff -p -R --no-color | grep -E \"^(diff|(old|new) mode)\" --color=never | git apply; }; f"; # https://gist.github.com/jtdp/5443498
         };
       };
 
