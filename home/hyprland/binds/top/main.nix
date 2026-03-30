@@ -28,7 +28,7 @@ in
       "$mainMod, F, fullscreen,"
 
       # Toggle split
-      "$mainMod, G, togglesplit,"
+      "$mainMod, G, layoutmsg, togglesplit"
     ];
   };
 }
