@@ -49,8 +49,8 @@ in
       "$mainMod SHIFT, 0, movetoworkspace, 10"
 
       # Scroll between workspaces
-      "$mainMod, mouse_down, workspace, e+1"
-      "$mainMod, mouse_up, workspace, e-1"
+      # "$mainMod, mouse_down, workspace, e+1"
+      # "$mainMod, mouse_up, workspace, e-1"
 
       # Pin Window
       "$mainMod, p, pin"
