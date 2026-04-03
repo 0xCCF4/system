@@ -9,7 +9,7 @@ with lib;
 {
   config = {
     services.tomat = {
-      enable = mkDefault (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false);
+      # enable = mkDefault (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false);
       settings = {
         notifications = {
           enabled = true;
