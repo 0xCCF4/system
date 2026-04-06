@@ -103,10 +103,10 @@ with lib;
 
         services.postgresql.dataDir = "/paperless/database";
         services.postgresql.package = pkgs.postgresql_16;
-        #    services.postgresql.authentication = pkgs.lib.mkOverride 10 ''
-        #  #type database  DBuser  auth-method
-        #  local all       all     trust
-        #'';
+        services.postgresql.authentication = pkgs.lib.mkOverride 10 ''
+          #type database  DBuser  auth-method
+          local all       all     trust
+        '';
         services.postgresql.identMap = ''
           # ArbitraryMapName systemUser DBUser
              superuser_map      root      postgres
@@ -133,6 +133,12 @@ with lib;
               pdfa_image_compression = "lossless";
             };
             PAPERLESS_URL = "https://eternis.lan";
+            # PAPERLESS_CSRF_TRUSTED_ORIGINS = [
+            #  "*"
+            #];
+            PAPERLESS_ALLOWED_HOSTS = "eternis.lan,eternis.vlan,localhost";
+            PAPERLESS_CSRF_TRUSTED_ORIGINS = "https://localhost:4430";
+            PAPERLESS_CORS_ORIGIN_WHITELIST = "https://localhost:4430";
           };
         };
 
@@ -151,6 +157,17 @@ with lib;
             }
           '';
           virtualHosts."eternis.vlan".extraConfig = ''
+            reverse_proxy {
+              to http://localhost:8000
+              header_up Host eternis.lan
+              header_up X-Forwarded-Host eternis.lan
+            }
+            tls internal
+            log default {
+                level debug
+            }
+          '';
+          virtualHosts."localhost".extraConfig = ''
             reverse_proxy {
               to http://localhost:8000
               header_up Host eternis.lan

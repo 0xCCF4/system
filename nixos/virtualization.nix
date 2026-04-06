@@ -69,6 +69,6 @@ with lib; with builtins;
           pkgs.flatpak-builder
         ];
 
-      mine.unfree.allowList = mkIf (cfg.virtualBox && cfg.virtualBoxExtensionPack) [ "Oracle_VirtualBox_Extension_Pack" ];
+      mine.unfree.allowList = mkIf (cfg.virtualBox && cfg.virtualBoxExtensionPack) [ "virtualbox-extpack" ];
     };
 }
