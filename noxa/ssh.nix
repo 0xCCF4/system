@@ -14,6 +14,8 @@
               to.node = to;
               to.user = "mx";
               options.pty = true;
+              options.agentForwarding = true;
+              options.allowPortForwarding = true;
               to.hostname = mkDefault "${to}.vlan";
             };
           })

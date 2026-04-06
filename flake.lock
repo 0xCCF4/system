@@ -924,11 +924,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1774712360,
-        "narHash": "sha256-TMyRkI43y1mWY9jEuRegn/TEN9cjRpBmTbvqSEJw0eA=",
+        "lastModified": 1775056717,
+        "narHash": "sha256-UyVPowb3ItvbIKmBBTIKU0/rGosWxl0xqkHNKqg0/0g=",
         "owner": "0xCCF4",
         "repo": "noxa",
-        "rev": "f479cc6ded1d208056c81c35a99074f1e310c02e",
+        "rev": "b76d653fe90bf64c7215eb81d8a72a64a7847385",
         "type": "github"
       },
       "original": {
