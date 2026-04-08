@@ -17,6 +17,10 @@
       networking.hostId = "57c565f7";
 
       mine.admins = [ "mx" ];
+      users.groups.dialout.members = [ "mx" ];
+
+      mine.virtualization.virtualBox = true;
+      users.groups.virtualbox.members = [ "mx" ];
 
       mine.persistence.enable = true;
 
