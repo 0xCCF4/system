@@ -9,7 +9,7 @@ with lib; with builtins;
 {
   imports = [
     ./traits.nix
-    inputs.impermanence.homeManagerModules.impermanence
+    # inputs.impermanence.homeManagerModules.impermanence
   ];
 
   options.home.mine = with types;

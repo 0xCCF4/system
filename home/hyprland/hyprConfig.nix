@@ -47,6 +47,8 @@ in
         "HYPRCURSOR_SIZE,24"
         "XDG_CURRENT_DESKTOP,Hyprland"
         "XDG_SESSION_TYPE,wayland"
+
+        "_JAVA_AWT_WM_NONREPARENTING,1"
       ];
 
       permission = [

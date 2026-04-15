@@ -36,8 +36,17 @@
         config = {
           home.mine.slack.enable = true;
           services.gromit-mpx.enable = false;
+
+          home.packages = with pkgs; [
+            picoscope
+          ];
         };
       };
+      services.udev.packages = with pkgs; [
+        picoscope.rules
+      ];
+      users.groups.pico.members = [ "mx" ];
+      mine.unfree.allowList = [ "picoscope" ];
 
       security.sudo.wheelNeedsPassword = mkIf config.age.rekey.initialRollout false;
 
