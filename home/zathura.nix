@@ -13,6 +13,9 @@ with lib; with builtins;
   config = {
     programs.zathura = {
       enable = mkDefault config.home.mine.traits.hasOffice;
+      extraConfig = ''
+        set recolor true
+      '';
     };
   };
 }
