@@ -13,6 +13,7 @@ with lib;
 
   config = {
     home.mine.persistence.cache.directories = [
+      ".config/mozilla/firefox"
       ".mozilla"
       # ".cache/mozilla/firefox" TODO
     ];
@@ -24,7 +25,7 @@ with lib;
     programs.firefox = {
       enable = mkDefault (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false);
 
-      configPath = "${config.xdg.configHome}/mozilla/firefox";
+      configPath = ".mozilla/firefox";
 
       # Privacy about:config settings
       profiles.default = {
