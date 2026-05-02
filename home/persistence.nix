@@ -89,18 +89,14 @@ with lib; with builtins;
         ".rustup"
       ];
 
-      home.persistence."${osConfig.mine.persistence.dataDirectory}/home/${config.home.username}" = {
-        removePrefixDirectory = false;
+      home.persistence."${osConfig.mine.persistence.dataDirectory}" = {
         files = cfg.data.files;
         directories = cfg.data.directories;
-        allowOther = true;
       };
 
-      home.persistence."${osConfig.mine.persistence.cacheDirectory}/home/${config.home.username}" = {
-        removePrefixDirectory = false;
+      home.persistence."${osConfig.mine.persistence.cacheDirectory}" = {
         files = cfg.cache.files;
         directories = cfg.cache.directories;
-        allowOther = true;
       };
     };
 }

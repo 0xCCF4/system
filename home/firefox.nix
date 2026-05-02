@@ -24,6 +24,8 @@ with lib;
     programs.firefox = {
       enable = mkDefault (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false);
 
+      configPath = "${config.xdg.configHome}/mozilla/firefox";
+
       # Privacy about:config settings
       profiles.default = {
         id = 0;

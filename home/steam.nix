@@ -22,14 +22,8 @@ with lib;
     };
 
     home.mine.persistence.cache.directories = [
-      {
-        directory = ".local/share/Steam";
-        method = "symlink";
-      }
-      {
-        directory = ".steam";
-        method = "symlink";
-      }
+      ".local/share/Steam"
+      ".steam"
     ];
 
     home.mine.persistence.data.directories = [
