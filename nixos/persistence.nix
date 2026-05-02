@@ -52,7 +52,6 @@ with lib;
       directories = mkOption {
         description = "List of directories to persist.";
         default = [ ];
-
       };
       files = mkOption {
         description = "List of files to persist.";
@@ -109,6 +108,8 @@ with lib;
         }
       ];
 
+      fileSystems."/var".neededForBoot = true;
+
       environment.persistence = {
         "${cfg.systemDirectory}" = {
           hideMounts = true;
@@ -116,8 +117,6 @@ with lib;
           files = cfg.files;
         };
       };
-
-      programs.fuse.userAllowOther = true;
 
       systemd.services = lib.mapAttrs'
         (user: data: {
