@@ -40,6 +40,8 @@ in
         #theme.package = pkgs.adw-gtk3;
         theme.name = "adw-gtk3";
 
+        gtk4.theme = mkDefault null;
+
         cursorTheme.package = pkgs.adw-gtk3;
         cursorTheme.name = "Adwaita";
         #cursorTheme.size = gnome.cursorSize;

@@ -10,5 +10,6 @@
     unixtools.netstat
     kitty # for TERMINFO
     pciutils
+    usbutils
   ];
 }

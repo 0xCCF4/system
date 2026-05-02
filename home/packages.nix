@@ -80,6 +80,8 @@ with lib; with builtins;
         wget # download files from the web
         inotify-tools # filesystem event monitoring
         cifs-utils # mount and manage CIFS filesystems
+        pciutils # PCI device management
+        usbutils # USB device management
       ]
       ++ lists.optionals cfg.cmdlineExtras [
         uutils-coreutils-noprefix
