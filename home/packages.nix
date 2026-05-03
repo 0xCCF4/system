@@ -111,7 +111,7 @@ with lib; with builtins;
       ]
       ++ lists.optionals cfg.latex [ texliveFull typst ]
       ++ lists.optionals cfg.jabref [ jabref ]
-      ++ lists.optionals cfg.development ([ nixfmt qemu bochs jq ])
+      ++ lists.optionals cfg.development ([ nixfmt qemu bochs jq rustup gcc ])
       ++ lists.optionals cfg.graphicalEssentials [
         gnome-clocks
         gnome-tweaks
