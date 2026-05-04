@@ -149,7 +149,7 @@ with lib;
           "browser.urlbar.suggest.topsites" = false;
           "browser.uidensity" = 1;
           "media.autoplay.enabled" = false;
-          "toolkit.zoomManager.zoomValues" = ".8,.90,.95,1,1.1,1.2";
+          #"toolkit.zoomManager.zoomValues" = ".8,.90,.95,1,1.1,1.2";
 
           "privacy.firstparty.isolate" = false;
           "privacy.userContext.enabled" = true;

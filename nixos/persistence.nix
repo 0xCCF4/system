@@ -115,6 +115,7 @@ with lib;
           hideMounts = true;
           directories = cfg.directories;
           files = cfg.files;
+          allowTrash = true;
         };
       };
 
