@@ -21,10 +21,10 @@ with lib; with builtins;
         default = false;
         description = "Enable VirtualBox support.";
       };
-      virtualBoxUsers = mkOption {
+      virtUsers = mkOption {
         type = listOf str;
         default = [ ];
-        description = "Users that should be added to the vboxusers group.";
+        description = "Users that should be added to the virtualization groups.";
       };
       virtualBoxExtensionPack = mkOption {
         type = bool;
@@ -35,6 +35,11 @@ with lib; with builtins;
         type = bool;
         default = presets.isWorkstation;
         description = "Enable Distrobox support.";
+      };
+      virtmanager = mkOption {
+        type = bool;
+        default = presets.isWorkstation;
+        description = "Enable Virt-Manager support.";
       };
       flatpak = mkOption {
         type = bool;
@@ -52,9 +57,16 @@ with lib; with builtins;
     {
       virtualisation.virtualbox.host.enable = mkDefault cfg.virtualBox;
       virtualisation.virtualbox.host.enableExtensionPack = mkDefault cfg.virtualBoxExtensionPack;
-      users.extraGroups.vboxusers.members = cfg.virtualBoxUsers;
+      users.extraGroups.vboxusers.members = cfg.virtUsers;
 
       services.flatpak.enable = mkDefault flatpak;
+
+      virtualisation.libvirtd = {
+        enable = mkDefault cfg.virtmanager;
+        qemu.vhostUserPackages = with pkgs; [ virtiofsd ];
+      };
+      programs.virt-manager.enable = mkDefault cfg.virtmanager;
+      users.extraGroups.libvirtd.members = cfg.virtUsers;
 
       virtualisation.podman.enable = mkDefault cfg.distrobox;
       virtualisation.podman.dockerCompat = mkDefault cfg.distrobox;
@@ -67,7 +79,12 @@ with lib; with builtins;
         ++ lists.optionals cfg.flatpak [
           pkgs.flatpak
           pkgs.flatpak-builder
+        ]
+        ++ lists.optionals cfg.virtmanager [
+          pkgs.dnsmasq
         ];
+
+      networking.firewall.trustedInterfaces = mkIf cfg.virtmanager [ "virbr0" ];
 
       mine.unfree.allowList = mkIf (cfg.virtualBox && cfg.virtualBoxExtensionPack) [ "virtualbox-extpack" ];
     };
