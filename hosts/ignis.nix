@@ -33,6 +33,9 @@
     users.users.mx.extraGroups = [ "adbusers" "kvm" ];
 
 
+    mine.virtualization.virtmanager = true;
+
+
     # BGL VPN
     noxa.secrets.def = [
       {
