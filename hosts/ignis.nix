@@ -34,7 +34,20 @@
 
 
     mine.virtualization.virtmanager = true;
-
+    networking = {
+      firewall = {
+        enable = true;
+        interfaces = {
+          virbr0 = {
+            allowedUDPPorts = [ 53 67 ];
+          };
+        };
+      };
+      nat = {
+        enable = true;
+        internalInterfaces = [ "virbr0" ];
+      };
+    };
 
     # BGL VPN
     noxa.secrets.def = [
