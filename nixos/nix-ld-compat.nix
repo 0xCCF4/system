@@ -287,6 +287,7 @@ with lib;
 
       # others
       ffmpeg.dev
+      openal.out
     ];
   };
 }
