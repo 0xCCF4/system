@@ -91,6 +91,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Frostx
+    frostx = {
+      url = "github:0xCCF4/frostx";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Mailserver
     mailserver = {
       url = "gitlab:simple-nixos-mailserver/nixos-mailserver";
