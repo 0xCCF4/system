@@ -61,7 +61,7 @@
       }
     ];
     networking.wg-quick.interfaces.homevpn = {
-      address = [ "192.168.200.205/24" ];
+      address = [ "192.168.200.206/24" ];
       privateKeyFile = config.age.secrets.${noxa.lib.secrets.computeIdentifier {
         ident = "homevpn-keypair";
         module = "mine.wireguard";

@@ -9,6 +9,7 @@
 in
 {
   wayland.windowManager.hyprland = {
+    configType = mkDefault "hyprlang";
     settings = {
       "$terminal" = "${terminal}";
       "$fileManager" = "${fileManager}";
