@@ -38,6 +38,7 @@ in
                 nixpkgs.overlays = [
                   (final: prev: prev // self.packages.${config.nixpkgs.hostPlatform.system})
                   (final: prev: prev // { timetrax = inputs.timetrax.packages.${config.nixpkgs.hostPlatform.system}.default; })
+                  (final: prev: prev // { frostx = inputs.frostx.packages.${config.nixpkgs.hostPlatform.system}.default; })
                 ];
               }
             )
