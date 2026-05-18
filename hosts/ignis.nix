@@ -61,7 +61,7 @@
       }
     ];
     networking.wg-quick.interfaces.bgl = {
-      address = [ "192.168.138.205/24" ];
+      address = [ "192.168.138.206/24" ];
       privateKeyFile = config.age.secrets.${noxa.lib.secrets.computeIdentifier {
         ident = "bgl-keypair";
         module = "mine.wireguard";
