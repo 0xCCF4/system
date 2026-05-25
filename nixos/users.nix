@@ -6,6 +6,11 @@
       default = [ ];
       description = "List of users to be created on the system.";
     };
+    fakeUsers = mkOption {
+      type = listOf str;
+      default = [ ];
+      description = "List of users to create home-manager configurations for but are system users created elsewhere.";
+    };
     admins = mkOption {
       type = listOf str;
       default = [ ];
@@ -21,6 +26,7 @@
 
   config =
     let
+      fakeUsers = unique (filter (user: !(elem user config.mine.users)) config.mine.fakeUsers);
       uniqUsers = unique config.mine.users;
       usersNotInConfig = filter (user: !(hasAttr user users)) uniqUsers;
     in
@@ -80,13 +86,13 @@
         users = mkMerge (map
           (userName:
             let
-              userModule = users.${userName};
+              userModule = if elem userName uniqUsers then users.${userName} else { };
             in
             {
               "${userName}" =
                 { ... }: {
                   imports = [
-                    self.hmModules.default
+                    (if elem userName uniqUsers then self.hmModules.default else { })
                     (userModule.home or { })
                   ];
 
@@ -97,7 +103,7 @@
                 };
             }
           )
-          uniqUsers);
+          (uniqUsers ++ fakeUsers));
       };
     };
 }

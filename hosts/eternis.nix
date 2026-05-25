@@ -48,6 +48,9 @@ with lib;
     mine.boot.remoteUnlock = true;
     mine.boot.tor.enable = true;
 
+    mine.zrb.backupNode = null;
+    services.zrb.server.primary.enable = true;
+
     #mine.vm.networks = {
     #  vm-test = {
     #    members = [ "green" "red" ];

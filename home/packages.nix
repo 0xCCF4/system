@@ -25,7 +25,7 @@ with lib; with builtins;
       };
       cmdlineExtras = mkOption {
         type = bool;
-        default = isWorkstation;
+        default = true;
         description = "Install extra command line packages";
       };
       development = mkOption {
@@ -108,6 +108,7 @@ with lib; with builtins;
         dua # directory disk usage analyzer
         yazi # terminal file manager
         pv # monitor data stream progress
+        zrb # ZFS backup tool
       ]
       ++ lists.optionals cfg.latex [ texliveFull typst ]
       ++ lists.optionals cfg.jabref [ jabref ]
