@@ -32,6 +32,8 @@
       # Battery management
       mine.tlp.enable = true;
 
+      mine.zrb.backupOnShutdown = true;
+
       home-manager.users.mx = {
         config = {
           home.mine.slack.enable = true;

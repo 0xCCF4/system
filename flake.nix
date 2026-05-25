@@ -97,6 +97,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # zrb
+    zrb = {
+      url = "github:0xCCF4/zrb";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Mailserver
     mailserver = {
       url = "gitlab:simple-nixos-mailserver/nixos-mailserver";
