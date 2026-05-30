@@ -32,7 +32,20 @@
       # Battery management
       mine.tlp.enable = true;
 
+      # Remote unlock luks via ssh+tor
+      mine.boot.remoteUnlock = true;
+      boot.initrd.network.ssh.port = 4444;
+      mine.boot.tor.enable = true;
+      mine.boot.tor.ports = [
+        {
+          port = 22;
+          bindPort = config.boot.initrd.network.ssh.port;
+        }
+      ];
+
       mine.zrb.backupOnShutdown = true;
+      services.zrb.client.jobs.daily.enable = false; # until we have a full root backup
+      services.zrb.client.enable = false;
 
       home-manager.users.mx = {
         config = {
@@ -114,7 +127,6 @@
 
         networking.interfaces = {
           "${ifaceInternal}" = {
-            # connect to private network
             useDHCP = false;
             ipv4.addresses = [
               {
