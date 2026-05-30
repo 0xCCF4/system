@@ -32,6 +32,17 @@
     ];
     users.users.mx.extraGroups = [ "adbusers" "kvm" ];
 
+    # Luks remote unlock via ssh+tor
+    mine.boot.remoteUnlock = true;
+    boot.initrd.network.ssh.port = 4444;
+    mine.boot.tor.enable = true;
+    mine.boot.tor.ports = [
+      {
+        port = 22;
+        bindPort = config.boot.initrd.network.ssh.port;
+      }
+    ];
+    services.zrb.client.jobs.daily.enable = false; # until we have a full root backup
 
     mine.virtualization.virtmanager = true;
     networking = {

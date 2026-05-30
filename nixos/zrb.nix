@@ -68,14 +68,14 @@
           datasets = [ "pool/crypt/system/persist" ];
         };
 
-        # prune.onCalendar = "weekly";
+        prune.onCalendar = "weekly";
       };
 
       services.zrb.server.primary = {
         noxa.enable = true;
         retention = { recent = 14; weeklyForDays = 60; monthlyForDays = 730; };
 
-        # prune.onCalendar = "weekly";
+        prune.onCalendar = "weekly";
       };
 
       # add home manager managed zrb
@@ -96,7 +96,7 @@
         )
         zrbUsers);
 
-      ssh.grants = mkIf (config.mine.zrb.backupNode != null) {
+      ssh.grants = mkIf (config.mine.zrb.backupNode != null && config.services.zrb.client.enable) {
         zrb-primary.to.hostname = config.mine.zrb.backupSSH;
       };
 
