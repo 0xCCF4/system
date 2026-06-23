@@ -44,8 +44,7 @@
       ];
 
       mine.zrb.backupOnShutdown = true;
-      services.zrb.client.jobs.daily.enable = false; # until we have a full root backup
-      services.zrb.client.enable = false;
+      services.zrb.client.enable = true;
 
       home-manager.users.mx = {
         config = {
