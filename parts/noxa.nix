@@ -40,6 +40,7 @@ in
                   (final: prev: prev // { timetrax = inputs.timetrax.packages.${config.nixpkgs.hostPlatform.system}.default; })
                   (final: prev: prev // { frostx = inputs.frostx.packages.${config.nixpkgs.hostPlatform.system}.default; })
                   (final: prev: prev // { zrb = inputs.zrb.packages.${config.nixpkgs.hostPlatform.system}.default; })
+                  (final: prev: prev // { devenv = inputs.devenv.packages.${config.nixpkgs.hostPlatform.system}.default; })
                 ];
               }
             )
