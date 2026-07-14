@@ -32,7 +32,7 @@
     in
     {
       services.hypridle = mkIf cfg.enable {
-        enable = mkDefault true;
+        enable = mkDefault (!osConfig.mine.noSuspend);
 
         settings = {
           general = {

@@ -31,6 +31,10 @@
 
       # Battery management
       mine.tlp.enable = true;
+      mine.noSuspend = mkDefault true;
+      specialisation."suspend".configuration = {
+        mine.noSuspend = false;
+      };
 
       # Remote unlock luks via ssh+tor
       mine.boot.remoteUnlock = true;
