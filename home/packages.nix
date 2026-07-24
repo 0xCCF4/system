@@ -82,6 +82,7 @@ with lib; with builtins;
         cifs-utils # mount and manage CIFS filesystems
         pciutils # PCI device management
         usbutils # USB device management
+        sshfs # SSH remote fs mount
       ]
       ++ lists.optionals cfg.cmdlineExtras [
         uutils-coreutils-noprefix
