@@ -32,7 +32,7 @@
     in
     {
       services.hypridle = mkIf cfg.enable {
-        enable = mkDefault (!osConfig.mine.noSuspend);
+        enable = mkDefault true;
 
         settings = {
           general = {
@@ -71,12 +71,13 @@
               on-timeout = "${hyprctl} dispatch dpms off";
               on-resume = "${hyprctl} dispatch dpms on && ${brightnessctl} -r";
             }
+          ] ++ (optionals (!osConfig.mine.noSuspend)
             {
               # suspend system
               timeout = cfg.suspend * 60;
               on-timeout = "${systemctl} suspend";
             }
-          ];
+          );
         };
       };
     };
