@@ -71,7 +71,7 @@
               on-timeout = "${hyprctl} dispatch dpms off";
               on-resume = "${hyprctl} dispatch dpms on && ${brightnessctl} -r";
             }
-          ] ++ (optionals (!osConfig.mine.noSuspend)
+          ] ++ (optional (!osConfig.mine.noSuspend)
             {
               # suspend system
               timeout = cfg.suspend * 60;
