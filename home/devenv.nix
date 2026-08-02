@@ -8,6 +8,6 @@
 with lib;
 {
   config = {
-    programs.devenv.enable = mkDefault true;
+    #programs.devenv.enable = mkDefault true;
   };
 }
