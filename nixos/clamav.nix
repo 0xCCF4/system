@@ -58,7 +58,7 @@ with lib;
       virusNotify = pkgs.writeScript "notify-all-users-of-virus" ''
         #!/bin/sh
         ALERT="Signature detected by clamav: $CLAM_VIRUSEVENT_VIRUSNAME in $CLAM_VIRUSEVENT_FILENAME"
-        echo "$ALERT" | ${getExe' pkgs.coreutils "tee"} -a /tmp/clamav-virus-alerts.log
+        echo "$ALERT" | ${getExe' pkgs.coreutils "tee"} -a /var/log/clamav/clamav-virus-alerts.log
         # Send an alert to all graphical users.
         for ADDRESS in /run/user/*; do
             USERID=''${ADDRESS#/run/user/}
