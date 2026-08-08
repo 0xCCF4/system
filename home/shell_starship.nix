@@ -260,7 +260,7 @@ in
         hostname = {
           ssh_only = false;
           detect_env_vars = [ "!TMUX" "SSH_CONNECTION" ];
-          style = "bg:${yellow} fg:${cyan}";
+          style = "bg:${black} fg:${cyan}";
           format = "[@ $hostname ]($style)";
         };
 
