@@ -21,8 +21,6 @@
     # Battery management
     mine.tlp.enable = true;
 
-    security.sudo.wheelNeedsPassword = mkIf config.age.rekey.initialRollout false;
-
     mine.desktop.hyprland.enable = true;
     mine.desktop.gnome.enable = true;
 

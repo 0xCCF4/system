@@ -4,45 +4,71 @@
 , lib
 , ...
 }:
-with lib; with builtins;
+
+let
+  colors = config.lib.stylix.colors;
+
+  # Base16 neutral shades
+  black = colors.withHashtag.base00;
+  black1 = colors.withHashtag.base01;
+  black2 = colors.withHashtag.base02;
+  black3 = colors.withHashtag.base03;
+  black4 = colors.withHashtag.base04;
+
+  white = colors.withHashtag.base05;
+  white1 = colors.withHashtag.base06;
+  white2 = colors.withHashtag.base07;
+
+  # Base16 semantic colors
+  red = colors.withHashtag.base08;
+  orange = colors.withHashtag.base09;
+  yellow = colors.withHashtag.base0A;
+  green = colors.withHashtag.base0B;
+  cyan = colors.withHashtag.base0C;
+  blue = colors.withHashtag.base0D;
+  purple = colors.withHashtag.base0E;
+  brown = colors.withHashtag.base0F;
+in
+
 {
   config = {
     programs.starship = {
       enable = true;
+
       settings = {
         "$schema" = "https://starship.rs/config-schema.json";
 
         format = lib.concatStrings [
-          "[](base09)"
-          #"$os"
+          "[](${orange})"
+          # "$os"
           "$sudo"
           "$username"
-          "[](bg:base0A fg:base09)"
+          "[](bg:${black} fg:${orange})"
           "$directory"
-          #"$nix_shell"
+          # "$nix_shell"
           "$hostname"
-          #"[](fg:base09 bg:base0C)"
-          #"$git_branch"
-          #"$git_status"
+          # "[](fg:${orange} bg:${cyan})"
+          # "$git_branch"
+          # "$git_status"
           "$custom"
-          "[](fg:base00 bg:base01)"
-          #"$c"
-          #"$cpp"
-          #"$rust"
-          #"[](fg:base0D bg:base02)"
-          #"$docker_context"
-          #"$conda"
-          #"$pixi"
-          #"$nix_shell"
-          #"[](fg:base02 bg:base01)"
+          "[](fg:${black} bg:${black1})"
+          # "$c"
+          # "$cpp"
+          # "$rust"
+          # "[](fg:${blue} bg:${black2})"
+          # "$docker_context"
+          # "$conda"
+          # "$pixi"
+          # "$nix_shell"
+          # "[](fg:${black2} bg:${black1})"
           "$time"
-          "[ ](fg:base01)"
+          "[ ](fg:${black1})"
           "$line_break$character"
         ];
 
         os = {
           disabled = false;
-          style = "bg:base09 fg:base07";
+          style = "bg:${orange} fg:${white2}";
 
           symbols = {
             Windows = "󰍲";
@@ -71,13 +97,13 @@ with lib; with builtins;
 
         username = {
           show_always = true;
-          style_user = "bg:base09 fg:base07";
-          style_root = "bg:base09 fg:base07";
+          style_user = "bg:${orange} fg:${white2}";
+          style_root = "bg:${orange} fg:${white2}";
           format = "[ $user ]($style)";
         };
 
         directory = {
-          style = "fg:base07 bg:base0A";
+          style = "fg:${white2} bg:${black}";
           format = "[ $path ]($style)";
           truncation_length = 3;
           truncation_symbol = "…/";
@@ -94,23 +120,24 @@ with lib; with builtins;
         git_branch = {
           disabled = false;
           symbol = "";
-          style = "bg:base0C";
-          format = "[[ $symbol $branch ](fg:base07 bg:base0C)]($style)";
+          style = "bg:${cyan}";
+          format = "[[ $symbol $branch ](fg:${white2} bg:${cyan})]($style)";
         };
 
         git_status = {
           disabled = false;
-          style = "bg:base0C";
-          format = "[[($all_status$ahead_behind )](fg:base07 bg:base0C)]($style)";
+          style = "bg:${cyan}";
+          format = "[[($all_status$ahead_behind )](fg:${white2} bg:${cyan})]($style)";
         };
 
-        # custom module for jj status
+        # Custom module for jj status
         custom.jj = {
           ignore_timeout = true;
           description = "The current jj status";
           detect_folders = [ ".jj" ];
-          format = "[[ $symbol $output ](fg:base07 bg:base0C)]($style)";
+          format = "[[ $symbol $output ](fg:${white2} bg:${cyan})]($style)";
           symbol = "";
+
           command = ''
             jj log --revisions @ --no-graph --ignore-working-copy --color never --limit 1 --template '
               separate(" ",
@@ -139,106 +166,109 @@ with lib; with builtins;
 
         sudo = {
           symbol = "";
-          style = "bg:base09 fg:base07";
-          format = "[[[](bg:base08 fg:base09) $symbol [](bg:base09 fg:base08)](fg:base07 bg:base08)]($style)";
+          style = "bg:${orange} fg:${white2}";
+
+          format =
+            "[[[](bg:${red} fg:${orange}) $symbol [](bg:${orange} fg:${red})](fg:${white2} bg:${red})]($style)";
+
           disabled = false;
         };
 
         nodejs = {
           symbol = "";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         c = {
           symbol = " ";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         cpp = {
           symbol = " ";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         rust = {
           symbol = "";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         golang = {
           symbol = "";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         php = {
           symbol = "";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         java = {
           symbol = "";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         kotlin = {
           symbol = "";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         haskell = {
           symbol = "";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         python = {
           symbol = "";
-          style = "bg:base0D";
-          format = "[[ $symbol( $version) ](fg:base07 bg:base0D)]($style)";
+          style = "bg:${blue}";
+          format = "[[ $symbol( $version) ](fg:${white2} bg:${blue})]($style)";
         };
 
         docker_context = {
           symbol = "";
-          style = "bg:base02";
-          format = "[[ $symbol( $context) ](fg:#83a598 bg:base02)]($style)";
+          style = "bg:${black2}";
+          format = "[[ $symbol( $context) ](fg:${cyan} bg:${black2})]($style)";
         };
 
         conda = {
-          style = "bg:base02";
-          format = "[[ $symbol( $environment) ](fg:#83a598 bg:base02)]($style)";
+          style = "bg:${black2}";
+          format = "[[ $symbol( $environment) ](fg:${cyan} bg:${black2})]($style)";
         };
 
         pixi = {
-          style = "bg:base02";
-          format = "[[ $symbol( $version)( $environment) ](fg:base07 bg:base02)]($style)";
+          style = "bg:${black2}";
+          format = "[[ $symbol( $version)( $environment) ](fg:${white2} bg:${black2})]($style)";
         };
 
         nix_shell = {
           disable = true;
           symbol = "❄️ ";
-          style = "bg:base02";
-          format = "[ via [$symbol$state( \($name\))]($style)";
+          style = "bg:${black2}";
+          format = "[ via [$symbol$state( \\($name\\))]($style)";
         };
 
         hostname = {
           ssh_only = false;
           detect_env_vars = [ "!TMUX" "SSH_CONNECTION" ];
-          style = "bg:base0A fg:base0C";
+          style = "bg:${yellow} fg:${cyan}";
           format = "[@ $hostname ]($style)";
         };
 
         time = {
           disabled = false;
           time_format = "%R";
-          style = "bg:base01";
-          format = "[[  $time ](fg:base07 bg:base01)]($style)";
+          style = "bg:${black1}";
+          format = "[[  $time ](fg:${white2} bg:${black1})]($style)";
         };
 
         line_break = {
@@ -247,12 +277,13 @@ with lib; with builtins;
 
         character = {
           disabled = false;
-          success_symbol = "[](bold fg:base0B)";
-          error_symbol = "[](bold fg:base08)";
-          vimcmd_symbol = "[](bold fg:base0B)";
-          vimcmd_replace_one_symbol = "[](bold fg:base0E)";
-          vimcmd_replace_symbol = "[](bold fg:base0E)";
-          vimcmd_visual_symbol = "[](bold fg:base0A)";
+
+          success_symbol = "[](bold fg:${green})";
+          error_symbol = "[](bold fg:${red})";
+          vimcmd_symbol = "[](bold fg:${green})";
+          vimcmd_replace_one_symbol = "[](bold fg:${purple})";
+          vimcmd_replace_symbol = "[](bold fg:${purple})";
+          vimcmd_visual_symbol = "[](bold fg:${yellow})";
         };
       };
     };
