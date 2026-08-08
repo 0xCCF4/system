@@ -42,8 +42,6 @@ with lib;
 
     mine.persistence.enable = true;
 
-    security.sudo.wheelNeedsPassword = false;
-
     # Remote unlock luks via ssh+tor
     mine.boot.remoteUnlock = true;
     mine.boot.tor.enable = true;

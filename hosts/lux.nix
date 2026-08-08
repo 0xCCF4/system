@@ -29,9 +29,6 @@
 
     mine.persistence.enable = true;
 
-    # todo remove
-    security.sudo.wheelNeedsPassword = false;
-
     # Remote unlock luks via ssh+tor
     mine.boot.remoteUnlock = true;
     boot.initrd.network.ssh.port = 4444;

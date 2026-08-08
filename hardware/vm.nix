@@ -31,7 +31,7 @@ with lib;
 
   services.qemuGuest.enable = mkDefault true;
 
-  security.sudo.wheelNeedsPassword = mkDefault false; # Don't ask for passwords
+  security.sudo.wheelNeedsPassword = false; # Don't ask for passwords
   services.openssh = {
     enable = mkDefault true;
     settings.PasswordAuthentication = mkDefault false;
