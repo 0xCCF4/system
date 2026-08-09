@@ -10,8 +10,18 @@ in
     in
     {
       bind = [
-        "$mainMod SHIFT CONTROL, p, exec, ${grim} - | ${wlcopy}"
-        "$mainMod SHIFT, p, exec, ${grim} -g \"$(${slurp})\" - | ${wlcopy}"
+        {
+          _args = [
+            (generators.mkLuaInline "mainMod .. \" + SHIFT + CONTROL + p\"")
+            (generators.mkLuaInline "hl.dsp.exec_cmd(\"${grim} - | ${wlcopy}\")")
+          ];
+        }
+        {
+          _args = [
+            (generators.mkLuaInline "mainMod .. \" + SHIFT + p\"")
+            (generators.mkLuaInline "hl.dsp.exec_cmd('${grim} -g \"$(${slurp})\" - | ${wlcopy}')")
+          ];
+        }
       ];
     };
 }

@@ -2,32 +2,43 @@
   imports = inputs.noxa.lib.nixDirectoryToList ./.;
 
   wayland.windowManager.hyprland.settings = {
-    #animations.enabled = false;
-    decoration.blur.enabled = false;
-    decoration.shadow.enabled = false;
+    config = {
+      decoration.blur.enabled = false;
+      decoration.shadow.enabled = false;
 
-    cursor = {
-      inactive_timeout = 10;
+      cursor = {
+        inactive_timeout = 10;
+      };
+
+      general = {
+        border_size = 2;
+        gaps_in = 2;
+        gaps_out = 1;
+      };
     };
 
-    general = {
-      border_size = 2;
-      gaps_in = 2;
-      gaps_out = 1;
-    };
-
-    animations = {
-      bezier = [ "easeInOutQuart, 0.86, 0, 0.07, 1" ];
-      animation = [
-        "windows, 1, 7, easeInOutQuart"
-        "windowsIn, 1, 7, default, popin 80%"
-        "windowsOut, 1, 7, default, popin 80%"
-        "windowsMove, 1, 5, default"
-        "border, 1, 10, default"
-        "borderangle, 1, 8, default"
-        "fade, 1, 2, default"
-        "workspaces, 1, 6, default"
+    curve = {
+      _args = [
+        "easeInOutQuart"
+        {
+          type = "bezier";
+          points = [
+            [ 0.86 0 ]
+            [ 0.07 1 ]
+          ];
+        }
       ];
     };
+
+    animation = [
+      { leaf = "windows"; enabled = true; speed = 7; bezier = "easeInOutQuart"; }
+      { leaf = "windowsIn"; enabled = true; speed = 7; bezier = "default"; style = "popin 80%"; }
+      { leaf = "windowsOut"; enabled = true; speed = 7; bezier = "default"; style = "popin 80%"; }
+      { leaf = "windowsMove"; enabled = true; speed = 5; bezier = "default"; }
+      { leaf = "border"; enabled = true; speed = 10; bezier = "default"; }
+      { leaf = "borderangle"; enabled = true; speed = 8; bezier = "default"; }
+      { leaf = "fade"; enabled = true; speed = 2; bezier = "default"; }
+      { leaf = "workspaces"; enabled = true; speed = 6; bezier = "default"; }
+    ];
   };
 }
