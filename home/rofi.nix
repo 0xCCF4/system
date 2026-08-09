@@ -59,7 +59,7 @@ with lib; with builtins;
           "window" = {
             "background-color" = mkLiteral "@background";
             "border-color" = mkRgba rofiOpacity "base0D";
-            "border-width" = "${toString config.wayland.windowManager.hyprland.settings.general.border_size}px";
+            "border-width" = "2px";
             "border" = mkLiteral "2";
           };
 

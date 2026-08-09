@@ -63,7 +63,16 @@
     {
       config = mkIf osConfig.programs.hyprland.enable {
         wayland.windowManager.hyprland.settings = {
-          exec-once = map (pkg: getExe pkg) config.home.mine.autostart;
+          on = optional (config.home.mine.autostart != [ ]) {
+            _args = [
+              "hyprland.start"
+              (generators.mkLuaInline ''
+                function()
+                ${concatMapStringsSep "\n" (pkg: "  hl.exec_cmd(\"${getExe pkg}\")") config.home.mine.autostart}
+                end
+              '')
+            ];
+          };
         };
       };
     }

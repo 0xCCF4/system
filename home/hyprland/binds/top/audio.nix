@@ -1,15 +1,30 @@
 { pkgs, lib, osConfig, config, ... }: with lib; with builtins; let
-
+  wpctl = getExe' pkgs.wireplumber "wpctl";
 in
 {
   wayland.windowManager.hyprland.settings = {
-    bindl = [
-      ", XF86AudioMute, exec, ${getExe' pkgs.wireplumber "wpctl"} set-mute @DEFAULT_AUDIO_SINK@ toggle"
-    ];
-
-    bindel = [
-      ", XF86AudioRaiseVolume, exec, ${getExe' pkgs.wireplumber "wpctl"} set-volume @DEFAULT_AUDIO_SINK@ 5%+"
-      ", XF86AudioLowerVolume, exec, ${getExe' pkgs.wireplumber "wpctl"} set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+    bind = [
+      {
+        _args = [
+          "XF86AudioMute"
+          (generators.mkLuaInline "hl.dsp.exec_cmd(\"${wpctl} set-mute @DEFAULT_AUDIO_SINK@ toggle\")")
+          { locked = true; }
+        ];
+      }
+      {
+        _args = [
+          "XF86AudioRaiseVolume"
+          (generators.mkLuaInline "hl.dsp.exec_cmd(\"${wpctl} set-volume @DEFAULT_AUDIO_SINK@ 5%+\")")
+          { locked = true; repeating = true; }
+        ];
+      }
+      {
+        _args = [
+          "XF86AudioLowerVolume"
+          (generators.mkLuaInline "hl.dsp.exec_cmd(\"${wpctl} set-volume @DEFAULT_AUDIO_SINK@ 5%-\")")
+          { locked = true; repeating = true; }
+        ];
+      }
     ];
   };
 }

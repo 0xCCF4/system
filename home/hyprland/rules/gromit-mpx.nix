@@ -5,18 +5,36 @@
       gromit-execstart = "${toString config.systemd.user.services.gromit-mpx.Service.ExecStart}";
     in
     mkIf config.services.gromit-mpx.enable {
-      workspace = [ "special:gromit, gapsin:0, gapsout:0, on-created-empty: ${gromit-execstart}" ];
-      windowrulev2 = [
-        "workspace special:gromit silent, class:^(Gromit-mpx)$"
-        "noblur, class:^(Gromit-mpx)$"
-        "opacity 1 override, class:^(Gromit-mpx)$"
-        "noshadow, class:^(Gromit-mpx)$"
-        "suppressevent fullscreen, class:^(Gromit-mpx)$"
-        "size 100% 100%, class:^(Gromit-mpx)$"
-      ];
+      workspace_rule = {
+        workspace = "special:gromit";
+        gaps_in = 0;
+        gaps_out = 0;
+        on_created_empty = "${gromit-execstart}";
+      };
+
+      window_rule = {
+        match.class = "^(Gromit-mpx)$";
+        workspace = "special:gromit silent";
+        no_blur = true;
+        opacity = "1 override";
+        no_shadow = true;
+        suppress_event = "fullscreen";
+        size = [ "monitor_w" "monitor_h" ];
+      };
+
       bind = [
-        "$mainMod, t, togglespecialworkspace, gromit"
-        "$mainMod, t, exec, ${gromit}/bin/gromit-mpx -t"
+        {
+          _args = [
+            (generators.mkLuaInline "mainMod .. \" + t\"")
+            (generators.mkLuaInline "hl.dsp.workspace.toggle_special(\"gromit\")")
+          ];
+        }
+        {
+          _args = [
+            (generators.mkLuaInline "mainMod .. \" + t\"")
+            (generators.mkLuaInline "hl.dsp.exec_cmd(\"${gromit}/bin/gromit-mpx -t\")")
+          ];
+        }
       ];
     };
 }

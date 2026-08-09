@@ -3,11 +3,21 @@
 
   wayland.windowManager.hyprland = {
     settings.bind = [
-      "$mainMod, Backspace, submap, clean"
+      {
+        _args = [
+          (generators.mkLuaInline "mainMod .. \" + Backspace\"")
+          (generators.mkLuaInline "hl.dsp.submap(\"clean\")")
+        ];
+      }
     ];
 
     submaps.clean.settings.bind = [
-      "$mainMod, Backspace, submap, reset"
+      {
+        _args = [
+          (generators.mkLuaInline "mainMod .. \" + Backspace\"")
+          (generators.mkLuaInline "hl.dsp.submap(\"reset\")")
+        ];
+      }
     ];
   };
 }

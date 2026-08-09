@@ -2,44 +2,39 @@
   imports = inputs.noxa.lib.nixDirectoryToList ./.;
 
   wayland.windowManager.hyprland.settings = {
-    windowrule = [
+    window_rule = [
       {
         name = "suppress-maximize";
-        "match:class" = ".*";
+        match.class = ".*";
 
-        suppress_event = [ "maximize" ];
+        suppress_event = "maximize";
       }
       {
         name = "pinned-border-size";
-        "match:pin" = 1;
+        match.pin = true;
         border_size = 10;
       }
       # fix jetbrains windows suppress.focus.stealing=false
       {
-        name = "noinitialfocus";
+        name = "noinitialfocus-toolbox";
         no_initial_focus = true;
-        "match:class" = "jetbrains-toolbox";
+        match.class = "jetbrains-toolbox";
       }
       {
-        name = "noinitialfocus";
+        name = "noinitialfocus-jetbrains";
         no_initial_focus = true;
-        "match:class" = "(jetbrains-)(.*)";
+        match.class = "(jetbrains-)(.*)";
       }
       {
-        name = "noinitialfocus";
+        name = "noinitialfocus-jetbrains-win";
         no_initial_focus = true;
-        "match:class" = "(jetbrains-)(.*)";
-      }
-      {
-        name = "noinitialfocus";
-        no_initial_focus = true;
-        "match:class" = "(jetbrains-) (.*)";
-        "match:title" = "^win(.*)";
-        "match:initial_title" = "win.*";
+        match.class = "(jetbrains-) (.*)";
+        match.title = "^win(.*)";
+        match.initial_title = "win.*";
         no_focus = true;
         focus_on_activate = false;
         no_follow_mouse = true;
-        suppress_event = [ "activatefocus" ];
+        suppress_event = "activatefocus";
       }
     ];
   };
