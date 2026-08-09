@@ -121,10 +121,6 @@
         description = "Update flake inputs and test/switch the system, with automatic rollback";
         after = [ "network-online.target" ];
         wants = [ "network-online.target" ];
-        # This unit's own definition changes on almost every run (it embeds a
-        # store path derived from the flake source), so switch-to-configuration
-        # would otherwise try to restart it while it is still running itself,
-        # canceling the in-progress job.
         restartIfChanged = false;
         stopIfChanged = false;
         serviceConfig = {
