@@ -1,5 +1,5 @@
 { config, lib, ... }: with lib; {
-  config = mkIf cfg.enable {
+  config = {
     nix.gc = {
       automatic = mkDefault true;
       dates = "daily";

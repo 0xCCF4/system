@@ -78,7 +78,7 @@ with lib;
     services.avahi = {
       enable = true;
       reflector = true;
-      interfaces = [
+      allowInterfaces = [
         "lanLeft"
       ];
     };
