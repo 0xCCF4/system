@@ -59,11 +59,9 @@ in
         { _args = [ "_JAVA_AWT_WM_NONREPARENTING" "1" ]; }
       ];
 
-      permission = {
-        binary = "${getExe portalPackage}";
-        type = "screencopy";
-        mode = "allow";
-      };
+      permission = [
+        "${getExe portalPackage}, screencopy, allow"
+      ];
     };
   };
 }

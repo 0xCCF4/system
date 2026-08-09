@@ -103,7 +103,6 @@ with lib; with builtins;
         presenterm # terminal presentation tool
         ncspot # cli spotify client
         fselect # find files with SQL-like syntax
-        zoxide # cd learning tool
         xh # http requests
         dust # du alternative
         dua # directory disk usage analyzer
