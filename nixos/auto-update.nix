@@ -56,8 +56,18 @@
           OLDSYSTEM="$(readlink -f /run/current-system)"
 
           WORKDIR="$(mktemp -d -t auto-update.XXXXXXXXXX)"
-          cleanup() { rm -rf "$WORKDIR"; }
-          trap cleanup EXIT
+          COMMITTED=0
+
+          finish() {
+            local status=$?
+            if [ "$COMMITTED" -ne 1 ]; then
+              echo "[auto-update] no committed update on exit - ensuring old system is active: $OLDSYSTEM" >&2
+              "$OLDSYSTEM/bin/switch-to-configuration" test || echo "[auto-update] rollback activation FAILED" >&2
+            fi
+            rm -rf "$WORKDIR"
+            exit "$status"
+          }
+          trap finish EXIT TERM INT
 
           echo "[auto-update] old system generation: $OLDSYSTEM"
           echo "[auto-update] staging flake copy in: $WORKDIR"
@@ -95,14 +105,13 @@
           done
 
           if [ "$healthy" -ne 1 ]; then
-            echo "[auto-update] rolling back to: $OLDSYSTEM" >&2
-            "$OLDSYSTEM/bin/switch-to-configuration" test
-            echo "[auto-update] rollback complete - run treated as FAILED" >&2
+            echo "[auto-update] health check failed - old system will be restored on exit" >&2
             exit 1
           fi
 
           echo "[auto-update] health check passed - promoting new generation"
           nixos-rebuild switch --flake "$WORKDIR/flake#$HOSTNAME"
+          COMMITTED=1
           echo "[auto-update] done"
         '';
       };
@@ -112,10 +121,17 @@
         description = "Update flake inputs and test/switch the system, with automatic rollback";
         after = [ "network-online.target" ];
         wants = [ "network-online.target" ];
+        # This unit's own definition changes on almost every run (it embeds a
+        # store path derived from the flake source), so switch-to-configuration
+        # would otherwise try to restart it while it is still running itself,
+        # canceling the in-progress job.
+        restartIfChanged = false;
+        stopIfChanged = false;
         serviceConfig = {
           Type = "oneshot";
           ExecStart = getExe autoUpdateScript;
           TimeoutStartSec = "infinity";
+          TimeoutStopSec = "infinity";
           PrivateTmp = true;
         };
       };
