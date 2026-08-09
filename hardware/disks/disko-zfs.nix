@@ -19,6 +19,8 @@
     {
       boot.zfs.forceImportRoot = false;
 
+      services.zfs.autoScrub.enable = mkDefault true;
+
       boot.initrd = {
         # This would be a nightmare without systemd initrd
         systemd.enable = true;
