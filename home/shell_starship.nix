@@ -121,13 +121,13 @@ in
           disabled = false;
           symbol = "";
           style = "bg:${cyan}";
-          format = "[[ $symbol $branch ](fg:${white2} bg:${cyan})]($style)";
+          format = "[[ $symbol $branch ](fg:${purple} bg:${black})]($style)";
         };
 
         git_status = {
           disabled = false;
           style = "bg:${cyan}";
-          format = "[[($all_status$ahead_behind )](fg:${white2} bg:${cyan})]($style)";
+          format = "[[($all_status$ahead_behind )](fg:${purple} bg:${black})]($style)";
         };
 
         # Custom module for jj status
@@ -135,7 +135,7 @@ in
           ignore_timeout = true;
           description = "The current jj status";
           detect_folders = [ ".jj" ];
-          format = "[[ $symbol $output ](fg:${white2} bg:${cyan})]($style)";
+          format = "[[ $symbol $output ](fg:${purple} bg:${black})]($style)";
           symbol = "";
 
           command = ''
