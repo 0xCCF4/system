@@ -44,7 +44,7 @@ with lib;
     in
     lib.mkIf cfg.enable {
       home.mine.persistence.cache.directories = [
-        ".local/share/frostx "
+        ".local/share/frostx"
       ];
 
       home.mine.persistence.data.directories = [
