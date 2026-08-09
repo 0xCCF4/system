@@ -92,7 +92,13 @@
               "${userName}" =
                 { ... }: {
                   imports = [
-                    (if elem userName uniqUsers then self.hmModules.default else { })
+                    (if elem userName uniqUsers then self.hmModules.default else {
+                      # Fake users (service accounts) don't import the full home/*.nix
+                      # stack, so they miss the same-value overrides regular users get.
+                      programs.ssh.enableDefaultConfig = false;
+                      stylix.targets.qt.platform = mkForce "qtct";
+                      qt.platformTheme.name = mkForce "adwaita";
+                    })
                     (userModule.home or { })
                   ];
 
