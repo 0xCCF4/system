@@ -41,10 +41,16 @@ with lib;
         enable = mkDefault true;
         defaultEditor = mkDefault true;
         extraPackages = with pkgs; [ marksman ];
-        package = pkgs.evil-helix;
+        # Enable helix-view's "term" cargo feature so the OSC52 (Termcode)
+        # clipboard provider is compiled in; nixpkgs' evil-helix build omits
+        # it by default, which silently breaks clipboard writes over SSH.
+        package = pkgs.evil-helix.overrideAttrs (old: {
+          buildFeatures = (old.buildFeatures or [ ]) ++ [ "helix-view/term" ];
+        });
         settings = {
           editor = {
             mouse = false;
+            clipboard-provider = "termcode";
 
             cursor-shape.normal = "block";
             cursor-shape.insert = "bar";
@@ -93,6 +99,15 @@ with lib;
               "delete_selection"
               "paste_after"
             ];
+
+            # vim substitute: delete selection, drop into insert mode
+            "s" = [ "delete_selection" "insert_mode" ];
+
+            # yank/paste through the system clipboard (OSC52) instead of
+            # Helix's internal register, matching vim's clipboard=unnamedplus
+            "y" = "yank_to_clipboard";
+            "p" = "paste_clipboard_after";
+            "P" = "paste_clipboard_before";
           };
         };
       };
