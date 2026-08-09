@@ -31,8 +31,8 @@ with lib;
       cfg = config.home.mine.timetrax;
     in
     lib.mkIf cfg.enable {
-      home.mine.persistence.cache.directories = [
-        ".timetrax "
+      home.mine.persistence.data.directories = [
+        ".timetrax"
       ];
 
       home.packages = [ cfg.package ];
