@@ -29,6 +29,10 @@
 
     mine.persistence.enable = true;
 
+    mine.autoUpdate.enable = true;
+    mine.autoUpdate.schedule = "daily";
+    mine.autoUpdate.inputs = [ "nixpkgs" "nixpkgs-stable" ];
+
     # Remote unlock luks via ssh+tor
     mine.boot.remoteUnlock = true;
     boot.initrd.network.ssh.port = 4444;
