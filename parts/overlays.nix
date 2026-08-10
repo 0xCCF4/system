@@ -1,9 +1,9 @@
-{ inputs, self, ... }: {
+{ inputs, withSystem, ... }: {
   flake.overlays.default = final: prev:
-    self.packages.${final.system}
+    (withSystem prev.system ({ config, ... }: config.packages))
     // {
-      timetrax = inputs.timetrax.packages.${final.system}.default;
-      frostx = inputs.frostx.packages.${final.system}.default;
-      zrb = inputs.zrb.packages.${final.system}.default;
+      timetrax = inputs.timetrax.packages.${prev.system}.default;
+      frostx = inputs.frostx.packages.${prev.system}.default;
+      zrb = inputs.zrb.packages.${prev.system}.default;
     };
 }
