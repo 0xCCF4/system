@@ -33,16 +33,9 @@ in
           defaults.configuration.imports = [
             self.nixosModules.default
             inputs.home-manager.nixosModules.default
-            (
-              { pkgs, lib, config, ... }: {
-                nixpkgs.overlays = [
-                  (final: prev: prev // self.packages.${config.nixpkgs.hostPlatform.system})
-                  (final: prev: prev // { timetrax = inputs.timetrax.packages.${config.nixpkgs.hostPlatform.system}.default; })
-                  (final: prev: prev // { frostx = inputs.frostx.packages.${config.nixpkgs.hostPlatform.system}.default; })
-                  (final: prev: prev // { zrb = inputs.zrb.packages.${config.nixpkgs.hostPlatform.system}.default; })
-                ];
-              }
-            )
+            {
+              nixpkgs.overlays = [ self.overlays.default ];
+            }
           ];
           defaults.specialArgs = {
             # All these inputs will be available for all hosts, if they import them
