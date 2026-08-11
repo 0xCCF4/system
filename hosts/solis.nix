@@ -68,6 +68,22 @@
 
       security.sudo.wheelNeedsPassword = mkIf config.age.rekey.initialRollout false;
 
+      security.sudo.extraRules = [
+        {
+          users = [ "mx" ];
+          commands = [
+            {
+              command = ''${getExe' pkgs.usbutils "usbreset"} "SAKURA-X"'';
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = ''${getExe' pkgs.usbutils "usbreset"} "PicoScope 3000 Series PC Oscilloscope"'';
+              options = [ "NOPASSWD" ];
+            }
+          ];
+        }
+      ];
+
       # programs.evolution = {
       #   enable = true;
       #   plugins = with pkgs; [
