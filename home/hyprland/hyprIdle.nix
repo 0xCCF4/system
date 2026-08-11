@@ -37,7 +37,7 @@
         settings = {
           general = {
             before_sleep_cmd = "${loginCtrl} lock-session"; # lock before suspend
-            after_sleep_cmd = "${hyprctl} dispatch dpms on"; # enable monitors
+            after_sleep_cmd = "${hyprctl} dispatch 'hl.dsp.dpms({ action = \"enable\" })'"; # enable monitors
             lock_cmd = "${pidof} hyprlock || ${hyprlock}"; # lock only if not already locked
           };
 
@@ -68,8 +68,8 @@
             {
               # turn off monitors
               timeout = cfg.lock * 60 + 20;
-              on-timeout = "${hyprctl} dispatch dpms off";
-              on-resume = "${hyprctl} dispatch dpms on && ${brightnessctl} -r";
+              on-timeout = "${hyprctl} dispatch 'hl.dsp.dpms({ action = \"disable\" })'";
+              on-resume = "${hyprctl} dispatch 'hl.dsp.dpms({ action = \"enable\" })' && ${brightnessctl} -r";
             }
           ] ++ (optional (!osConfig.mine.noSuspend)
             {
