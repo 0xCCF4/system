@@ -255,13 +255,13 @@
       "locked": {
         "lastModified": 1768143854,
         "narHash": "sha256-E5/kyPz4zAZn/lZdvqlF83jMgCWNxmqYjjWuadngCbk=",
-        "owner": "kirelagin",
+        "owner": "nix-community",
         "repo": "dns.nix",
         "rev": "a97cf4156e9f044fe4bed5be531061000dfabb07",
         "type": "github"
       },
       "original": {
-        "owner": "kirelagin",
+        "owner": "nix-community",
         "repo": "dns.nix",
         "type": "github"
       }

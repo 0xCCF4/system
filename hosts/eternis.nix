@@ -93,7 +93,7 @@ with lib;
         microvm.shares = [{
           proto = "virtiofs";
           tag = "data";
-          source = "/var/lib/microvms/paperless/data";
+          source = "/persist/microvms/paperless/data";
           mountPoint = "/paperless";
         }];
 
