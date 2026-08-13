@@ -64,7 +64,7 @@
 
     # NixOS dns zone file builder
     dns = {
-      url = "github:kirelagin/dns.nix";
+      url = "github:nix-community/dns.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

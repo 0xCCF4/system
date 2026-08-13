@@ -482,8 +482,7 @@ in
         '';
 
         systemd.enable = true;
-        # todo
-        # systemd.target = lib.mkIf config.modules.home.waybar.enable "sway-session.target";
+        systemd.target = "hyprland-session.target";
       };
     };
 }

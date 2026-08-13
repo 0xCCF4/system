@@ -116,24 +116,30 @@
             Type = "oneshot";
 
             # Runs during shutdown
-            ExecStop = pkgs.writeShellApplication {
+            ExecStop = "${pkgs.writeShellApplication {
               name = "zrb-backup-on-shutdown";
               text = ''
-                current_tty=$(tty)
-                chvt "/dev/tty8"
+                current_vt=$(cat /sys/class/tty/tty0/active)
+                current_vt=''${current_vt#tty}
+                trap '${pkgs.kbd}/bin/chvt "$current_vt" || true' EXIT
+
+                ${pkgs.kbd}/bin/chvt 8 || true
                 sleep 0.2
 
-                sudo -u ${dailyService.serviceConfig.User} -n ${dailyService.serviceConfig.ExecStart} --tui || true
+                /run/wrappers/bin/sudo -u ${dailyService.serviceConfig.User} -n ${dailyService.serviceConfig.ExecStart} --tui || true
 
                 sleep 1
-                chvt "$current_tty"
                 exit 0
               '';
-            };
+            }}/bin/zrb-backup-on-shutdown";
 
             RemainAfterExit = true;
 
-            TimeoutStopSec = "infinity";
+            # WatchdogSec/NotifyAccess don't apply here: this unit has no ExecStart, only
+            # ExecStop, so there's no "main process" phase for systemd's watchdog to monitor
+            # (confirmed empirically: WatchdogTimestamp never gets set during ExecStop).
+            # TimeoutStopSec is the only mechanism that actually bounds ExecStop's runtime.
+            TimeoutStopSec = "30min";
 
             StandardOutput = "tty";
             StandardError = "tty";
