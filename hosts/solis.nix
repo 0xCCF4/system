@@ -24,6 +24,8 @@
 
       mine.persistence.enable = true;
 
+      mine.eduroam.enable = true;
+
       specialisation."de-keyboard".configuration = {
         mine.locale.keyboardLayout = mkForce "de";
         mine.locale.keyboardVariant = mkForce "nodeadkeys";

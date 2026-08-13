@@ -24,6 +24,8 @@
     mine.desktop.hyprland.enable = true;
     mine.desktop.gnome.enable = true;
 
+    mine.eduroam.enable = true;
+
 
     environment.systemPackages = with pkgs; [
       android-tools
