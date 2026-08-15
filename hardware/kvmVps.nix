@@ -32,11 +32,11 @@ with lib;
   nixpkgs.hostPlatform = mkDefault "x86_64-linux";
 
   # Networking
-  networking.interfaces.lan.ipv6.addresses = mkIf (config.mine.info.public.ipv6 != null) [
+  networking.interfaces.wan.ipv6.addresses = mkIf (config.mine.info.public.ipv6 != null) [
     { address = config.mine.info.public.ipv6; prefixLength = 64; }
   ];
   networking.defaultGateway6 = mkIf (config.mine.info.public.ipv6 != null) {
     address = "fe80::1";
-    interface = "lan";
+    interface = "wan";
   };
 }

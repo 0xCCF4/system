@@ -15,7 +15,7 @@
       };
 
       bindMounts.usersFile = {
-        hostPath = ../../external/private/hosts/lux-radicale-htpasswd;
+        hostPath = toString ../../external/private/hosts/lux-radicale-htpasswd;
         mountPoint = "/var/lib/radicale/users";
         isReadOnly = true;
       };
