@@ -9,18 +9,16 @@ with lib;
     ../persistence.nix
   ];
 
-  options.mine.persistence =
-    with types;
-    {
-      vmDirectories = mkOption {
-        description = "List of directories to persist relative to the microvm host directory.";
-        default = [ ];
-      };
-      vmFiles = mkOption {
-        description = "List of files to persist relative to the microvm host directory.";
-        default = [ ];
-      };
+  options.mine.persistence = with types; {
+    vmDirectories = mkOption {
+      description = "List of directories to persist relative to the microvm host directory.";
+      default = [ ];
     };
+    vmFiles = mkOption {
+      description = "List of files to persist relative to the microvm host directory.";
+      default = [ ];
+    };
+  };
 
   # config =
   #   let

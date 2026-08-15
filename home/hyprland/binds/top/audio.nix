@@ -1,4 +1,12 @@
-{ pkgs, lib, osConfig, config, ... }: with lib; with builtins; let
+{ pkgs
+, lib
+, osConfig
+, config
+, ...
+}:
+with lib;
+with builtins;
+let
   wpctl = getExe' pkgs.wireplumber "wpctl";
 in
 {
@@ -15,14 +23,20 @@ in
         _args = [
           "XF86AudioRaiseVolume"
           (generators.mkLuaInline "hl.dsp.exec_cmd(\"${wpctl} set-volume @DEFAULT_AUDIO_SINK@ 5%+\")")
-          { locked = true; repeating = true; }
+          {
+            locked = true;
+            repeating = true;
+          }
         ];
       }
       {
         _args = [
           "XF86AudioLowerVolume"
           (generators.mkLuaInline "hl.dsp.exec_cmd(\"${wpctl} set-volume @DEFAULT_AUDIO_SINK@ 5%-\")")
-          { locked = true; repeating = true; }
+          {
+            locked = true;
+            repeating = true;
+          }
         ];
       }
     ];

@@ -115,15 +115,23 @@
     };
   };
 
-  outputs = inputs@{ flake-parts, ... }:
+  outputs =
+    inputs@{ flake-parts, ... }:
     # https://flake.parts/module-arguments.html
-    flake-parts.lib.mkFlake { inherit inputs; } (top@{ config, withSystem, moduleWithSystem, ... }: {
-      imports = [
-        ./parts
-      ];
-      systems = [
-        "x86_64-linux"
-        "aarch64-linux"
-      ];
-    });
+    flake-parts.lib.mkFlake { inherit inputs; } (
+      top@{ config
+      , withSystem
+      , moduleWithSystem
+      , ...
+      }:
+      {
+        imports = [
+          ./parts
+        ];
+        systems = [
+          "x86_64-linux"
+          "aarch64-linux"
+        ];
+      }
+    );
 }

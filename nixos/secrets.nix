@@ -1,4 +1,10 @@
-{ noxa, lib, config, ... }: with lib; {
+{ noxa
+, lib
+, config
+, ...
+}:
+with lib;
+{
 
   config = {
     noxa.sshHostKeys.generate = true;
@@ -14,7 +20,13 @@
       let
         path = ./../external/private/secrets;
       in
-      if pathExists path then path else with noxa.lib.ansi; throw "${fgRed}The secrets path ${fgCyan+toString path+fgRed} was not found. Did you run with ${fgCyan}?submodules=1${fgRed}, or did you just cloned this repo? ${fgYellow}Suggestion: Change ${fgCyan}noxa.secrets.secretsPath${fgYellow} to another path.${reset}"
+      if pathExists path then
+        path
+      else
+        with noxa.lib.ansi;
+        throw "${fgRed}The secrets path ${
+          fgCyan + toString path + fgRed
+        } was not found. Did you run with ${fgCyan}?submodules=1${fgRed}, or did you just cloned this repo? ${fgYellow}Suggestion: Change ${fgCyan}noxa.secrets.secretsPath${fgYellow} to another path.${reset}"
     );
   };
 }

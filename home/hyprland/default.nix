@@ -1,4 +1,13 @@
-{ config, lib, osConfig, inputs, pkgs, ... }: with lib; with builtins; {
+{ config
+, lib
+, osConfig
+, inputs
+, pkgs
+, ...
+}:
+with lib;
+with builtins;
+{
   imports = inputs.noxa.lib.nixDirectoryToList ./.;
 
   config = mkIf osConfig.programs.hyprland.enable {

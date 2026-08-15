@@ -2,7 +2,8 @@
 , lib
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
   imports = [
     ./persistence.nix
@@ -15,7 +16,10 @@ with lib; with builtins;
 
     programs.zoxide = {
       enable = mkDefault true;
-      options = [ "--cmd" "cd" ];
+      options = [
+        "--cmd"
+        "cd"
+      ];
     };
   };
 }

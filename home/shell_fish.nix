@@ -4,7 +4,8 @@
 , lib
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
   imports = [
     ./persistence.nix

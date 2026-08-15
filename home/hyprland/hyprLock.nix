@@ -1,4 +1,13 @@
-{ pkgs, lib, config, osConfig, ... }: with pkgs; with builtins; with lib; {
+{ pkgs
+, lib
+, config
+, osConfig
+, ...
+}:
+with pkgs;
+with builtins;
+with lib;
+{
   config = {
     programs.hyprlock = {
       enable = mkDefault osConfig.programs.hyprlock.enable;

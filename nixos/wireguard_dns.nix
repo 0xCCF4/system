@@ -1,4 +1,11 @@
-{ lib, config, noxaConfig, noxa, ... }: with lib; {
+{ lib
+, config
+, noxaConfig
+, noxa
+, ...
+}:
+with lib;
+{
   imports = [
     ./dns.nix
   ];
@@ -36,29 +43,39 @@
   config =
     let
       peerAddresses = mapAttrs
-        (network: data: listToAttrs (
-          map
-            (peer: nameValuePair peer.target
-              (map
-                (address:
-                  (noxa.lib.net.decompose address).addressNoMask)
-                noxaConfig.nodes."${peer.target}".configuration.noxa.wireguard.interfaces."${network}".deviceAddresses)
+        (
+          network: data:
+            listToAttrs (
+              map
+                (
+                  peer:
+                  nameValuePair peer.target (
+                    map (address: (noxa.lib.net.decompose address).addressNoMask)
+                      noxaConfig.nodes."${peer.target}".configuration.noxa.wireguard.interfaces."${
+                  network
+                }".deviceAddresses
+                  )
+                )
+                data.peers
             )
-            data.peers))
+        )
         config.noxa.wireguard.routes;
 
-      dnsEntries = flatten (mapAttrsToList
-        (networkName: peers:
-          let
-            networkConfig = config.noxa.wireguard.interfaces.${networkName};
-          in
-          mapAttrsToList
-            (peer: addresses: {
-              "${peer}${networkConfig.dns.domain}" = mkIf networkConfig.dns.enable addresses;
-            })
-            peers
-        )
-        peerAddresses);
+      dnsEntries = flatten (
+        mapAttrsToList
+          (
+            networkName: peers:
+              let
+                networkConfig = config.noxa.wireguard.interfaces.${networkName};
+              in
+              mapAttrsToList
+                (peer: addresses: {
+                  "${peer}${networkConfig.dns.domain}" = mkIf networkConfig.dns.enable addresses;
+                })
+                peers
+          )
+          peerAddresses
+      );
     in
     mkIf config.mine.dns.wireguard.enable {
       mine.dns.hosts = mkMerge dnsEntries;

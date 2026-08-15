@@ -1,4 +1,10 @@
-{ inputs, lib, self, ... }: with lib; let
+{ inputs
+, lib
+, self
+, ...
+}:
+with lib;
+let
   hosts = inputs.noxa.lib.nixDirectoryToAttr' ../hosts;
 in
 {

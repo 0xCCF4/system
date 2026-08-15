@@ -1,4 +1,13 @@
-{ config, lib, osConfig, noxa, pkgs, ... }: with lib; with builtins; {
+{ config
+, lib
+, osConfig
+, noxa
+, pkgs
+, ...
+}:
+with lib;
+with builtins;
+{
   wayland.windowManager.hyprland.settings =
     let
       gromit = config.services.gromit-mpx.package;
@@ -19,7 +28,10 @@
         opacity = "1 override";
         no_shadow = true;
         suppress_event = "fullscreen";
-        size = [ "monitor_w" "monitor_h" ];
+        size = [
+          "monitor_w"
+          "monitor_h"
+        ];
       };
 
       bind = [

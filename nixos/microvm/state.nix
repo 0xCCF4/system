@@ -1,5 +1,12 @@
-{ config, lib, noxa, options, ... }:
-with lib; with noxa.lib.net.types; with builtins;
+{ config
+, lib
+, noxa
+, options
+, ...
+}:
+with lib;
+with noxa.lib.net.types;
+with builtins;
 {
   # config =
   #   let

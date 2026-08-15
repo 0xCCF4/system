@@ -1,4 +1,12 @@
-{ pkgs, lib, osConfig, config, ... }: with lib; with builtins; {
+{ pkgs
+, lib
+, osConfig
+, config
+, ...
+}:
+with lib;
+with builtins;
+{
   wayland.windowManager.hyprland.settings = {
     bind = [
       {

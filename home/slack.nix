@@ -31,11 +31,13 @@ with lib;
       home.packages = [
         cfg.package
       ];
-      wayland.windowManager.hyprland.settings.permission = [{
-        binary = "${getExe cfg.package}";
-        type = "screencopy";
-        mode = "allow";
-      }];
+      wayland.windowManager.hyprland.settings.permission = [
+        {
+          binary = "${getExe cfg.package}";
+          type = "screencopy";
+          mode = "allow";
+        }
+      ];
       home.mine.unfree.allowList = [
         "slack"
       ];

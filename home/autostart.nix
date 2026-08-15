@@ -1,15 +1,24 @@
-{ lib, osConfig, config, ... }: with lib; with builtins; {
-  options.home.mine.autostart = with types; mkOption {
-    type = listOf package;
-    default = [ ];
-    description = "Packages to autostart on graphical login.";
-  };
+{ lib
+, osConfig
+, config
+, ...
+}:
+with lib;
+with builtins;
+{
+  options.home.mine.autostart =
+    with types;
+    mkOption {
+      type = listOf package;
+      default = [ ];
+      description = "Packages to autostart on graphical login.";
+    };
 
   imports = [
     {
       config = mkIf osConfig.services.desktopManager.gnome.enable {
-        home.file =
-          (listToAttrs (
+        home.file = (
+          listToAttrs (
             map
               (pkg: {
                 name = ".config/autostart/" + pkg.pname + ".desktop";
@@ -51,13 +60,15 @@
                               if pathExists "${appsPath}" then
                                 "${appsPath}/${head (attrNames (filterFiles (readDir "${appsPath}")))}"
                               else
-                                with noxa.lib.ansi; throw "${fgYellow}Selected ${fgCyan}'${pkg.pname}'${fgYellow} for autostart but it does not expose a ${fgCyan}.desktop${fgYellow} file. Please wrap the package in a new one and export a desktop file using ${fgCyan+italic}makeDesktopItem${fgYellow+noItalic}.${reset}"
+                                with noxa.lib.ansi;
+                                throw "${fgYellow}Selected ${fgCyan}'${pkg.pname}'${fgYellow} for autostart but it does not expose a ${fgCyan}.desktop${fgYellow} file. Please wrap the package in a new one and export a desktop file using ${fgCyan + italic}makeDesktopItem${fgYellow + noItalic}.${reset}"
                             )
                         );
                     };
               })
               config.home.mine.autostart
-          ));
+          )
+        );
       };
     }
     {

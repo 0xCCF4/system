@@ -2,7 +2,8 @@
 , lib
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
   config = {
     programs.tmux = {

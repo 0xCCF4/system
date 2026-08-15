@@ -5,13 +5,21 @@
 , self
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
   config = {
     programs.rofi = {
-      enable = mkDefault ((self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable));
+      enable = mkDefault (
+        (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
+        && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable)
+      );
       extraConfig = {
-        modi = [ "drun" "window" "run" ];
+        modi = [
+          "drun"
+          "window"
+          "run"
+        ];
         icon-theme = "Papirus-Dark";
         show-icons = true;
         terminal = "${getExe config.programs.kitty.package}";
@@ -38,9 +46,10 @@ with lib; with builtins;
       };
       theme =
         let
-          /* adapted from https://github.com/nix-community/stylix/blob/master/modules/rofi/hm.nix */
+          # adapted from https://github.com/nix-community/stylix/blob/master/modules/rofi/hm.nix
           inherit (config.lib.formats.rasi) mkLiteral;
-          mkRgba = opacity: color:
+          mkRgba =
+            opacity: color:
             let
               r = config.lib.stylix.colors."${color}-rgb-r";
               g = config.lib.stylix.colors."${color}-rgb-g";
@@ -49,7 +58,7 @@ with lib; with builtins;
             mkLiteral "rgba ( ${r}, ${g}, ${b}, ${opacity} % )";
           mkRgb = mkRgba "100";
           rofiOpacity = toString (builtins.ceil (config.stylix.opacity.popups * 100));
-          /* end from */
+          # end from
         in
         {
           "*" = {

@@ -1,4 +1,12 @@
-{ config, lib, users, pkgs, self, ... }@inputs: with lib; with builtins;
+{ config
+, lib
+, users
+, pkgs
+, self
+, ...
+}@inputs:
+with lib;
+with builtins;
 {
   options.mine = with types; {
     users = mkOption {
@@ -41,34 +49,53 @@
       # all admins are also users
       mine.users = config.mine.admins;
 
-      users.users = mkMerge (map
-        (userName:
-          let
-            userModule = users.${userName};
-          in
-          {
-            "${userName}" = {
-              isNormalUser = true;
-              uid = userModule.uid;
-              extraGroups = (optional (elem userName config.mine.admins) "wheel");
-              hashedPassword = mkIf (userModule ? "hashedPassword") userModule.hashedPassword;
-              openssh.authorizedKeys.keys = userModule.authorizedKeys;
-              shell = mkIf (userModule ? "shell") (mkOverride 800 (
-                if userModule.shell == "bash" then pkgs.bash
-                else if userModule.shell == "zsh" then pkgs.zsh
-                else if userModule.shell == "fish" then pkgs.fish
-                else pkgs.bash
-              ));
-            };
-          }
-        )
-        uniqUsers);
+      users.users = mkMerge (
+        map
+          (
+            userName:
+            let
+              userModule = users.${userName};
+            in
+            {
+              "${userName}" = {
+                isNormalUser = true;
+                uid = userModule.uid;
+                extraGroups = (optional (elem userName config.mine.admins) "wheel");
+                hashedPassword = mkIf (userModule ? "hashedPassword") userModule.hashedPassword;
+                openssh.authorizedKeys.keys = userModule.authorizedKeys;
+                shell = mkIf (userModule ? "shell") (
+                  mkOverride 800 (
+                    if userModule.shell == "bash" then
+                      pkgs.bash
+                    else if userModule.shell == "zsh" then
+                      pkgs.zsh
+                    else if userModule.shell == "fish" then
+                      pkgs.fish
+                    else
+                      pkgs.bash
+                  )
+                );
+              };
+            }
+          )
+          uniqUsers
+      );
 
-      programs.fish.enable = mkDefault (any (user: hasAttr "shell" users.${user} && users.${user}.shell == "fish") uniqUsers);
-      programs.zsh.enable = mkDefault (any (user: hasAttr "shell" users.${user} && users.${user}.shell == "zsh") uniqUsers);
+      programs.fish.enable = mkDefault (
+        any (user: hasAttr "shell" users.${user} && users.${user}.shell == "fish") uniqUsers
+      );
+      programs.zsh.enable = mkDefault (
+        any (user: hasAttr "shell" users.${user} && users.${user}.shell == "zsh") uniqUsers
+      );
       programs.bash.enable = mkDefault true;
 
-      nix.settings.trusted-public-keys = mkMerge (map (user: mkIf (hasAttr "trustedNixKeys" users.${user}) users.${user}.trustedNixKeys) config.mine.admins);
+      nix.settings.trusted-public-keys = mkMerge (
+        map
+          (
+            user: mkIf (hasAttr "trustedNixKeys" users.${user}) users.${user}.trustedNixKeys
+          )
+          config.mine.admins
+      );
 
       home-manager = {
         backupFileExtension = "hmbackup";
@@ -80,25 +107,34 @@
           inherit self;
           inherit pkgs;
 
-          osConfig = foldl recursiveUpdate { } ([ config ] ++ (map (username: (users."${username}".homeConfigOverwrite or ({ ... }: { }) inputs)) uniqUsers));
+          osConfig = foldl recursiveUpdate { } (
+            [ config ]
+            ++ (map (username: (users."${username}".homeConfigOverwrite or ({ ... }: { }) inputs)) uniqUsers)
+          );
         };
 
-        users = mkMerge (map
-          (userName:
-            let
-              userModule = if elem userName uniqUsers then users.${userName} else { };
-            in
-            {
-              "${userName}" =
-                { ... }: {
+        users = mkMerge (
+          map
+            (
+              userName:
+              let
+                userModule = if elem userName uniqUsers then users.${userName} else { };
+              in
+              {
+                "${userName}" = { ... }: {
                   imports = [
-                    (if elem userName uniqUsers then self.hmModules.default else {
-                      # Fake users (service accounts) don't import the full home/*.nix
-                      # stack, so they miss the same-value overrides regular users get.
-                      programs.ssh.enableDefaultConfig = false;
-                      stylix.targets.qt.platform = mkForce "qtct";
-                      qt.platformTheme.name = mkForce "adwaita";
-                    })
+                    (
+                      if elem userName uniqUsers then
+                        self.hmModules.default
+                      else
+                        {
+                          # Fake users (service accounts) don't import the full home/*.nix
+                          # stack, so they miss the same-value overrides regular users get.
+                          programs.ssh.enableDefaultConfig = false;
+                          stylix.targets.qt.platform = mkForce "qtct";
+                          qt.platformTheme.name = mkForce "adwaita";
+                        }
+                    )
                     (userModule.home or { })
                   ];
 
@@ -107,9 +143,10 @@
                     home.stateVersion = mkDefault config.system.stateVersion;
                   };
                 };
-            }
-          )
-          (uniqUsers ++ fakeUsers));
+              }
+            )
+            (uniqUsers ++ fakeUsers)
+        );
       };
     };
 }

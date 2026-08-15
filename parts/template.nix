@@ -1,4 +1,9 @@
-{ inputs, lib, self, ... }: with lib;
+{ inputs
+, lib
+, self
+, ...
+}:
+with lib;
 {
   flake.templates.default = {
     description = "Nixos configuration template";

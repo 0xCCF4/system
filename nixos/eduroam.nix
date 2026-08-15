@@ -80,10 +80,12 @@ in
     # Secret file must contain a line: EDUROAM_PASSWORD=<password>
     networking.networkmanager.ensureProfiles = {
       environmentFiles = [
-        config.age.secrets.${noxa.lib.secrets.computeIdentifier {
+        config.age.secrets.${
+        noxa.lib.secrets.computeIdentifier {
           ident = secretIdent;
           module = secretModule;
-        }}.path
+        }
+        }.path
       ];
 
       profiles.eduroam = {

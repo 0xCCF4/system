@@ -3,13 +3,15 @@
 , config
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
   imports = [
     ./presets.nix
   ];
 
-  options.mine.yubikey.enable = with types;
+  options.mine.yubikey.enable =
+    with types;
     let
       presets = config.mine.presets;
     in

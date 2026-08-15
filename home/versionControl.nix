@@ -4,19 +4,19 @@
 , lib
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
-  options.home.mine = with types;
-    {
-      versionControl.userEmail = mkOption {
-        type = str;
-        description = "The email address to use for commits";
-      };
-      versionControl.userName = mkOption {
-        type = str;
-        description = "The name to use for commits";
-      };
+  options.home.mine = with types; {
+    versionControl.userEmail = mkOption {
+      type = str;
+      description = "The email address to use for commits";
     };
+    versionControl.userName = mkOption {
+      type = str;
+      description = "The name to use for commits";
+    };
+  };
 
   config =
     let

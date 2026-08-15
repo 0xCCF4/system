@@ -5,15 +5,19 @@
 }:
 with lib;
 {
-  options.mine.secureBoot = with types; mkOption {
-    type = bool;
-    default = false;
-    description = "Enable secure boot support.";
-  };
+  options.mine.secureBoot =
+    with types;
+    mkOption {
+      type = bool;
+      default = false;
+      description = "Enable secure boot support.";
+    };
 
-  options.boot.lanzaboote = with types; mkOption {
-    type = anything;
-  };
+  options.boot.lanzaboote =
+    with types;
+    mkOption {
+      type = anything;
+    };
 
   imports = [
     ./persistence.nix

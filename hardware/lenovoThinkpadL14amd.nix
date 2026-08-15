@@ -19,7 +19,12 @@ with lib;
   mine.boot.zfs-disks = [
     "/dev/disk/by-partlabel/disk-main-root"
   ];
-  mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" "/persist" ];
+  mine.boot.zfs-mount-folders = [
+    "/"
+    "/nix"
+    "/var"
+    "/persist"
+  ];
 
   # Drivers
   boot.initrd.availableKernelModules = [
@@ -61,6 +66,12 @@ with lib;
     magicOrExtension = ''\x7fELF....AI\x02'';
   };
 
-  boot.binfmt.emulatedSystems = [ "aarch64-linux" "riscv64-linux" ];
-  nix.settings.extra-platforms = [ "aarch64-linux arm-linux" "riscv64-linux" ];
+  boot.binfmt.emulatedSystems = [
+    "aarch64-linux"
+    "riscv64-linux"
+  ];
+  nix.settings.extra-platforms = [
+    "aarch64-linux arm-linux"
+    "riscv64-linux"
+  ];
 }

@@ -1,4 +1,8 @@
-{ lib, noxa, ... }: with lib; with types; with noxa.lib.net.types; {
+{ lib, noxa, ... }:
+with lib;
+with types;
+with noxa.lib.net.types;
+{
   options.mine.info.domain = mkOption {
     type = nullOr str;
     default = null;

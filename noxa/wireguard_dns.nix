@@ -1,4 +1,5 @@
-{ lib, config, ... }: with lib; {
+{ lib, config, ... }: with lib;
+{
   options = with types; {
     wireguard = mkOption {
       type = attrsOf (submodule {
@@ -19,19 +20,24 @@
   };
 
   config = {
-    nodes = mkMerge (flatten (mapAttrsToList
-      (name: network:
+    nodes = mkMerge (
+      flatten (
         mapAttrsToList
-          (member: memberConfig: {
-            "${member}" = {
-              configuration.noxa.wireguard.interfaces."${name}" = {
-                dns.enable = mkDefault network.dns.enable;
-                dns.domain = mkDefault network.dns.domain;
-              };
-            };
-          })
-          network.members
+          (
+            name: network:
+              mapAttrsToList
+                (member: memberConfig: {
+                  "${member}" = {
+                    configuration.noxa.wireguard.interfaces."${name}" = {
+                      dns.enable = mkDefault network.dns.enable;
+                      dns.domain = mkDefault network.dns.domain;
+                    };
+                  };
+                })
+                network.members
+          )
+          config.wireguard
       )
-      config.wireguard));
+    );
   };
 }
