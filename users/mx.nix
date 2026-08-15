@@ -1,4 +1,4 @@
-{ noxaConfig, ... }: {
+{ ... }: {
   description = "MX";
   authorizedKeys = [
     "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCUipG3TQ0+yD3Nzi09x6UVQnZXlvnUkCJ4GJbfuAYqSR2pgY1jd3GtOjJHtcWC62Ydh+Z4Sus6dHTjsvDMcl8c7HNR5un0JpBpjFqZz8RLZZjYWEFvU7fU7IwZGMMOsIdje8fRgjlq96oQ8tSK3ljH6QA5/tJnPbhEy77l07juS4cY1U4X3CuQ+ULwnbpZ0TthRS9UzQHMVH+aJrY+aVMxKQ43cRzaVYCBbfriT2mlI5YvT+r1nL3sE3WXVIsagY0u9C40ASklXt/wR6b/MCMgIFruETFoIVJAnWIm0lwPQxdvCIyQLu5vjdg4Y+Tf15ZjAiD8/cxrQNxtfixPSjMp7I9Ji70EC2rDbbcZoL/mtVsec4Kp9KmZWovLnEt9GNjrnP3tZ4gnbPoxqEXNDowZ1zQkfhvp0mJNC8P504A2MR+1rC+f1gxMYg/ki1Xeyi5m5QLfOA7b7mwyzg58BqMSSBokK41ICAe+gDqBiWAP6rt/GzhavZ9xeyLRWwHhF/ZTsK2ZpYGHK18VpwG8pSpBjkZxxkeAzSFBP9lJcLK9PDhHpp6YsfE60uuA6bqanSh5HQz5UELuG14Tr5XBnY0qD8aGL73H+xMUUtDNCY48YgvIR8Tu+SzroTu5+ZlG/9CbXj0THkqqW9AAzn+lb7GVpDIWQEmGa8VE1FTLaIRd3w=="
@@ -9,20 +9,20 @@
     "solis:84gzBysV+RuXK7l8YQFVwuGY16Bzjmdb8xByirJtEQo="
     "ignis:zhWq+p6//VSVJiSKFitrqdJfzrJ1ajvPsXPz+M2n2Ao="
   ];
-  home = { lib, osConfig, ... }: with lib; {
+  home = { lib, osConfig, inputs, ... }: with lib; {
     home.mine.traits.traits = mkIf (osConfig.mine.presets.isWorkstation) [
       "development"
       "office"
     ];
 
-    home.mine.todoman = mkIf config.mine.presets.isWorkstation {
+    home.mine.todoman = mkIf osConfig.mine.presets.isWorkstation {
       enable = true;
-      url = "https://${noxaConfig.nodes.lux.configuration.mine.services.caddyProxy.routes.caldav.hostname}/mx/";
+      url = "https://${inputs.nodes.lux.mine.services.caddyProxy.routes.caldav.hostname}/mx/";
       username = "mx";
       passwordCommand = [
         "cat"
         osConfig.age.secrets.${
-        noxa.lib.secrets.computeIdentifier {
+        inputs.noxa.lib.secrets.computeIdentifier {
           module = "caldav";
           ident = "mx-todolist-caldav-password";
         }
@@ -30,7 +30,7 @@
       ];
     };
   };
-  os = { pkgs, lib, config, noxa, noxaConfig, ... }: with lib; {
+  os = { pkgs, lib, config, ... }: with lib; {
     environment.systemPackages = with pkgs; [
       kitty
     ];
