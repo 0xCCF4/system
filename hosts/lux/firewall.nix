@@ -1,29 +1,86 @@
-{ config, lib, luxPublicNetwork6, ... }:
+{ config
+, lib
+, luxPublicNetwork6
+, ...
+}:
 let
   # Wireguard networks any enabled caddyProxy route is exposed on; the container
   # is always named "caddy" (see nixos/service_caddy_proxy.nix), so its host-side
   # veth is always "ve-caddy".
-  caddyWireguardNetworks = lib.unique (lib.concatMap
-    (route: lib.attrNames (lib.filterAttrs (_: netCfg: netCfg.enable) route.wireguardNetworks))
-    (lib.attrValues config.mine.services.caddyProxy.routes));
+  caddyWireguardNetworks = lib.unique (
+    lib.concatMap
+      (
+        route: lib.attrNames (lib.filterAttrs (_: netCfg: netCfg.enable) route.wireguardNetworks)
+      )
+      (lib.attrValues config.mine.services.caddyProxy.routes)
+  );
 
-  caddyWireguardForwardRules = lib.concatStringsSep "\n  " (lib.concatMap
-    (network: [
-      ''iifname == "ve-caddy" oifname == "${network}" accept''
-      ''iifname == "${network}" oifname == "ve-caddy" accept''
-    ])
-    caddyWireguardNetworks);
-in {
+  caddyWireguardForwardRules = lib.concatStringsSep "\n  " (
+    lib.concatMap
+      (network: [
+        ''iifname == "${network}" oifname == "ve-caddy" accept''
+      ])
+      caddyWireguardNetworks
+  );
+
+  # Caddy <-> upstream URLs of containers
+  caddyOutboundTargets =
+    (lib.mapAttrsToList (_: route: route.upstream) config.mine.services.caddyProxy.routes)
+    ++ (lib.optional
+      (
+        config.mine.services.caddyProxy.dns01.apiUrl != null
+      )
+      config.mine.services.caddyProxy.dns01.apiUrl);
+
+  # Caddy <-> container interfaces
+  caddyContainerTargets = lib.unique (
+    lib.filter (name: name != null) (
+      map
+        (
+          str:
+          lib.findFirst (name: lib.hasInfix config.containers.${name}.localAddress6 str) null (
+            lib.attrNames config.containers
+          )
+        )
+        caddyOutboundTargets
+    )
+  );
+
+  caddyContainersForwardRules = lib.concatStringsSep "\n  " (
+    map (name: ''iifname == "ve-caddy" oifname == "ve-${name}" accept'') caddyContainerTargets
+  );
+in
+{
+  # NOTE: this only defines the `forward` hook for container/proxy traffic.
+  # Host-exposed services (SSH, the WireGuard listener) are filtered
+  # separately by the standard networking.firewall module, which
+  # handles the `input` hook.
   config = {
     networking.jool.enable = true;
     networking.jool.nat64.default = {
       bib = [
-        { protocol = "TCP"; "ipv4 address" = "${config.mine.info.public.ipv4}#53"; "ipv6 address" = "${config.containers.powerdns.localAddress6}#53"; }
-        { protocol = "UDP"; "ipv4 address" = "${config.mine.info.public.ipv4}#53"; "ipv6 address" = "${config.containers.powerdns.localAddress6}#53"; }
+        {
+          protocol = "TCP";
+          "ipv4 address" = "${config.mine.info.public.ipv4}#53";
+          "ipv6 address" = "${config.containers.powerdns.localAddress6}#53";
+        }
+        {
+          protocol = "UDP";
+          "ipv4 address" = "${config.mine.info.public.ipv4}#53";
+          "ipv6 address" = "${config.containers.powerdns.localAddress6}#53";
+        }
       ];
       pool4 = [
-        { protocol = "TCP"; prefix = "${config.mine.info.public.ipv4}/32"; "port range" = "53"; }
-        { protocol = "UDP"; prefix = "${config.mine.info.public.ipv4}/32"; "port range" = "53"; }
+        {
+          protocol = "TCP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = "53";
+        }
+        {
+          protocol = "UDP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = "53";
+        }
       ];
     };
 
@@ -42,8 +99,11 @@ in {
           # Traffic coming from the public internet -> filtered per-service below
           iifname == "wan" jump fw-outside-traffic
 
-          # caddy's reverse proxy routes, containers <-> caddy
+          # wireguard -> caddy
           ${caddyWireguardForwardRules}
+
+          # caddy -> backend containers (reverse-proxy upstreams, DNS-01 API)
+          ${caddyContainersForwardRules}
 
           drop
         }

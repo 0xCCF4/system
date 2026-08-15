@@ -1,4 +1,6 @@
-{ inputs, lib, ... }: with lib; let
+{ inputs, lib, ... }:
+with lib;
+let
   modules = inputs.noxa.lib.nixDirectoryToAttr' ./.;
 in
 {

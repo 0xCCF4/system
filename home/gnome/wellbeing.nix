@@ -10,7 +10,10 @@
 
     dconf.settings = {
       "org/gnome/desktop/break-reminders" = {
-        selected-breaks = [ "eyesight" "momvement" ];
+        selected-breaks = [
+          "eyesight"
+          "momvement"
+        ];
       };
       "org/gnome/desktop/break-reminders/movement" = {
         duration-seconds = 300;

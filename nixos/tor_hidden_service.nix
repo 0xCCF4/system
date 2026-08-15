@@ -1,4 +1,15 @@
-{ config, lib, options, utils, pkgs, noxa, ... }: with lib; with builtins; with noxa.lib.net.types; {
+{ config
+, lib
+, options
+, utils
+, pkgs
+, noxa
+, ...
+}:
+with lib;
+with builtins;
+with noxa.lib.net.types;
+{
   options.mine.boot.tor = with types; {
     enable = mkOption {
       type = bool;
@@ -8,37 +19,39 @@
       '';
     };
     ports = mkOption {
-      type = listOf (submodule (submod: {
-        options = {
-          port = mkOption {
-            type = int;
-            description = ''
-              The advertised port number for this hidden service.
-            '';
-            example = 22;
-          };
-          bind = mkOption {
-            type = ipNoMask;
-            description = ''
-              When a connection request arrived to the hidden service, the request is transmitted to that target address.
+      type = listOf (
+        submodule (submod: {
+          options = {
+            port = mkOption {
+              type = int;
+              description = ''
+                The advertised port number for this hidden service.
+              '';
+              example = 22;
+            };
+            bind = mkOption {
+              type = ipNoMask;
+              description = ''
+                When a connection request arrived to the hidden service, the request is transmitted to that target address.
 
-              Usually this is 127.0.0.1, when the service is running on the same machine.
-            '';
-            example = "127.0.0.1";
-            default = "127.0.0.1";
-          };
-          bindPort = mkOption {
-            type = int;
-            description = ''
-              When a connection request arrived to the hidden service, the request is transmitted to that target port.
+                Usually this is 127.0.0.1, when the service is running on the same machine.
+              '';
+              example = "127.0.0.1";
+              default = "127.0.0.1";
+            };
+            bindPort = mkOption {
+              type = int;
+              description = ''
+                When a connection request arrived to the hidden service, the request is transmitted to that target port.
 
-              Usually this is the same port number as the advertised port.
-            '';
-            example = 22;
-            default = submod.config.port;
+                Usually this is the same port number as the advertised port.
+              '';
+              example = 22;
+              default = submod.config.port;
+            };
           };
-        };
-      }));
+        })
+      );
       description = ''
         Declaration of ports to be published as Tor hidden services.
       '';
@@ -54,15 +67,20 @@
     let
       cfg = config.mine.boot.tor;
 
-      keyfile = config.age.secrets.${noxa.lib.secrets.computeIdentifier {
-        ident = "onion-service";
-        module = "mine.boot";
-      }};
+      keyfile =
+        config.age.secrets.${
+        noxa.lib.secrets.computeIdentifier {
+          ident = "onion-service";
+          module = "mine.boot";
+        }
+        };
 
-      storeFile = file: path {
-        name = baseNameOf file;
-        path = file;
-      };
+      storeFile =
+        file:
+        path {
+          name = baseNameOf file;
+          path = file;
+        };
     in
     mkIf (cfg.enable && length cfg.ports > 0) {
       noxa.secrets.def = [
@@ -88,7 +106,9 @@
             '';
           };
           "/etc/tor/onion/hs_ed25519_secret_key" = keyfile.path;
-          "/etc/tor/onion/hs_ed25519_public_key" = storeFile (noxa.lib.filesystem.withExtension keyfile.rekeyFile "pub");
+          "/etc/tor/onion/hs_ed25519_public_key" = storeFile (
+            noxa.lib.filesystem.withExtension keyfile.rekeyFile "pub"
+          );
           "/etc/tor/onion/hostname" = storeFile (noxa.lib.filesystem.withExtension keyfile.rekeyFile "name");
         };
 
@@ -131,7 +151,11 @@
           services.tor = {
             wantedBy = [ "initrd.target" ];
             wants = [ "tor-prepare-conf-dir.service" ];
-            after = [ "network.target" "initrd-nixos-copy-secrets.service" "tor-prepare-conf-dir.service" ];
+            after = [
+              "network.target"
+              "initrd-nixos-copy-secrets.service"
+              "tor-prepare-conf-dir.service"
+            ];
             before = [ "shutdown.target" ];
             conflicts = [ "shutdown.target" ];
             unitConfig.DefaultDependencies = false;

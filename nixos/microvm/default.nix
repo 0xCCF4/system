@@ -1,3 +1,8 @@
-{ noxa, pkgs, microvm, ... }: {
+{ noxa
+, pkgs
+, microvm
+, ...
+}:
+{
   imports = noxa.lib.nixDirectoryToList ./.;
 }

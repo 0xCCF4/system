@@ -1,4 +1,9 @@
-{ inputs, lib, self, ... }: with lib;
+{ inputs
+, lib
+, self
+, ...
+}:
+with lib;
 {
   perSystem = { pkgs, system, ... }: {
     devShells.default = pkgs.mkShell {

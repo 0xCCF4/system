@@ -1,6 +1,9 @@
 { inputs, withSystem, ... }: {
-  flake.overlays.default = final: prev:
-    let system = prev.stdenv.hostPlatform.system; in
+  flake.overlays.default =
+    final: prev:
+    let
+      system = prev.stdenv.hostPlatform.system;
+    in
     (withSystem system ({ config, ... }: config.packages))
     // {
       timetrax = inputs.timetrax.packages.${system}.default;

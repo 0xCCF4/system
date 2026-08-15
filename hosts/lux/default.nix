@@ -1,4 +1,10 @@
-{ lib, self, config, ... }: with lib; {
+{ lib
+, self
+, config
+, ...
+}:
+with lib;
+{
   imports = [
     ../../hardware/netcup.nix
     ./net.nix
@@ -7,7 +13,8 @@
     ./radicale.nix
     ./powerdns.nix
     ./firewall.nix
-  ] ++ self.lib.optionalsIfExist [
+  ]
+  ++ self.lib.optionalsIfExist [
     ../../external/private/hosts/lux.nix
   ];
 
@@ -19,14 +26,20 @@
 
     boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
     boot.kernel.sysctl."net.ipv6.conf.all.forwarding" = 1;
-    boot.kernelModules = [ "veth" "kvm" ];
+    boot.kernelModules = [
+      "veth"
+      "kvm"
+    ];
 
     mine.admins = [ "mx" ];
 
     # SSH
     services.openssh = {
       enable = true;
-      ports = [ 5555 22 ];
+      ports = [
+        5555
+        22
+      ];
       settings = {
         PermitRootLogin = "no";
         PasswordAuthentication = false;
@@ -38,7 +51,10 @@
 
     mine.autoUpdate.enable = true;
     mine.autoUpdate.schedule = "daily";
-    mine.autoUpdate.inputs = [ "nixpkgs" "nixpkgs-stable" ];
+    mine.autoUpdate.inputs = [
+      "nixpkgs"
+      "nixpkgs-stable"
+    ];
 
     # Remote unlock luks via ssh+tor
     mine.boot.remoteUnlock = true;

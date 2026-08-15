@@ -3,31 +3,31 @@
 , config
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
-  options.mine.tlp = with types;
-    {
-      enable = mkOption {
-        type = bool;
-        default = false;
-        description = "Use tlp to manage the power of the system.";
-      };
-      stopCharging = mkOption {
-        type = int;
-        default = 80;
-        description = "The maximum charge of the battery.";
-      };
-      startCharging = mkOption {
-        type = int;
-        default = 40;
-        description = "The minimum charge of the battery.";
-      };
-      maxCPUPerfOnBattery = mkOption {
-        type = int;
-        default = 20;
-        description = "The maximum CPU performance percentage when on battery.";
-      };
+  options.mine.tlp = with types; {
+    enable = mkOption {
+      type = bool;
+      default = false;
+      description = "Use tlp to manage the power of the system.";
     };
+    stopCharging = mkOption {
+      type = int;
+      default = 80;
+      description = "The maximum charge of the battery.";
+    };
+    startCharging = mkOption {
+      type = int;
+      default = 40;
+      description = "The minimum charge of the battery.";
+    };
+    maxCPUPerfOnBattery = mkOption {
+      type = int;
+      default = 20;
+      description = "The maximum CPU performance percentage when on battery.";
+    };
+  };
 
   config =
     let

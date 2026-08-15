@@ -4,7 +4,8 @@
 }:
 with lib;
 {
-  options.mine.presets = with types;
+  options.mine.presets =
+    with types;
     let
       cfg = config.mine.presets;
     in

@@ -1,4 +1,5 @@
-{ lib, ... }: with lib; {
+{ lib, ... }: with lib;
+{
   config = {
     nix.settings.experimental-features = [
       "nix-command"

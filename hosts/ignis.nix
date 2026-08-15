@@ -1,7 +1,17 @@
-{ lib, pkgs, config, microvm, noxa, self, ... }: with lib; {
+{ lib
+, pkgs
+, config
+, microvm
+, noxa
+, self
+, ...
+}:
+with lib;
+{
   imports = [
     ../hardware/lenovoThinkpadL14amd.nix
-  ] ++ self.lib.optionalsIfExist [
+  ]
+  ++ self.lib.optionalsIfExist [
     ../external/private/hosts/ignis.nix
   ];
 
@@ -26,11 +36,13 @@
 
     mine.eduroam.enable = true;
 
-
     environment.systemPackages = with pkgs; [
       android-tools
     ];
-    users.users.mx.extraGroups = [ "adbusers" "kvm" ];
+    users.users.mx.extraGroups = [
+      "adbusers"
+      "kvm"
+    ];
 
     # Luks remote unlock via ssh+tor
     mine.boot.remoteUnlock = true;
@@ -50,7 +62,10 @@
         enable = true;
         interfaces = {
           virbr0 = {
-            allowedUDPPorts = [ 53 67 ];
+            allowedUDPPorts = [
+              53
+              67
+            ];
           };
         };
       };
@@ -73,10 +88,13 @@
     ];
     networking.wg-quick.interfaces.bgl = {
       address = [ "192.168.138.206/24" ];
-      privateKeyFile = config.age.secrets.${noxa.lib.secrets.computeIdentifier {
-        ident = "bgl-keypair";
-        module = "mine.wireguard";
-      }}.path;
+      privateKeyFile =
+        config.age.secrets.${
+        noxa.lib.secrets.computeIdentifier {
+          ident = "bgl-keypair";
+          module = "mine.wireguard";
+        }
+        }.path;
       autostart = false;
     };
 

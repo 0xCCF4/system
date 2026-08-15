@@ -1,11 +1,26 @@
-{ lib, config, noxa, specialArgs, dns, luxAddr6For, luxPublicNetwork6, ... }: with lib; {
+{ lib
+, config
+, noxa
+, specialArgs
+, dns
+, luxAddr6For
+, luxPublicNetwork6
+, ...
+}:
+with lib;
+{
   config =
     let
       domain = config.mine.info.domain;
 
-      powerdnsApiKeySecret = config.age.secrets.${
-      noxa.lib.secrets.computeIdentifier { module = "powerdns"; ident = "api-key"; hosts = [ "lux" ]; }
-      };
+      powerdnsApiKeySecret =
+        config.age.secrets.${
+        noxa.lib.secrets.computeIdentifier {
+          module = "powerdns";
+          ident = "api-key";
+          hosts = [ "lux" ];
+        }
+        };
 
       zoneRecords = with dns.lib.combinators; {
         SOA = {
@@ -26,8 +41,14 @@
           };
         };
         MX = [
-          { preference = 10; exchange = "mail.${domain}."; } # self-hosted, primary
-          { preference = 20; exchange = "smtpin.rzone.de."; } # STRATO, fallback
+          {
+            preference = 10;
+            exchange = "mail.${domain}.";
+          } # self-hosted, primary
+          {
+            preference = 20;
+            exchange = "smtpin.rzone.de.";
+          } # STRATO, fallback
         ];
         NS = [ "ns1.${domain}." ];
       };
@@ -41,8 +62,13 @@
           ident = "api-key";
           module = "powerdns";
           hosts = [ "lux" ];
+          generator.script = "alnum";
         }
       ];
+
+      mine.services.caddyProxy.dns01 = {
+        apiUrl = "http://[${config.containers.powerdns.localAddress6}]:8081";
+      };
 
       containers.powerdns = {
         autoStart = true;

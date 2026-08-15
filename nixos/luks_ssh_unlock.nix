@@ -1,11 +1,23 @@
-{ config, lib, options, utils, pkgs, noxa, ... }: with lib; with builtins; {
-  options.mine.boot.remoteUnlock = with types; mkOption {
-    type = bool;
-    default = false;
-    description = ''
-      Enable SSH access to the initrd for remote unlocking of LUKS volumes.
-    '';
-  };
+{ config
+, lib
+, options
+, utils
+, pkgs
+, noxa
+, ...
+}:
+with lib;
+with builtins;
+{
+  options.mine.boot.remoteUnlock =
+    with types;
+    mkOption {
+      type = bool;
+      default = false;
+      description = ''
+        Enable SSH access to the initrd for remote unlocking of LUKS volumes.
+      '';
+    };
 
   config =
     let
@@ -13,7 +25,14 @@
 
       startsWith = prefix: str: substring 0 (stringLength prefix) str == prefix;
 
-      removeRestrictionsFromKey = key: concatStringsSep " " (let splitted = (splitString " " key); in if startsWith "ssh" (head splitted) then splitted else tail splitted);
+      removeRestrictionsFromKey =
+        key:
+        concatStringsSep " " (
+          let
+            splitted = (splitString " " key);
+          in
+          if startsWith "ssh" (head splitted) then splitted else tail splitted
+        );
     in
     mkIf cfg {
       mine.boot.tor.ports = [
@@ -36,8 +55,16 @@
           ssh = mkIf (!config.age.rekey.initialRollout) {
             enable = true;
             port = mkDefault 22;
-            authorizedKeys = flatten (mapAttrsToList (username: user: map removeRestrictionsFromKey user.openssh.authorizedKeys.keys) config.users.users);
-            authorizedKeyFiles = flatten (mapAttrsToList (username: user: user.openssh.authorizedKeys.keyFiles) config.users.users);
+            authorizedKeys = flatten (
+              mapAttrsToList
+                (
+                  username: user: map removeRestrictionsFromKey user.openssh.authorizedKeys.keys
+                )
+                config.users.users
+            );
+            authorizedKeyFiles = flatten (
+              mapAttrsToList (username: user: user.openssh.authorizedKeys.keyFiles) config.users.users
+            );
             hostKeys = [ "/etc/ssh/host_key" ];
             extraConfig = ''
               PasswordAuthentication no
@@ -46,10 +73,14 @@
         };
 
         secrets = mkIf (!config.age.rekey.initialRollout) {
-          "/etc/ssh/host_key" = mkForce config.age.secrets.${noxa.lib.secrets.computeIdentifier {
-            ident = "sshd";
-            module = "mine.boot";
-          }}.path;
+          "/etc/ssh/host_key" =
+            mkForce
+              config.age.secrets.${
+              noxa.lib.secrets.computeIdentifier {
+                ident = "sshd";
+                module = "mine.boot";
+              }
+              }.path;
         };
 
         systemd.users.root.shell = "/bin/systemd-tty-ask-password-agent";

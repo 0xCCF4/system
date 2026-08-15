@@ -4,7 +4,15 @@
 }:
 with lib;
 let
-  mkWallpaper = { name, src_image, src_data, primaryColor, secondaryColor, description }:
+  mkWallpaper =
+    { name
+    , src_image
+    , src_data
+    , primaryColor
+    , secondaryColor
+    , description
+    ,
+    }:
     let
       baseName = builtins.baseNameOf src_image;
       outputName = "${baseName}";

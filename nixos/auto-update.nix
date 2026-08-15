@@ -1,4 +1,11 @@
-{ config, lib, pkgs, self, ... }: with lib; {
+{ config
+, lib
+, pkgs
+, self
+, ...
+}:
+with lib;
+{
   options = with types; {
     mine.autoUpdate = {
       enable = mkOption {
@@ -50,7 +57,13 @@
 
       autoUpdateScript = pkgs.writeShellApplication {
         name = "auto-update";
-        runtimeInputs = [ pkgs.nix pkgs.nixos-rebuild pkgs.coreutils pkgs.systemd pkgs.bash ];
+        runtimeInputs = [
+          pkgs.nix
+          pkgs.nixos-rebuild
+          pkgs.coreutils
+          pkgs.systemd
+          pkgs.bash
+        ];
         text = ''
           HOSTNAME=${escapeShellArg config.networking.hostName}
           OLDSYSTEM="$(readlink -f /run/current-system)"

@@ -58,7 +58,11 @@ with lib;
         default = [ ];
       };
       sshHostKeySupply = mkOption {
-        type = enum [ "none" "install" "persistence" ];
+        type = enum [
+          "none"
+          "install"
+          "persistence"
+        ];
         default = "install";
         description = "How to handle SSH host keys with persistence.";
       };
@@ -90,13 +94,23 @@ with lib;
 
       noxa.sshHostKeys.impermanencePathOverride = "${cfg.rootDirectory}/system/etc/ssh/";
 
-      mine.persistence.files = mkIf (cfg.sshHostKeySupply == "persistence") (builtins.concatLists (builtins.map (k: [ k.path "${k.path}.pub" ]) config.services.openssh.hostKeys));
+      mine.persistence.files = mkIf (cfg.sshHostKeySupply == "persistence") (
+        builtins.concatLists (
+          builtins.map
+            (k: [
+              k.path
+              "${k.path}.pub"
+            ])
+            config.services.openssh.hostKeys
+        )
+      );
 
       mine.persistence.directories = [
         "/var/log"
         "/var/lib/nixos"
         "/var/lib/systemd/coredump"
-      ] ++ lists.optionals (presets.isWorkstation) [
+      ]
+      ++ lists.optionals (presets.isWorkstation) [
         "/var/lib/bluetooth"
         "/var/lib/fprint"
         "/etc/NetworkManager/system-connections"

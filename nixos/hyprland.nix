@@ -1,4 +1,5 @@
-{ lib, config, ... }: with lib; {
+{ lib, config, ... }: with lib;
+{
   options.mine.desktop.hyprland = with types; {
     enable = mkOption {
       type = bool;

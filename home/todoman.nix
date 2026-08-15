@@ -1,7 +1,9 @@
 { lib
 , config
 , ...
-}: with lib; {
+}:
+with lib;
+{
   options.home.mine.todoman = {
     enable = mkOption {
       type = types.bool;
@@ -25,7 +27,10 @@
     passwordCommand = mkOption {
       type = types.listOf types.str;
       description = "Argv of a command that prints the CalDAV password to stdout.";
-      example = [ "cat" "/run/agenix/caldav-password" ];
+      example = [
+        "cat"
+        "/run/agenix/caldav-password"
+      ];
     };
   };
 
@@ -56,7 +61,10 @@
         };
         vdirsyncer = {
           enable = true;
-          collections = [ "from a" "from b" ];
+          collections = [
+            "from a"
+            "from b"
+          ];
         };
       };
 

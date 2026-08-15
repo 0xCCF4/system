@@ -1,5 +1,18 @@
-{ pkgs, lib, osConfig, config, ... }: with lib; with builtins; let
-  mkBind = key: dispatcherExpr: { _args = [ (generators.mkLuaInline "mainMod .. \" + ${key}\"") (generators.mkLuaInline dispatcherExpr) ]; };
+{ pkgs
+, lib
+, osConfig
+, config
+, ...
+}:
+with lib;
+with builtins;
+let
+  mkBind = key: dispatcherExpr: {
+    _args = [
+      (generators.mkLuaInline "mainMod .. \" + ${key}\"")
+      (generators.mkLuaInline dispatcherExpr)
+    ];
+  };
 in
 {
   wayland.windowManager.hyprland.settings = {

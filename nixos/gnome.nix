@@ -1,4 +1,11 @@
-{ config, lib, noxa, pkgs, ... }: with lib; {
+{ config
+, lib
+, noxa
+, pkgs
+, ...
+}:
+with lib;
+{
 
   imports = [
     ./presets.nix

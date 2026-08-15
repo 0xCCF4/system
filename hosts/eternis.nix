@@ -66,7 +66,7 @@ with lib;
     #  restartIfChanged = true;
     #  config = {
     #    #imports = [../hardware/microvm.nix];
-    #    
+    #
     #
     #  };
     #};
@@ -90,12 +90,14 @@ with lib;
         microvm.mem = 4096;
         imports = [ ../hardware/microvm.nix ];
 
-        microvm.shares = [{
-          proto = "virtiofs";
-          tag = "data";
-          source = "/persist/microvms/paperless/data";
-          mountPoint = "/paperless";
-        }];
+        microvm.shares = [
+          {
+            proto = "virtiofs";
+            tag = "data";
+            source = "/persist/microvms/paperless/data";
+            mountPoint = "/paperless";
+          }
+        ];
 
         users.users.postgres.uid = mkForce 2000;
         users.users.postgres.isSystemUser = true;
@@ -184,7 +186,10 @@ with lib;
           '';
         };
 
-        networking.firewall.allowedTCPPorts = [ 80 443 ];
+        networking.firewall.allowedTCPPorts = [
+          80
+          443
+        ];
 
         services.openssh.enable = true;
         services.openssh.settings.PermitRootLogin = "yes";

@@ -34,21 +34,20 @@ in
       ".config/monitors.xml"
     ];
 
-    gtk =
-      {
-        enable = true;
-        #theme.package = pkgs.adw-gtk3;
-        theme.name = "adw-gtk3";
+    gtk = {
+      enable = true;
+      #theme.package = pkgs.adw-gtk3;
+      theme.name = "adw-gtk3";
 
-        gtk4.theme = mkDefault null;
+      gtk4.theme = mkDefault null;
 
-        cursorTheme.package = pkgs.adw-gtk3;
-        cursorTheme.name = "Adwaita";
-        #cursorTheme.size = gnome.cursorSize;
+      cursorTheme.package = pkgs.adw-gtk3;
+      cursorTheme.name = "Adwaita";
+      #cursorTheme.size = gnome.cursorSize;
 
-        iconTheme.package = gruvboxPlus;
-        iconTheme.name = "GruvboxPlus";
-      };
+      iconTheme.package = gruvboxPlus;
+      iconTheme.name = "GruvboxPlus";
+    };
 
     dconf.settings = {
       "org/gnome/mutter" = {
@@ -93,12 +92,18 @@ in
     };
 
     xdg.mimeApps.defaultApplications = {
-      "application/pdf" = [ "org.gnome.Evince.desktop" "firefox.desktop" ];
+      "application/pdf" = [
+        "org.gnome.Evince.desktop"
+        "firefox.desktop"
+      ];
       "image/jpeg" = [ "org.gnome.eog.desktop" ];
       "image/png" = [ "org.gnome.eog.desktop" ];
     };
     xdg.mimeApps.associations.added = {
-      "application/pdf" = [ "org.gnome.Evince.desktop" "firefox.desktop" ];
+      "application/pdf" = [
+        "org.gnome.Evince.desktop"
+        "firefox.desktop"
+      ];
       "image/jpeg" = [ "org.gnome.eog.desktop" ];
       "image/png" = [ "org.gnome.eog.desktop" ];
     };

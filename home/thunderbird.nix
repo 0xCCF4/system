@@ -3,7 +3,8 @@
 , config
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
   imports = [
     ./traits.nix

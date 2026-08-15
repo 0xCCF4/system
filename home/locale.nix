@@ -4,21 +4,21 @@
 , osConfig
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
-  options.home.mine.locale = with types;
-    {
-      language = mkOption {
-        type = str;
-        default = self.lib.evalMissingOption osConfig "mine.locale.language" "en_US.UTF-8";
-        description = "The language to use for the system.";
-      };
-      formatLanguage = mkOption {
-        type = str;
-        default = self.lib.evalMissingOption osConfig "mine.locale.formatLanguage" "de_DE.UTF-8";
-        description = "The language to use for the system.";
-      };
+  options.home.mine.locale = with types; {
+    language = mkOption {
+      type = str;
+      default = self.lib.evalMissingOption osConfig "mine.locale.language" "en_US.UTF-8";
+      description = "The language to use for the system.";
     };
+    formatLanguage = mkOption {
+      type = str;
+      default = self.lib.evalMissingOption osConfig "mine.locale.formatLanguage" "de_DE.UTF-8";
+      description = "The language to use for the system.";
+    };
+  };
 
   config =
     let

@@ -10,7 +10,12 @@ with lib;
 let
   pamixer = "${getExe pkgs.pamixer}";
   pavucontrol = "${getExe pkgs.pavucontrol}";
-  hyprctl = "${if config.wayland.windowManager.hyprland.package != null then config.wayland.windowManager.hyprland.package else osConfig.programs.hyprland.package}/bin/hyprctl";
+  hyprctl = "${
+    if config.wayland.windowManager.hyprland.package != null then
+      config.wayland.windowManager.hyprland.package
+    else
+      osConfig.programs.hyprland.package
+  }/bin/hyprctl";
 in
 {
   config =
@@ -24,7 +29,7 @@ in
 
         ${hyprctl} submap | tr -d '\n\r'
         echo ""
-        
+
         ${pkgs.socat}/bin/socat -U - UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock | while read -r line; do handle "$line"; done
       '';
 
@@ -49,7 +54,10 @@ in
       home.packages = [ pkgs.playerctl ];
 
       programs.waybar = with config.lib.stylix.colors; {
-        enable = mkDefault ((self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false) && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable));
+        enable = mkDefault (
+          (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
+          && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable)
+        );
 
         settings = {
           mainBar = {
@@ -133,7 +141,7 @@ in
               };
               format = "󰥔 {:%H:%M}";
               format-alt = "󰥔 {:%A, %B %d, %Y (%R)} ";
-              tooltip-format = ''<span size='9pt' font='Fira Code'>{calendar}</span>'';
+              tooltip-format = "<span size='9pt' font='Fira Code'>{calendar}</span>";
             };
 
             cpu = {

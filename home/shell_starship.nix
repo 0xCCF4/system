@@ -168,8 +168,7 @@ in
           symbol = "";
           style = "bg:${orange} fg:${white2}";
 
-          format =
-            "[[[](bg:${red} fg:${orange}) $symbol [](bg:${orange} fg:${red})](fg:${white2} bg:${red})]($style)";
+          format = "[[[](bg:${red} fg:${orange}) $symbol [](bg:${orange} fg:${red})](fg:${white2} bg:${red})]($style)";
 
           disabled = false;
         };

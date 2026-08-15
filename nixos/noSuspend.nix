@@ -1,9 +1,17 @@
-{ config, pkgs, lib, ... }: with lib; {
-  options.mine.noSuspend = with types; mkOption {
-    type = bool;
-    default = true;
-    description = "Whether to disable system suspend.";
-  };
+{ config
+, pkgs
+, lib
+, ...
+}:
+with lib;
+{
+  options.mine.noSuspend =
+    with types;
+    mkOption {
+      type = bool;
+      default = true;
+      description = "Whether to disable system suspend.";
+    };
 
   config = mkIf config.mine.noSuspend {
     systemd.sleep.settings.Sleep = {

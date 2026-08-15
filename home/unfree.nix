@@ -4,26 +4,26 @@
 , osConfig
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
-  options.home.mine.unfree = with types;
-    {
-      enable = mkOption {
-        type = bool;
-        default = self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
-        description = "Enable unfree package management";
-      };
-      allowAll = mkOption {
-        type = bool;
-        default = false;
-        description = "Allow all unfree packages";
-      };
-      allowList = mkOption {
-        type = listOf str;
-        default = [ ];
-        description = "List of allowed unfree packages";
-      };
+  options.home.mine.unfree = with types; {
+    enable = mkOption {
+      type = bool;
+      default = self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
+      description = "Enable unfree package management";
     };
+    allowAll = mkOption {
+      type = bool;
+      default = false;
+      description = "Allow all unfree packages";
+    };
+    allowList = mkOption {
+      type = listOf str;
+      default = [ ];
+      description = "List of allowed unfree packages";
+    };
+  };
 
   #config =
   #  let

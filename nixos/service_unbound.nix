@@ -1,4 +1,10 @@
-{ pkgs, lib, config, ... }: with lib; {
+{ pkgs
+, lib
+, config
+, ...
+}:
+with lib;
+{
   options = with types; {
     mine.services.unbound = {
       enable = mkOption {
@@ -15,8 +21,12 @@
   };
 
   config = mkIf config.mine.services.unbound.enable {
-    networking.firewall.allowedTCPPorts = mkIf config.mine.services.unbound.openFirewall [ config.services.unbound.settings.server.port ];
-    networking.firewall.allowedUDPPorts = mkIf config.mine.services.unbound.openFirewall [ config.services.unbound.settings.server.port ];
+    networking.firewall.allowedTCPPorts = mkIf config.mine.services.unbound.openFirewall [
+      config.services.unbound.settings.server.port
+    ];
+    networking.firewall.allowedUDPPorts = mkIf config.mine.services.unbound.openFirewall [
+      config.services.unbound.settings.server.port
+    ];
     services.unbound = {
       enable = mkDefault true;
       settings = {
@@ -70,7 +80,10 @@
             "lan."
             "vlan."
           ];
-          domain-insecure = [ "lan." "vlan." ];
+          domain-insecure = [
+            "lan."
+            "vlan."
+          ];
           ratelimit = 1000;
           unwanted-reply-threshold = 10000;
           val-clean-additional = true;

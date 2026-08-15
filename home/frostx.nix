@@ -11,32 +11,31 @@ with lib;
     ./persistence.nix
   ];
 
-  options.home.mine.frostx = with types;
-    {
-      enable = mkOption {
-        type = bool;
-        default = self.lib.evalMissingOption osConfig.mine.presets "isWorkstation" false;
-        description = "Enable frostx";
-      };
-
-      package = mkOption {
-        type = pkgs.lib.types.package;
-        default = pkgs.frostx;
-        description = "The frostx package to use.";
-      };
-
-      autoScanDaily = mkOption {
-        type = bool;
-        default = true;
-        description = "Whether to automatically scan for new projects daily.";
-      };
-
-      autoRunOnStartup = mkOption {
-        type = bool;
-        default = true;
-        description = "Whether to automatically run frostx on startup.";
-      };
+  options.home.mine.frostx = with types; {
+    enable = mkOption {
+      type = bool;
+      default = self.lib.evalMissingOption osConfig.mine.presets "isWorkstation" false;
+      description = "Enable frostx";
     };
+
+    package = mkOption {
+      type = pkgs.lib.types.package;
+      default = pkgs.frostx;
+      description = "The frostx package to use.";
+    };
+
+    autoScanDaily = mkOption {
+      type = bool;
+      default = true;
+      description = "Whether to automatically scan for new projects daily.";
+    };
+
+    autoRunOnStartup = mkOption {
+      type = bool;
+      default = true;
+      description = "Whether to automatically run frostx on startup.";
+    };
+  };
 
   config =
     let
@@ -85,4 +84,3 @@ with lib;
       '';
     };
 }
-

@@ -9,39 +9,54 @@
     "solis:84gzBysV+RuXK7l8YQFVwuGY16Bzjmdb8xByirJtEQo="
     "ignis:zhWq+p6//VSVJiSKFitrqdJfzrJ1ajvPsXPz+M2n2Ao="
   ];
-  home = { lib, osConfig, inputs, ... }: with lib; {
-    home.mine.traits.traits = mkIf (osConfig.mine.presets.isWorkstation) [
-      "development"
-      "office"
-    ];
-
-    home.mine.todoman = mkIf osConfig.mine.presets.isWorkstation {
-      enable = true;
-      url = "https://${inputs.nodes.lux.mine.services.caddyProxy.routes.caldav.hostname}/mx/";
-      username = "mx";
-      passwordCommand = [
-        "cat"
-        osConfig.age.secrets.${
-        inputs.noxa.lib.secrets.computeIdentifier {
-          module = "caldav";
-          ident = "mx-todolist-caldav-password";
-        }
-        }.path
-      ];
-    };
-  };
-  os = { pkgs, lib, config, ... }: with lib; {
-    environment.systemPackages = with pkgs; [
-      kitty
-    ];
-    mine.virtualization.virtUsers = [ "mx" ];
-
-    noxa.secrets.def = mkIf (config.mine.presets.isWorkstation || config.networking.hostName == "lux") [
+  home =
+    { lib
+    , osConfig
+    , inputs
+    , ...
+    }:
+      with lib;
       {
-        ident = "mx-todolist-caldav-password";
-        module = "caldav";
-        global = true;
-      }
-    ];
-  };
+        home.mine.traits.traits = mkIf (osConfig.mine.presets.isWorkstation) [
+          "development"
+          "office"
+        ];
+
+        home.mine.todoman = mkIf osConfig.mine.presets.isWorkstation {
+          enable = true;
+          url = "https://${inputs.nodes.lux.mine.services.caddyProxy.routes.caldav.hostname}/mx/";
+          username = "mx";
+          passwordCommand = [
+            "cat"
+            osConfig.age.secrets.${
+            inputs.noxa.lib.secrets.computeIdentifier {
+              module = "caldav";
+              ident = "mx-todolist-caldav-password";
+            }
+            }.path
+          ];
+        };
+      };
+  os =
+    { pkgs
+    , lib
+    , config
+    , ...
+    }:
+      with lib;
+      {
+        environment.systemPackages = with pkgs; [
+          kitty
+        ];
+        mine.virtualization.virtUsers = [ "mx" ];
+
+        noxa.secrets.def = mkIf (config.mine.presets.isWorkstation || config.networking.hostName == "lux") [
+          {
+            ident = "mx-todolist-caldav-password";
+            module = "caldav";
+            global = true;
+            generator.script = "alnum";
+          }
+        ];
+      };
 }

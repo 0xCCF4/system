@@ -18,7 +18,12 @@ with lib;
     "/dev/disk/by-partlabel/disk-main-root"
     "/dev/disk/by-partlabel/disk-main-mirror"
   ];
-  mine.boot.zfs-mount-folders = [ "/" "/nix" "/var" "/persist" ];
+  mine.boot.zfs-mount-folders = [
+    "/"
+    "/nix"
+    "/var"
+    "/persist"
+  ];
 
   # Network configuration in initrd
   boot.initrd.systemd = {
@@ -39,8 +44,20 @@ with lib;
   };
 
   # Drivers
-  boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "nvme" "usbhid" "usb_storage" "sd_mod" ];
-  boot.initrd.kernelModules = [ "dm-snapshot" "igc" "i40e" "mt7921e" ];
+  boot.initrd.availableKernelModules = [
+    "xhci_pci"
+    "thunderbolt"
+    "nvme"
+    "usbhid"
+    "usb_storage"
+    "sd_mod"
+  ];
+  boot.initrd.kernelModules = [
+    "dm-snapshot"
+    "igc"
+    "i40e"
+    "mt7921e"
+  ];
   boot.kernelModules = [ "kvm-intel" ];
   boot.extraModulePackages = [ ];
   hardware.enableRedistributableFirmware = true;

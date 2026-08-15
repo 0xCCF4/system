@@ -1,4 +1,5 @@
-{ lib, ... }: with lib; {
+{ lib, ... }: with lib;
+{
   # Bootloader configuration
   boot.loader.grub = {
     enable = mkDefault false;
@@ -6,7 +7,10 @@
     efiSupport = true;
     efiInstallAsRemovable = true;
     mirroredBoots = [
-      { devices = [ "nodev" ]; path = "/boot"; }
+      {
+        devices = [ "nodev" ];
+        path = "/boot";
+      }
     ];
   };
   boot.loader.efi.canTouchEfiVariables = false;

@@ -1,4 +1,12 @@
-{ zrb, pkgs, lib, noxaHost, config, nodes, ... }: with lib;
+{ zrb
+, pkgs
+, lib
+, noxaHost
+, config
+, nodes
+, ...
+}:
+with lib;
 {
 
   imports = [
@@ -19,7 +27,8 @@
       };
       backupSSH = mkOption {
         type = nullOr types.str;
-        default = if (config.mine.zrb.backupNode != null) then "${config.mine.zrb.backupNode}.vlan" else null;
+        default =
+          if (config.mine.zrb.backupNode != null) then "${config.mine.zrb.backupNode}.vlan" else null;
         description = "The SSH host to connect to for backups.";
       };
       backupOnShutdown = mkOption {
@@ -32,11 +41,16 @@
 
   config =
     let
-      zrbUsers = (optionals (config.services.zrb.client.enable && config.services.zrb.client.createUser) [ config.services.zrb.client.user ])
-        ++ (flatten
-        (mapAttrsToList
-          (instanceName: data: optionals (data.enable && data.createUser) [ data.user ])
-          config.services.zrb.server
+      zrbUsers =
+        (optionals (config.services.zrb.client.enable && config.services.zrb.client.createUser) [
+          config.services.zrb.client.user
+        ])
+        ++ (flatten (
+          mapAttrsToList
+            (
+              instanceName: data: optionals (data.enable && data.createUser) [ data.user ]
+            )
+            config.services.zrb.server
         ));
     in
     {
@@ -73,7 +87,11 @@
 
       services.zrb.server.primary = {
         noxa.enable = true;
-        retention = { recent = 14; weeklyForDays = 60; monthlyForDays = 730; };
+        retention = {
+          recent = 14;
+          weeklyForDays = 60;
+          monthlyForDays = 730;
+        };
 
         prune.onCalendar = "weekly";
       };
@@ -81,20 +99,23 @@
       # add home manager managed zrb
       mine.fakeUsers = zrbUsers;
 
-      users.users = mkMerge (map
-        (userName:
-          let
-            userModule = users.${userName};
-          in
-          {
-            "${userName}" = {
-              createHome = true;
-              home = mkDefault "/tmp/.tmp-zrb-home-${userName}";
-              linger = true;
-            };
-          }
-        )
-        zrbUsers);
+      users.users = mkMerge (
+        map
+          (
+            userName:
+            let
+              userModule = users.${userName};
+            in
+            {
+              "${userName}" = {
+                createHome = true;
+                home = mkDefault "/tmp/.tmp-zrb-home-${userName}";
+                linger = true;
+              };
+            }
+          )
+          zrbUsers
+      );
 
       ssh.grants = mkIf (config.mine.zrb.backupNode != null && config.services.zrb.client.enable) {
         zrb-primary.to.hostname = config.mine.zrb.backupSSH;
@@ -105,8 +126,16 @@
 
         wantedBy = [ "multi-user.target" ];
 
-        after = [ "network-online.target" "local-fs.target" "wireguard-cloud-admin.service" ];
-        wants = [ "network-online.target" "local-fs.target" "wireguard-cloud-admin.service" ];
+        after = [
+          "network-online.target"
+          "local-fs.target"
+          "wireguard-cloud-admin.service"
+        ];
+        wants = [
+          "network-online.target"
+          "local-fs.target"
+          "wireguard-cloud-admin.service"
+        ];
 
         serviceConfig =
           let
@@ -116,22 +145,24 @@
             Type = "oneshot";
 
             # Runs during shutdown
-            ExecStop = "${pkgs.writeShellApplication {
-              name = "zrb-backup-on-shutdown";
-              text = ''
-                current_vt=$(cat /sys/class/tty/tty0/active)
-                current_vt=''${current_vt#tty}
-                trap '${pkgs.kbd}/bin/chvt "$current_vt" || true' EXIT
+            ExecStop = "${
+              pkgs.writeShellApplication {
+                name = "zrb-backup-on-shutdown";
+                text = ''
+                  current_vt=$(cat /sys/class/tty/tty0/active)
+                  current_vt=''${current_vt#tty}
+                  trap '${pkgs.kbd}/bin/chvt "$current_vt" || true' EXIT
 
-                ${pkgs.kbd}/bin/chvt 8 || true
-                sleep 0.2
+                  ${pkgs.kbd}/bin/chvt 8 || true
+                  sleep 0.2
 
-                /run/wrappers/bin/sudo -u ${dailyService.serviceConfig.User} -n ${dailyService.serviceConfig.ExecStart} --tui || true
+                  /run/wrappers/bin/sudo -u ${dailyService.serviceConfig.User} -n ${dailyService.serviceConfig.ExecStart} --tui || true
 
-                sleep 1
-                exit 0
-              '';
-            }}/bin/zrb-backup-on-shutdown";
+                  sleep 1
+                  exit 0
+                '';
+              }
+            }/bin/zrb-backup-on-shutdown";
 
             RemainAfterExit = true;
 
@@ -153,8 +184,10 @@
           "umount.target"
         ];
 
-        conflicts = [ "shutdown.target" "poweroff.target" ];
+        conflicts = [
+          "shutdown.target"
+          "poweroff.target"
+        ];
       };
     };
 }
-    

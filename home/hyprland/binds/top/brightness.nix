@@ -1,4 +1,12 @@
-{ pkgs, lib, osConfig, config, ... }: with lib; with builtins; let
+{ pkgs
+, lib
+, osConfig
+, config
+, ...
+}:
+with lib;
+with builtins;
+let
   brightnessctl = getExe pkgs.brightnessctl;
 in
 {

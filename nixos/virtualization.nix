@@ -4,14 +4,16 @@
 , config
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
   imports = [
     ./presets.nix
     ./unfree.nix
   ];
 
-  options.mine.virtualization = with types;
+  options.mine.virtualization =
+    with types;
     let
       presets = config.mine.presets;
     in
@@ -86,6 +88,8 @@ with lib; with builtins;
 
       networking.firewall.trustedInterfaces = mkIf cfg.virtmanager [ "virbr0" ];
 
-      mine.unfree.allowList = mkIf (cfg.virtualBox && cfg.virtualBoxExtensionPack) [ "virtualbox-extpack" ];
+      mine.unfree.allowList = mkIf (cfg.virtualBox && cfg.virtualBoxExtensionPack) [
+        "virtualbox-extpack"
+      ];
     };
 }

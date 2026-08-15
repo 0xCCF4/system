@@ -4,21 +4,22 @@
 , self
 , noxa
 , ...
-}: with lib; with builtins;
+}:
+with lib;
+with builtins;
 {
-  options.home.mine.traits = with types;
+  options.home.mine.traits =
+    with types;
     let
       cfg = config.home.mine.traits;
     in
     {
       traits = mkOption {
-        type = listOf (
-          enum [
-            "development"
-            "gaming"
-            "office"
-          ]
-        );
+        type = listOf (enum [
+          "development"
+          "gaming"
+          "office"
+        ]);
         default = [ ];
         description = "Application presets. Install packages and configure services based on the selected traits.";
       };
@@ -39,13 +40,14 @@
       };
     };
 
-  config =
-    {
-      assertions = with noxa.lib.ansi; [
-        {
-          assertion = config.home.mine.traits.traits == [ ] || (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" true);
-          message = "${fgYellow}Traits can only be set for workstations.${default}";
-        }
-      ];
-    };
+  config = {
+    assertions = with noxa.lib.ansi; [
+      {
+        assertion =
+          config.home.mine.traits.traits == [ ]
+          || (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" true);
+        message = "${fgYellow}Traits can only be set for workstations.${default}";
+      }
+    ];
+  };
 }

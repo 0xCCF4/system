@@ -1,4 +1,12 @@
-{ pkgs, lib, osConfig, config, ... }: with lib; with builtins; let
+{ pkgs
+, lib
+, osConfig
+, config
+, ...
+}:
+with lib;
+with builtins;
+let
   mkBind = mods: key: dispatcherExpr: {
     _args = [
       (generators.mkLuaInline "mainMod .. \" + ${mods}${key}\"")
@@ -25,10 +33,22 @@ in
 {
   wayland.windowManager.hyprland.settings = {
     bind =
-      (mapAttrsToList (key: direction: mkModBind key "hl.dsp.focus({ direction = \"${direction}\" })") directions)
-      ++ (mapAttrsToList (key: direction: mkShiftBind key "hl.dsp.window.move({ direction = \"${direction}\" })") directions)
+      (mapAttrsToList
+        (
+          key: direction: mkModBind key "hl.dsp.focus({ direction = \"${direction}\" })"
+        )
+        directions)
+      ++ (mapAttrsToList
+        (
+          key: direction: mkShiftBind key "hl.dsp.window.move({ direction = \"${direction}\" })"
+        )
+        directions)
       ++ (imap0 (i: key: mkModBind key "hl.dsp.focus({ workspace = ${toString (i + 1)} })") workspaceKeys)
-      ++ (imap0 (i: key: mkShiftBind key "hl.dsp.window.move({ workspace = ${toString (i + 1)} })") workspaceKeys)
+      ++ (imap0
+        (
+          i: key: mkShiftBind key "hl.dsp.window.move({ workspace = ${toString (i + 1)} })"
+        )
+        workspaceKeys)
       ++ [
         # Pin Window
         (mkModBind "p" "hl.dsp.window.pin()")
@@ -47,9 +67,22 @@ in
     # NOTE: gesture semantics changed with the new dispatcher-based config;
     # verify these on real touchpad hardware.
     gesture = [
-      { fingers = 3; direction = "horizontal"; action = "workspace"; }
-      { fingers = 3; direction = "horizontal"; mods = "SHIFT"; action = "move"; }
-      { fingers = 3; direction = "down"; action = "special"; }
+      {
+        fingers = 3;
+        direction = "horizontal";
+        action = "workspace";
+      }
+      {
+        fingers = 3;
+        direction = "horizontal";
+        mods = "SHIFT";
+        action = "move";
+      }
+      {
+        fingers = 3;
+        direction = "down";
+        action = "special";
+      }
     ];
   };
 }

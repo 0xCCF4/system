@@ -3,36 +3,36 @@
 , lib
 , ...
 }:
-with lib; with builtins;
+with lib;
+with builtins;
 {
-  options.mine.locale = with types;
-    {
-      language = mkOption {
-        type = str;
-        default = "en_US.UTF-8";
-        description = "The language to use for the system.";
-      };
-      formatLanguage = mkOption {
-        type = str;
-        default = "de_DE.UTF-8";
-        description = "The language to use for the system.";
-      };
-      timeZone = mkOption {
-        type = str;
-        default = "Europe/Berlin";
-        description = "The time zone to use for the system.";
-      };
-      keyboardLayout = mkOption {
-        type = str;
-        default = "us";
-        description = "The keyboard layout to use for the system.";
-      };
-      keyboardVariant = mkOption {
-        type = str;
-        default = "de_se_fi,nodeadkeys";
-        description = "The keyboard variant to use for the system.";
-      };
+  options.mine.locale = with types; {
+    language = mkOption {
+      type = str;
+      default = "en_US.UTF-8";
+      description = "The language to use for the system.";
     };
+    formatLanguage = mkOption {
+      type = str;
+      default = "de_DE.UTF-8";
+      description = "The language to use for the system.";
+    };
+    timeZone = mkOption {
+      type = str;
+      default = "Europe/Berlin";
+      description = "The time zone to use for the system.";
+    };
+    keyboardLayout = mkOption {
+      type = str;
+      default = "us";
+      description = "The keyboard layout to use for the system.";
+    };
+    keyboardVariant = mkOption {
+      type = str;
+      default = "de_se_fi,nodeadkeys";
+      description = "The keyboard variant to use for the system.";
+    };
+  };
 
   config =
     let

@@ -1,4 +1,5 @@
-{ config, lib, ... }: with lib; {
+{ config, lib, ... }: with lib;
+{
   config = {
     nix.gc = {
       automatic = mkDefault true;

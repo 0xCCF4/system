@@ -1,24 +1,29 @@
-{ lib, config, noxa, specialArgs, luxAddr6For, luxPublicNetwork6, ... }: with lib; {
+{ lib
+, config
+, noxa
+, specialArgs
+, luxAddr6For
+, luxPublicNetwork6
+, ...
+}:
+with lib;
+{
   config =
     let
       domain = config.mine.info.domain;
 
-      powerdnsApiKeySecret = config.age.secrets.${
-      noxa.lib.secrets.computeIdentifier { module = "powerdns"; ident = "api-key"; hosts = [ "lux" ]; }
-      };
+      powerdnsApiKeySecret =
+        config.age.secrets.${
+        noxa.lib.secrets.computeIdentifier {
+          module = "powerdns";
+          ident = "api-key";
+          hosts = [ "lux" ];
+        }
+        };
     in
     {
-      # The powerdns:api-key secret is declared in hosts/lux/powerdns.nix
-
       mine.services.caddyProxy.dns01 = {
-        apiUrl = "http://[${config.containers.powerdns.localAddress6}]:8081";
         apiKeyEnvFile = "/run/caddy-secrets/powerdns.env";
-      };
-
-      mine.services.caddyProxy.routes.caldav = {
-        # Radicale's real, routed IPv6 address
-        upstream = "[${config.containers.radicale.localAddress6}]:5232";
-        wireguardNetworks.cloud-admin.hostname = "todos.${domain}";
       };
 
       containers.caddy = {
@@ -48,7 +53,7 @@
             enable = true;
             package = pkgs.caddy.withPlugins {
               plugins = [ "github.com/caddy-dns/powerdns@v1.0.2" ];
-              hash = lib.fakeHash;
+              hash = "sha256-8ky7G/5v+iKIiOWHm1x536EpEw+y1hDMioSSktr+f3A=";
             };
             globalConfig = ''
               email security@${domain}
@@ -64,7 +69,10 @@
             ''}"
           ];
 
-          networking.firewall.allowedTCPPorts = [ 80 443 ];
+          networking.firewall.allowedTCPPorts = [
+            80
+            443
+          ];
           networking.firewall.allowedUDPPorts = [ 443 ]; # HTTP/3
         };
       };

@@ -12,46 +12,57 @@ with lib;
     adblock.nixosModule
   ];
 
-  options.mine.dns = with types; with noxa.lib.net.types; {
-    enable = mkOption {
-      type = bool;
-      default = true;
-      description = "Whether to enable the custom DNS configuration.";
-    };
-    provider = mkOption {
-      type = enum [ "quad9" ];
-      default = "quad9";
-      description = "The DNS provider to use.";
-    };
-    hosts = mkOption {
-      type = attrsOf (listOf ipNoMask);
-      default = { };
-      description = "Custom host entries to add to /etc/hosts.";
-      example = {
-        "*.example[0-9].*" = [ "127.0.0.1" "127.0.0.2" ];
+  options.mine.dns =
+    with types;
+    with noxa.lib.net.types;
+    {
+      enable = mkOption {
+        type = bool;
+        default = true;
+        description = "Whether to enable the custom DNS configuration.";
+      };
+      provider = mkOption {
+        type = enum [ "quad9" ];
+        default = "quad9";
+        description = "The DNS provider to use.";
+      };
+      hosts = mkOption {
+        type = attrsOf (listOf ipNoMask);
+        default = { };
+        description = "Custom host entries to add to /etc/hosts.";
+        example = {
+          "*.example[0-9].*" = [
+            "127.0.0.1"
+            "127.0.0.2"
+          ];
+        };
+      };
+      listenAddresses = mkOption {
+        type = listOf str;
+        default = [
+          "127.0.0.60:54"
+          "[::60]:54"
+        ];
+      };
+      upstreamResolvers = mkOption {
+        type = listOf str;
+        readOnly = true;
+        default = map
+          (
+            addr:
+            let
+              split = splitString ":" addr;
+              noBrackets = map (s: lib.replaceStrings [ "[" "]" ] [ "" "" ] s) split;
+              lastElement = last noBrackets;
+              beforeElements = sublist 0 (length noBrackets - 1) noBrackets;
+              before = concatStringsSep ":" beforeElements;
+            in
+            "${before}@${lastElement}"
+          )
+          config.mine.dns.listenAddresses;
+        description = "The upstream DNS resolvers to use. Port is seperated by # instead of : .";
       };
     };
-    listenAddresses = mkOption {
-      type = listOf str;
-      default = [ "127.0.0.60:54" "[::60]:54" ];
-    };
-    upstreamResolvers = mkOption {
-      type = listOf str;
-      readOnly = true;
-      default = map
-        (addr:
-          let
-            split = splitString ":" addr;
-            noBrackets = map (s: lib.replaceStrings [ "[" "]" ] [ "" "" ] s) split;
-            lastElement = last noBrackets;
-            beforeElements = sublist 0 (length noBrackets - 1) noBrackets;
-            before = concatStringsSep ":" beforeElements;
-          in
-          "${before}@${lastElement}")
-        config.mine.dns.listenAddresses;
-      description = "The upstream DNS resolvers to use. Port is seperated by # instead of : .";
-    };
-  };
 
   config = mkIf config.mine.dns.enable {
     networking = {
@@ -101,14 +112,16 @@ with lib;
           in
           [ ]
           ++ (lists.optional (provider == "quad9") "quad9-dnscrypt-ip4-filter-pri")
-          ++ (lists.optional (provider == "quad9" && ipv6) "quad9-dnscrypt-ip6-filter-pri")
-        ;
+          ++ (lists.optional (provider == "quad9" && ipv6) "quad9-dnscrypt-ip6-filter-pri");
         cloaking_rules = pkgs.writeTextFile {
           name = "dnscrypt-proxy-cloaking-rules";
-          text = builtins.concatStringsSep "\n"
-            (mapAttrsToList
-              (name: ips: concatStringsSep "\n" (map (ip: "${name} ${ip}") ips))
-              config.mine.dns.hosts);
+          text = builtins.concatStringsSep "\n" (
+            mapAttrsToList
+              (
+                name: ips: concatStringsSep "\n" (map (ip: "${name} ${ip}") ips)
+              )
+              config.mine.dns.hosts
+          );
         };
       };
     };

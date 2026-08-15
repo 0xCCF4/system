@@ -1,4 +1,11 @@
-{ config, lib, pkgs, noxa, ... }: with lib; {
+{ config
+, lib
+, pkgs
+, noxa
+, ...
+}:
+with lib;
+{
   config = {
     services.prometheus.exporters = {
       node = {

@@ -1,7 +1,15 @@
-{ lib, pkgs, self, config, ... }: with lib; {
+{ lib
+, pkgs
+, self
+, config
+, ...
+}:
+with lib;
+{
   imports = [
     ../hardware/lenovoThinkpadP14.nix
-  ] ++ self.lib.optionalsIfExist [
+  ]
+  ++ self.lib.optionalsIfExist [
     ../external/private/hosts/solis.nix
   ];
 

@@ -14,12 +14,14 @@ with lib;
 
     microvm.hypervisor = mkDefault "qemu";
 
-    microvm.shares = [{
-      tag = "ro-store";
-      source = "/nix/store";
-      mountPoint = "/nix/.ro-store";
-      readOnly = true;
-      proto = "virtiofs";
-    }];
+    microvm.shares = [
+      {
+        tag = "ro-store";
+        source = "/nix/store";
+        mountPoint = "/nix/.ro-store";
+        readOnly = true;
+        proto = "virtiofs";
+      }
+    ];
   };
 }

@@ -1,16 +1,25 @@
-{ config, lib, pkgs, utils, ... }: with lib;
+{ config
+, lib
+, pkgs
+, utils
+, ...
+}:
+with lib;
 # https://discourse.nixos.org/t/import-zpool-before-luks-with-systemd-on-boot/65400/2
 {
-  options = with lib; with types; {
-    mine.boot.zfs-disks = mkOption {
-      type = listOf str;
-      description = "List of disk device paths that make up the ZFS pool.";
+  options =
+    with lib;
+    with types;
+    {
+      mine.boot.zfs-disks = mkOption {
+        type = listOf str;
+        description = "List of disk device paths that make up the ZFS pool.";
+      };
+      mine.boot.zfs-mount-folders = mkOption {
+        type = listOf str;
+        description = "List of ZFS datasets to mount during initrd.";
+      };
     };
-    mine.boot.zfs-mount-folders = mkOption {
-      type = listOf str;
-      description = "List of ZFS datasets to mount during initrd.";
-    };
-  };
 
   config =
     let
@@ -83,7 +92,9 @@
                 zpool import -N -d /dev/disk/by-partlabel pool
 
                 # Check that the file systems we will mount have the right encryptionroot.
-                ${lib.concatStringsSep "\n" (lib.map checkFS (lib.filter shouldCheckFS config.system.build.fileSystems))}
+                ${lib.concatStringsSep "\n" (
+                  lib.map checkFS (lib.filter shouldCheckFS config.system.build.fileSystems)
+                )}
               '';
           };
 
@@ -99,7 +110,7 @@
         };
         # Adding an fstab is the easiest way to add file systems whose
         # purpose is solely in the initrd and aren't a part of '/sysroot'.
-        # The 'x-systemd.after=' might seem unnecessary, since the mount                                                                                                
+        # The 'x-systemd.after=' might seem unnecessary, since the mount
         # unit will already be ordered after the mapped device, but it
         # helps when stopping the mount unit and cryptsetup service to
         # make sure the LUKS device can close, thanks to how systemd
@@ -110,8 +121,14 @@
         '';
         # Add some conflicts to ensure the credstore closes before leaving initrd.
         systemd.targets.initrd-switch-root = {
-          conflicts = [ "etc-credstore.mount" "systemd-cryptsetup@credstore.service" ];
-          after = [ "etc-credstore.mount" "systemd-cryptsetup@credstore.service" ];
+          conflicts = [
+            "etc-credstore.mount"
+            "systemd-cryptsetup@credstore.service"
+          ];
+          after = [
+            "etc-credstore.mount"
+            "systemd-cryptsetup@credstore.service"
+          ];
         };
         # Though, we need to make sure udev remains up while credstore is closing.
         # Orderings during stop jobs are reversed.
@@ -127,7 +144,10 @@
         # of the numerous other systemd credential provision mechanisms.
         systemd.services.pool-load-key = {
           requiredBy = [ "initrd.target" ];
-          before = [ "sysroot.mount" "initrd.target" ];
+          before = [
+            "sysroot.mount"
+            "initrd.target"
+          ];
           requires = [ "import-pool-bare.service" ];
           after = [ "import-pool-bare.service" ];
           unitConfig.RequiresMountsFor = "/etc/credstore";
@@ -149,18 +169,20 @@
       # in stage 1, we do need to explicitly add them, and we need to add
       # the 'zfsutil' option. For my pool, that's the '/', '/nix', and
       # '/var' datasets.
-      fileSystems = lib.genAttrs cfg.zfs-mount-folders
-        (fs: {
-          device = "pool/crypt/system${lib.optionalString (fs != "/") fs}";
-          fsType = "zfs";
-          #options = [ "zfsutil" ];
-        }) // {
-        "/boot" = {
-          device = "PARTLABEL=ESP";
-          fsType = "vfat";
-          options = [ "umask=0077" ];
+      fileSystems =
+        lib.genAttrs cfg.zfs-mount-folders
+          (fs: {
+            device = "pool/crypt/system${lib.optionalString (fs != "/") fs}";
+            fsType = "zfs";
+            #options = [ "zfsutil" ];
+          })
+        // {
+          "/boot" = {
+            device = "PARTLABEL=ESP";
+            fsType = "vfat";
+            options = [ "umask=0077" ];
+          };
         };
-      };
     };
 }
 

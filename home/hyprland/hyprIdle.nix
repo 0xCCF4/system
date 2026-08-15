@@ -1,4 +1,13 @@
-{ pkgs, lib, config, osConfig, ... }: with pkgs; with builtins; with lib; {
+{ pkgs
+, lib
+, config
+, osConfig
+, ...
+}:
+with pkgs;
+with builtins;
+with lib;
+{
   options = {
     home.mine.idle = with types; {
       enable = mkOption {
@@ -23,7 +32,13 @@
     let
       cfg = config.home.mine.idle;
       loginCtrl = getExe' osConfig.systemd.package "loginctl";
-      hyprctl = getExe' (if config.wayland.windowManager.hyprland.package != null then config.wayland.windowManager.hyprland.package else osConfig.programs.hyprland.package) "hyprctl";
+      hyprctl = getExe'
+        (
+          if config.wayland.windowManager.hyprland.package != null then
+            config.wayland.windowManager.hyprland.package
+          else
+            osConfig.programs.hyprland.package
+        ) "hyprctl";
       hyprlock = getExe config.programs.hyprlock.package;
       pidof = getExe' pkgs.busybox "pidof";
       brightnessctl = getExe pkgs.brightnessctl;
@@ -71,13 +86,12 @@
               on-timeout = "${hyprctl} dispatch 'hl.dsp.dpms({ action = \"disable\" })'";
               on-resume = "${hyprctl} dispatch 'hl.dsp.dpms({ action = \"enable\" })' && ${brightnessctl} -r";
             }
-          ] ++ (optional (!osConfig.mine.noSuspend)
-            {
-              # suspend system
-              timeout = cfg.suspend * 60;
-              on-timeout = "${systemctl} suspend";
-            }
-          );
+          ]
+          ++ (optional (!osConfig.mine.noSuspend) {
+            # suspend system
+            timeout = cfg.suspend * 60;
+            on-timeout = "${systemctl} suspend";
+          });
         };
       };
     };

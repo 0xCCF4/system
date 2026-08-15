@@ -7,11 +7,13 @@
 }:
 with lib;
 {
-  options.home.mine.fastfetch.startup = with types; mkOption {
-    type = bool;
-    default = self.lib.evalMissingOption osConfig "mine.presets.isServer" false;
-    description = "Run fastfetch on shell startup";
-  };
+  options.home.mine.fastfetch.startup =
+    with types;
+    mkOption {
+      type = bool;
+      default = self.lib.evalMissingOption osConfig "mine.presets.isServer" false;
+      description = "Run fastfetch on shell startup";
+    };
 
   config = mkIf config.home.mine.fastfetch.startup {
     home.packages = [ pkgs.fastfetch ];

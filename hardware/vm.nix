@@ -21,7 +21,13 @@ with lib;
   boot.loader.grub.enable = mkDefault true; # Use the boot drive for GRUB
   #boot.loader.grub.device = "/dev/sda";
   boot.growPartition = mkDefault true;
-  boot.initrd.availableKernelModules = [ "ata_piix" "uhci_hcd" "virtio_pci" "sr_mod" "virtio_blk" ];
+  boot.initrd.availableKernelModules = [
+    "ata_piix"
+    "uhci_hcd"
+    "virtio_pci"
+    "sr_mod"
+    "virtio_blk"
+  ];
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ ];
   boot.extraModulePackages = [ ];
