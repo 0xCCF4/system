@@ -15,6 +15,10 @@ with lib;
       mine.services.caddyProxy.routes.caldav = {
         upstream = "[${config.containers.radicale.localAddress6}]:5232";
         wireguardNetworks.cloud-admin.hostname = "todos.${domain}";
+        public = {
+          enable = true;
+          domain = "todos.${domain}";
+        };
       };
 
       containers.radicale = {
@@ -38,8 +42,8 @@ with lib;
         };
 
         config = { pkgs, ... }: {
-          system.stateVersion = config.system.stateVersion;
-          networking.firewall.enable = true;
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; }) ];
+
           networking.firewall.allowedTCPPorts = [ 5232 ];
 
           services.radicale = {

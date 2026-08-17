@@ -46,8 +46,7 @@ with lib;
         };
 
         config = { pkgs, lib, ... }: {
-          system.stateVersion = config.system.stateVersion;
-          networking.firewall.enable = true;
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; }) ];
 
           services.caddy = {
             enable = true;
