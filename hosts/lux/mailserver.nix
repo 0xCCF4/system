@@ -41,9 +41,8 @@ with lib;
           imports = [
             mailserver.nixosModules.mailserver
             self.nixosModules.dns
+            (import ./container-common.nix { inherit (hostConfig.system) stateVersion; })
           ];
-          system.stateVersion = hostConfig.system.stateVersion;
-          networking.firewall.enable = true;
           # Use systemd-resolved inside the container
           # Workaround for bug https://github.com/NixOS/nixpkgs/issues/162686
           networking.useHostResolvConf = lib.mkForce false;
@@ -57,10 +56,6 @@ with lib;
               listenHTTP = ":80";
             };
           };
-
-          environment.systemPackages = with pkgs; [
-            kitty
-          ];
 
           mailserver = {
             enable = false;

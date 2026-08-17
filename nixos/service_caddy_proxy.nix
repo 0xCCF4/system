@@ -43,14 +43,13 @@ with lib;
                       '';
                       example = "todos.johmat.de";
                     };
-                    dns01 = mkOption {
+                    cert = mkOption {
                       type = types.bool;
                       default = true;
                       description = ''
-                        Request a real cert for this hostname via DNS-01 (requires
-                        `dns01.apiUrl`/`dns01.apiKeyEnvFile` to be set above). When false,
-                        serves this hostname with a self-signed cert from Caddy's internal
-                        CA instead.
+                        Request a real, publicly-trusted cert for this hostname, via whichever
+                        `acmeMethod` is globally configured. When false, serves this hostname
+                        with a self-signed cert from Caddy's internal CA instead.
                       '';
                     };
                   };
@@ -73,6 +72,18 @@ with lib;
           };
         }
       );
+    };
+
+    acmeMethod = mkOption {
+      type = types.enum [ "dns01" "http01" ];
+      default = "http01";
+      description = ''
+        Challenge method used for every real (non-self-signed) cert this caddy instance issues,
+        across both public and WireGuard routes. "dns01" uses the self-hosted PowerDNS API
+        (dns01.apiUrl/apiKeyEnvFile); "http01" uses Caddy's standard automatic ACME (no explicit
+        `tls` directive), which requires the hostname to have a real, publicly-resolvable and
+        reachable A/AAAA record.
+      '';
     };
 
     dns01 = {
@@ -118,18 +129,23 @@ with lib;
         '';
       };
 
-      # DNS-01 against the self-hosted PowerDNS instance.
-      realCertVirtualHost = route: {
-        extraConfig = ''
-          reverse_proxy ${route.upstream}
-          tls {
-            dns powerdns {
-              api_url ${cfg.dns01.apiUrl}
-              api_key {$POWERDNS_API_KEY}
+      # A real, publicly-trusted cert, via whichever `acmeMethod` is configured: DNS-01 against
+      # the self-hosted PowerDNS instance, or Caddy's own automatic HTTP-01 ACME (no explicit
+      # `tls` directive needed for the latter -- Caddy handles it by default).
+      certVirtualHost =
+        route:
+        if cfg.acmeMethod == "dns01" then {
+          extraConfig = ''
+            reverse_proxy ${route.upstream}
+            tls {
+              dns powerdns ${cfg.dns01.apiUrl} {$POWERDNS_API_KEY}
             }
-          }
-        '';
-      };
+          '';
+        } else {
+          extraConfig = ''
+            reverse_proxy ${route.upstream}
+          '';
+        };
 
       wgEntries = flatten (
         mapAttrsToList
@@ -138,7 +154,7 @@ with lib;
               mapAttrsToList
                 (network: netCfg: {
                   inherit route network;
-                  inherit (netCfg) dns01;
+                  inherit (netCfg) cert;
                   hostname = if netCfg.hostname != null then netCfg.hostname else wgDefaultHostname routeName network;
                 })
                 (filterAttrs (_: netCfg: netCfg.enable) route.wireguardNetworks)
@@ -150,21 +166,21 @@ with lib;
         (
           e:
           nameValuePair e.hostname (
-            if e.dns01 then realCertVirtualHost e.route else selfSignedVirtualHost e.route
+            if e.cert then certVirtualHost e.route else selfSignedVirtualHost e.route
           )
         )
         wgEntries;
 
       publicEntries = mapAttrsToList
         (
-          _: route: nameValuePair route.public.domain (realCertVirtualHost route)
+          _: route: nameValuePair route.public.domain (certVirtualHost route)
         )
         routesPublic;
 
       dnsHostsOverrides = mkMerge (map (e: { ${e.hostname} = [ (wgSelfAddress e.network) ]; }) wgEntries);
 
       needsPublicPorts = routesPublic != { };
-      needsDns01 = (any (e: e.dns01) wgEntries) || routesPublic != { };
+      needsDns01 = cfg.acmeMethod == "dns01" && ((any (e: e.cert) wgEntries) || routesPublic != { });
     in
     {
       assertions =
@@ -177,7 +193,7 @@ with lib;
         ++ [
           {
             assertion = needsDns01 -> (cfg.dns01.apiUrl != null && cfg.dns01.apiKeyEnvFile != null);
-            message = "mine.services.caddyProxy: dns01.apiUrl and dns01.apiKeyEnvFile must be set when any wireguard network uses `dns01 = true` or a route uses `public.enable`.";
+            message = "mine.services.caddyProxy: dns01.apiUrl and dns01.apiKeyEnvFile must be set when acmeMethod is \"dns01\" and any wireguard network uses `cert = true` or a route uses `public.enable`.";
           }
         ];
 
@@ -192,6 +208,9 @@ with lib;
         mkIf needsDns01 "-${cfg.dns01.apiKeyEnvFile}";
 
       mine.dns.hosts = dnsHostsOverrides;
+
+      networking.firewall.allowedTCPPorts = mkIf needsPublicPorts [ 80 443 ];
+      networking.firewall.allowedUDPPorts = mkIf needsPublicPorts [ 443 ]; # HTTP/3
 
       containers.caddy.forwardPorts = mkIf needsPublicPorts [
         {

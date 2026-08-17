@@ -13,14 +13,13 @@ with lib;
     let
       domain = config.mine.info.domain;
 
-      powerdnsApiKeySecret =
-        config.age.secrets.${
-        noxa.lib.secrets.computeIdentifier {
-          module = "powerdns";
-          ident = "api-key";
-          hosts = [ "lux" ];
-        }
-        };
+      powerdnsApiKeyIdentifier = noxa.lib.secrets.computeIdentifier {
+        module = "powerdns";
+        ident = "api-key";
+        hosts = [ "lux" ];
+      };
+
+      powerdnsApiKeySecret = config.age.secrets.${powerdnsApiKeyIdentifier};
 
       zoneRecords = with dns.lib.combinators; {
         SOA = {
@@ -36,8 +35,12 @@ with lib;
             A = [ config.mine.info.public.ipv4 ];
           };
           ns1 = {
-            A = [ config.containers.powerdns.localAddress6 ];
-            AAAA = [ config.mine.info.public.ipv6 ];
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.powerdns.localAddress6 ];
+          };
+          todos = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.caddy.localAddress6 ];
           };
         };
         MX = [
@@ -50,7 +53,7 @@ with lib;
             exchange = "smtpin.rzone.de.";
           } # STRATO, fallback
         ];
-        NS = [ "ns1.${domain}." ];
+        NS = [ "ns1.${domain}." "sns.serverkompetenz.de." ];
       };
 
       zoneFile = toString (dns.lib.evalZone domain zoneRecords);
@@ -65,6 +68,10 @@ with lib;
           generator.script = "alnum";
         }
       ];
+
+      # systemd-nspawn's --bind(-ro)= parses its argument as a colon-separated
+      # tuple, remove the colons
+      age.secrets.${powerdnsApiKeyIdentifier}.name = "powerdns-api-key";
 
       mine.services.caddyProxy.dns01 = {
         apiUrl = "http://[${config.containers.powerdns.localAddress6}]:8081";
@@ -90,10 +97,12 @@ with lib;
         };
 
         config = { pkgs, ... }: {
-          system.stateVersion = config.system.stateVersion;
-          networking.firewall.enable = true;
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; }) ];
+
           networking.firewall.allowedTCPPorts = [ 53 ];
           networking.firewall.allowedUDPPorts = [ 53 ];
+
+          environment.systemPackages = [ pkgs.pdns ];
 
           environment.etc."powerdns/zones/${domain}.zone".source = zoneFilePath;
           environment.etc."powerdns/named.conf".text = ''
@@ -119,17 +128,33 @@ with lib;
               webserver-port=8081
               # Only caddy calls this (DNS-01 challenges)
               webserver-allow-from=${config.containers.caddy.localAddress6}/128
-              include-dir=/run/powerdns-secrets
+              include-dir=/run/pdns/secrets
+
+              # Strato's secondary DNS
+              allow-axfr-ips=64:ff9b::81.169.148.38
+              also-notify=64:ff9b::81.169.148.38
             '';
           };
 
-          # API key in pdns.conf's include-dir. Runs as root ("+" prefix)
-          systemd.services.pdns.serviceConfig.RuntimeDirectory = "powerdns-secrets";
           systemd.services.pdns.serviceConfig.ExecStartPre = [
+            "+${pkgs.writeShellScript "pdns-init-dnssec-db" ''
+              mkdir -p /run/pdns/secrets
+              # SQLite needs write access to the *directory* (to create
+              # journal/WAL files), not just the db file itself, or pdns_server
+              # (running as user pdns) fails with "attempt to write a
+              # readonly database" even though the file is chowned below.
+              chown pdns:pdns /var/lib/powerdns
+              db=/var/lib/powerdns/dnssec.sqlite3
+              if [ ! -f "$db" ]; then
+                ${pkgs.pdns}/bin/pdnsutil create-bind-db "$db"
+                chown pdns:pdns "$db"
+              fi
+            ''}"
             "+${pkgs.writeShellScript "pdns-api-key-conf" ''
-              echo "api-key=$(cat /run/secrets/powerdns-api-key)" > /run/powerdns-secrets/api-key.conf
-              chown pdns:pdns /run/powerdns-secrets/api-key.conf
-              chmod 600 /run/powerdns-secrets/api-key.conf
+              mkdir -p /run/pdns/secrets
+              echo "api-key=$(cat /run/secrets/powerdns-api-key)" > /run/pdns/secrets/api-key.conf
+              chown pdns:pdns /run/pdns/secrets/api-key.conf
+              chmod 600 /run/pdns/secrets/api-key.conf
             ''}"
           ];
 
