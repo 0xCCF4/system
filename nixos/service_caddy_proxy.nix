@@ -179,7 +179,6 @@ with lib;
 
       dnsHostsOverrides = mkMerge (map (e: { ${e.hostname} = [ (wgSelfAddress e.network) ]; }) wgEntries);
 
-      needsPublicPorts = routesPublic != { };
       needsDns01 = cfg.acmeMethod == "dns01" && ((any (e: e.cert) wgEntries) || routesPublic != { });
     in
     {
@@ -209,23 +208,5 @@ with lib;
 
       mine.dns.hosts = dnsHostsOverrides;
 
-      networking.firewall.allowedTCPPorts = mkIf needsPublicPorts [ 80 443 ];
-      networking.firewall.allowedUDPPorts = mkIf needsPublicPorts [ 443 ]; # HTTP/3
-
-      containers.caddy.forwardPorts = mkIf needsPublicPorts [
-        {
-          hostPort = 80;
-          containerPort = 80;
-        }
-        {
-          hostPort = 443;
-          containerPort = 443;
-        }
-        {
-          hostPort = 443;
-          containerPort = 443;
-          protocol = "udp";
-        } # HTTP/3
-      ];
     };
 }

@@ -69,6 +69,21 @@ in
           "ipv4 address" = "${config.mine.info.public.ipv4}#53";
           "ipv6 address" = "${config.containers.powerdns.localAddress6}#53";
         }
+        {
+          protocol = "TCP";
+          "ipv4 address" = "${config.mine.info.public.ipv4}#80";
+          "ipv6 address" = "${config.containers.caddy.localAddress6}#80";
+        }
+        {
+          protocol = "TCP";
+          "ipv4 address" = "${config.mine.info.public.ipv4}#443";
+          "ipv6 address" = "${config.containers.caddy.localAddress6}#443";
+        }
+        {
+          protocol = "UDP";
+          "ipv4 address" = "${config.mine.info.public.ipv4}#443";
+          "ipv6 address" = "${config.containers.caddy.localAddress6}#443";
+        }
       ];
       pool4 = [
         {
@@ -80,6 +95,21 @@ in
           protocol = "UDP";
           prefix = "${config.mine.info.public.ipv4}/32";
           "port range" = "53";
+        }
+        {
+          protocol = "TCP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = "80";
+        }
+        {
+          protocol = "TCP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = "443";
+        }
+        {
+          protocol = "UDP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = "443";
         }
       ];
     };

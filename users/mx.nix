@@ -24,7 +24,7 @@
 
         home.mine.todoman = mkIf osConfig.mine.presets.isWorkstation {
           enable = true;
-          url = "https://${inputs.nodes.lux.mine.services.caddyProxy.routes.caldav.hostname}/mx/";
+          url = "https://${inputs.self.nixosConfigurations.lux.config.mine.services.caddyProxy.routes.caldav.public.domain}/mx/";
           username = "mx";
           passwordCommand = [
             "cat"
