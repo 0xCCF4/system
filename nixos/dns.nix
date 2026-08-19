@@ -91,39 +91,42 @@ with lib;
       };
     };
 
-    services.dnscrypt-proxy = {
-      enable = mkDefault true;
-      settings = {
-        listen_addresses = config.mine.dns.listenAddresses;
-        ipv6_servers = true;
-        require_dnssec = true;
-        sources.public-resolvers = {
-          urls = [
-            "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md"
-            "https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md"
-          ];
-          cache_file = "/var/cache/dnscrypt-proxy/public-resolvers.md";
-          minisign_key = "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3";
-        };
-        server_names =
-          let
-            ipv6 = config.services.dnscrypt-proxy.settings.ipv6_servers;
-            provider = config.mine.dns.provider;
-          in
-          [ ]
-          ++ (lists.optional (provider == "quad9") "quad9-dnscrypt-ip4-filter-pri")
-          ++ (lists.optional (provider == "quad9" && ipv6) "quad9-dnscrypt-ip6-filter-pri");
-        cloaking_rules = pkgs.writeTextFile {
-          name = "dnscrypt-proxy-cloaking-rules";
-          text = builtins.concatStringsSep "\n" (
-            mapAttrsToList
-              (
-                name: ips: concatStringsSep "\n" (map (ip: "${name} ${ip}") ips)
-              )
-              config.mine.dns.hosts
-          );
+    services.dnscrypt-proxy =
+      let
+        ipv6 = true;
+      in
+      {
+        enable = mkDefault true;
+        settings = {
+          listen_addresses = config.mine.dns.listenAddresses;
+          ipv6_servers = ipv6;
+          require_dnssec = true;
+          sources.public-resolvers = {
+            urls = [
+              "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md"
+              "https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md"
+            ];
+            cache_file = "/var/cache/dnscrypt-proxy/public-resolvers.md";
+            minisign_key = "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3";
+          };
+          server_names =
+            let
+              provider = config.mine.dns.provider;
+            in
+            [ ]
+            ++ (lists.optional (provider == "quad9") "quad9-dnscrypt-ip4-filter-pri")
+            ++ (lists.optional (provider == "quad9" && ipv6) "quad9-dnscrypt-ip6-filter-pri");
+          cloaking_rules = pkgs.writeTextFile {
+            name = "dnscrypt-proxy-cloaking-rules";
+            text = builtins.concatStringsSep "\n" (
+              mapAttrsToList
+                (
+                  name: ips: concatStringsSep "\n" (map (ip: "${name} ${ip}") ips)
+                )
+                config.mine.dns.hosts
+            );
+          };
         };
       };
-    };
   };
 }
