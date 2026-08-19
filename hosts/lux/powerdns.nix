@@ -13,6 +13,8 @@ with lib;
     let
       domain = config.mine.info.domain;
 
+      hostAddress6 = luxAddr6For "fc00::/64" "powerdns-veth-host";
+
       powerdnsApiKeyIdentifier = noxa.lib.secrets.computeIdentifier {
         module = "powerdns";
         ident = "api-key";
@@ -80,7 +82,7 @@ with lib;
       containers.powerdns = {
         autoStart = true;
         privateNetwork = true;
-        hostAddress6 = luxAddr6For "fc00::/64" "powerdns-veth-host";
+        inherit hostAddress6;
         localAddress6 = luxAddr6For luxPublicNetwork6 "powerdns";
         ephemeral = true;
         inherit specialArgs;
@@ -97,7 +99,7 @@ with lib;
         };
 
         config = { pkgs, ... }: {
-          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; }) ];
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
 
           networking.firewall.allowedTCPPorts = [ 53 ];
           networking.firewall.allowedUDPPorts = [ 53 ];

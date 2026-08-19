@@ -1,5 +1,4 @@
 { lib
-, self
 , config
 , luxAddr6For
 , luxPublicNetwork6
@@ -13,11 +12,12 @@ with lib;
     let
       mailserverConfig = config.containers.mailserver.config;
       hostConfig = config;
+      hostAddress6 = luxAddr6For "fc00::/64" "mailserver-veth-host";
     in
     {
       autoStart = false;
       privateNetwork = true;
-      hostAddress6 = luxAddr6For "fc00::/64" "mailserver-veth-host";
+      inherit hostAddress6;
       localAddress6 = luxAddr6For luxPublicNetwork6 "mailserver";
       ephemeral = true;
       bindMounts.certs = {
@@ -40,12 +40,8 @@ with lib;
         {
           imports = [
             mailserver.nixosModules.mailserver
-            self.nixosModules.dns
-            (import ./container-common.nix { inherit (hostConfig.system) stateVersion; })
+            (import ./container-common.nix { inherit (hostConfig.system) stateVersion; inherit hostAddress6; })
           ];
-          # Use systemd-resolved inside the container
-          # Workaround for bug https://github.com/NixOS/nixpkgs/issues/162686
-          networking.useHostResolvConf = lib.mkForce false;
 
           security.acme = {
             acceptTerms = true;
