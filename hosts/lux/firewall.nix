@@ -54,8 +54,25 @@ in
   # NOTE: this only defines the `forward` hook for container/proxy traffic.
   # Host-exposed services (SSH, the WireGuard listener) are filtered
   # separately by the standard networking.firewall module, which
-  # handles the `input` hook.
+  # handles the `input` chain.
   config = {
+    # Answer ND IPv6 packets
+    services.ndppd.enable = true;
+    services.ndppd.proxies.wan.rules = lib.genAttrs
+      (map (name: "${config.containers.${name}.localAddress6}/128") (lib.attrNames config.containers))
+      (_: { method = "static"; });
+
+    # Containers resolve DNS through the host
+    services.resolved.settings.Resolve.DNSStubListenerExtra =
+      map (name: config.containers.${name}.hostAddress6) (lib.attrNames config.containers);
+
+    networking.firewall.interfaces = lib.genAttrs
+      (map (name: "ve-${name}") (lib.attrNames config.containers))
+      (_: {
+        allowedUDPPorts = [ 53 ];
+        allowedTCPPorts = [ 53 ];
+      });
+
     networking.jool.enable = true;
     networking.jool.nat64.default = {
       bib = [
@@ -134,6 +151,9 @@ in
 
           # caddy -> backend containers (reverse-proxy upstreams, DNS-01 API)
           ${caddyContainersForwardRules}
+
+          # caddy -> internet (ACME, its own dnscrypt-proxy upstream, etc.)
+          iifname == "ve-caddy" oifname == "wan" accept
 
           drop
         }

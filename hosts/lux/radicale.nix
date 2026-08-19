@@ -10,6 +10,8 @@ with lib;
   config =
     let
       domain = config.mine.info.domain;
+
+      hostAddress6 = luxAddr6For "fc00::/64" "radicale-veth-host";
     in
     {
       mine.services.caddyProxy.routes.caldav = {
@@ -24,7 +26,7 @@ with lib;
       containers.radicale = {
         autoStart = true;
         privateNetwork = true;
-        hostAddress6 = luxAddr6For "fc00::/64" "radicale-veth-host";
+        inherit hostAddress6;
         localAddress6 = luxAddr6For luxPublicNetwork6 "radicale";
         ephemeral = true;
         inherit specialArgs;
@@ -42,7 +44,7 @@ with lib;
         };
 
         config = { pkgs, ... }: {
-          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; }) ];
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
 
           networking.firewall.allowedTCPPorts = [ 5232 ];
 

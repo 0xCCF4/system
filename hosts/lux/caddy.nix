@@ -12,6 +12,8 @@ with lib;
     let
       domain = config.mine.info.domain;
 
+      hostAddress6 = luxAddr6For "fc00::/64" "caddy-veth-host";
+
       powerdnsApiKeySecret =
         config.age.secrets.${
         noxa.lib.secrets.computeIdentifier {
@@ -29,7 +31,7 @@ with lib;
       containers.caddy = {
         autoStart = true;
         privateNetwork = true;
-        hostAddress6 = luxAddr6For "fc00::/64" "caddy-veth-host";
+        inherit hostAddress6;
         localAddress6 = luxAddr6For luxPublicNetwork6 "caddy";
         ephemeral = true;
         inherit specialArgs;
@@ -46,7 +48,7 @@ with lib;
         };
 
         config = { pkgs, lib, ... }: {
-          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; }) ];
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
 
           services.caddy = {
             enable = true;
@@ -56,6 +58,7 @@ with lib;
             };
             globalConfig = ''
               email security@${domain}
+              acme_ca https://acme-v02.api.letsencrypt.org/directory
             '';
           };
 
