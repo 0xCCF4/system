@@ -65,7 +65,6 @@ with lib;
       libXi
       libSM
       libICE
-      gnome2.GConf
       nspr
       nss
       cups
@@ -117,9 +116,6 @@ with lib;
       SDL_mixer
       SDL2_ttf
       SDL2_mixer
-      libappindicator-gtk2
-      libdbusmenu-gtk2
-      libindicator-gtk2
       libcaca
       libcanberra
       libgcrypt
@@ -190,7 +186,6 @@ with lib;
       keyutils.lib
       libGL
       libGLU
-      libappindicator-gtk2
       libcaca
       libcanberra
       libcap

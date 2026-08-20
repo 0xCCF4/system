@@ -69,9 +69,53 @@ with lib;
                 description = "Public domain to serve this route on. Required when public.enable is true.";
               };
             };
+
+            robotsTxt = {
+              enable = mkOption {
+                type = types.bool;
+                default = true;
+                description = ''
+                  Serve a `robots.txt` disallowing all crawlers for this route.
+                '';
+              };
+            };
+
+            securityTxt = {
+              enable = mkOption {
+                type = types.bool;
+                default = true;
+                description = ''
+                  Serve a `.well-known/security.txt` (RFC 9116) directly for this
+                  route.
+                '';
+              };
+              contact = mkOption {
+                type = types.nullOr types.str;
+                default = null;
+                description = ''
+                  Contact URI (e.g. `mailto:security@example.com`) for this route's
+                  `security.txt`. Falls back to `mine.services.caddyProxy.securityTxt.contact`
+                  when unset.
+                '';
+                example = "mailto:security@example.com";
+              };
+            };
           };
         }
       );
+    };
+
+    securityTxt = {
+      contact = mkOption {
+        type = types.nullOr types.str;
+        default = if config.mine.info.domain != null then "mailto:security@${config.mine.info.domain}" else null;
+        description = ''
+          Default contact URI used for every route's `.well-known/security.txt` unless that
+          route sets its own `securityTxt.contact`. Defaults to
+          `mailto:security@''${mine.info.domain}` when that option is set.
+        '';
+        example = "mailto:security@example.com";
+      };
     };
 
     acmeMethod = mkOption {
@@ -122,8 +166,25 @@ with lib;
       wgDefaultHostname =
         routeName: network: "${routeName}${config.noxa.wireguard.interfaces.${network}.dns.domain}";
 
+      securityTxtContact = route: if route.securityTxt.contact != null then route.securityTxt.contact else cfg.securityTxt.contact;
+
+      routeExtraConfig =
+        route:
+        (optionalString route.robotsTxt.enable ''
+          respond /robots.txt <<ROBOTS_TXT
+          User-agent: *
+          Disallow: /
+          ROBOTS_TXT 200
+        '')
+        + (optionalString route.securityTxt.enable ''
+          respond /.well-known/security.txt <<SECURITY_TXT
+          Contact: ${securityTxtContact route}
+          SECURITY_TXT 200
+        '');
+
       selfSignedVirtualHost = route: {
         extraConfig = ''
+          ${routeExtraConfig route}
           reverse_proxy ${route.upstream}
           tls internal
         '';
@@ -136,6 +197,7 @@ with lib;
         route:
         if cfg.acmeMethod == "dns01" then {
           extraConfig = ''
+            ${routeExtraConfig route}
             reverse_proxy ${route.upstream}
             tls {
               dns powerdns ${cfg.dns01.apiUrl} {$POWERDNS_API_KEY}
@@ -143,6 +205,7 @@ with lib;
           '';
         } else {
           extraConfig = ''
+            ${routeExtraConfig route}
             reverse_proxy ${route.upstream}
           '';
         };
@@ -187,6 +250,17 @@ with lib;
           (routeName: route: {
             assertion = route.public.enable -> route.public.domain != null;
             message = "mine.services.caddyProxy.routes.${routeName}: public.domain must be set when public.enable is true.";
+          })
+          cfg.routes)
+        ++ (mapAttrsToList
+          (routeName: route: {
+            assertion = route.securityTxt.enable -> securityTxtContact route != null;
+            message = ''
+              mine.services.caddyProxy.routes.${routeName}: securityTxt.enable is true but no
+              contact is configured. Set routes.${routeName}.securityTxt.contact, the global
+              mine.services.caddyProxy.securityTxt.contact, or mine.info.domain (from which the
+              global default is derived).
+            '';
           })
           cfg.routes)
         ++ [
