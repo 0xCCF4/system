@@ -115,6 +115,25 @@ with lib;
                 '';
               };
             };
+
+            matrixWellKnownClient = {
+              enable = mkOption {
+                type = types.bool;
+                default = false;
+                description = ''
+                  Serve `.well-known/matrix/client` for this route (with the CORS
+                  header the Matrix spec requires).
+                '';
+              };
+              content = mkOption {
+                type = types.nullOr types.str;
+                default = null;
+                description = ''
+                  Raw JSON body served for `.well-known/matrix/client`.
+                '';
+                example = ''{"m.homeserver": {"base_url": "https://matrix.example.com"}}'';
+              };
+            };
           };
         }
       );
@@ -203,6 +222,15 @@ with lib;
             -Server
             ${optionalString hasRealCert ''Strict-Transport-Security "max-age=15768000"''}
           }
+        '')
+        + (optionalString route.matrixWellKnownClient.enable ''
+          respond /.well-known/matrix/client <<MATRIX_CLIENT_WELL_KNOWN
+          ${route.matrixWellKnownClient.content}
+          MATRIX_CLIENT_WELL_KNOWN 200 {
+            close
+          }
+          header /.well-known/matrix/client Access-Control-Allow-Origin "*"
+          header /.well-known/matrix/client Content-Type "application/json"
         '');
 
       selfSignedVirtualHost = route: {
@@ -291,6 +319,12 @@ with lib;
               mine.services.caddyProxy.securityTxt.contact, or mine.info.domain (from which the
               global default is derived).
             '';
+          })
+          cfg.routes)
+        ++ (mapAttrsToList
+          (routeName: route: {
+            assertion = route.matrixWellKnownClient.enable -> route.matrixWellKnownClient.content != null;
+            message = "mine.services.caddyProxy.routes.${routeName}: matrixWellKnownClient.content must be set when matrixWellKnownClient.enable is true.";
           })
           cfg.routes)
         ++ [

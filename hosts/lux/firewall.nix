@@ -49,6 +49,15 @@ let
   caddyContainersForwardRules = lib.concatStringsSep "\n  " (
     map (name: ''iifname == "ve-caddy" oifname == "ve-${name}" accept'') caddyContainerTargets
   );
+
+  coturnRelayPorts = lib.range 49160 50159;
+  coturnRelayBib = map
+    (port: {
+      protocol = "UDP";
+      "ipv4 address" = "${config.mine.info.public.ipv4}#${toString port}";
+      "ipv6 address" = "${config.containers.matrix-coturn-v4.localAddress6}#${toString port}";
+    })
+    coturnRelayPorts;
 in
 {
   # NOTE: this only defines the `forward` hook for container/proxy traffic.
@@ -101,7 +110,22 @@ in
           "ipv4 address" = "${config.mine.info.public.ipv4}#443";
           "ipv6 address" = "${config.containers.caddy.localAddress6}#443";
         }
-      ];
+        {
+          protocol = "TCP";
+          "ipv4 address" = "${config.mine.info.public.ipv4}#3478";
+          "ipv6 address" = "${config.containers.matrix-coturn-v4.localAddress6}#3478";
+        }
+        {
+          protocol = "UDP";
+          "ipv4 address" = "${config.mine.info.public.ipv4}#3478";
+          "ipv6 address" = "${config.containers.matrix-coturn-v4.localAddress6}#3478";
+        }
+        {
+          protocol = "UDP";
+          "ipv4 address" = "${config.mine.info.public.ipv4}#10000";
+          "ipv6 address" = "${config.containers.jitsi.localAddress6}#10000";
+        }
+      ] ++ coturnRelayBib;
       pool4 = [
         {
           protocol = "TCP";
@@ -127,6 +151,26 @@ in
           protocol = "UDP";
           prefix = "${config.mine.info.public.ipv4}/32";
           "port range" = "443";
+        }
+        {
+          protocol = "TCP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = "3478";
+        }
+        {
+          protocol = "UDP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = "3478";
+        }
+        {
+          protocol = "UDP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = "49160-50159";
+        }
+        {
+          protocol = "UDP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = "10000";
         }
       ];
     };
@@ -180,6 +224,11 @@ in
           ip6 daddr ${config.containers.caddy.localAddress6} udp dport 443 jump fw-accept-dos
           ip6 daddr ${config.containers.powerdns.localAddress6} tcp dport 53 jump fw-accept-dos
           ip6 daddr ${config.containers.powerdns.localAddress6} udp dport 53 jump fw-accept-dos
+          # matrix-coturn-v4 itself is NAT64-only
+          ip6 daddr ${config.containers.matrix-coturn-v6.localAddress6} tcp dport 3478 jump fw-accept-dos
+          ip6 daddr ${config.containers.matrix-coturn-v6.localAddress6} udp dport 3478 jump fw-accept-dos
+          ip6 daddr ${config.containers.matrix-coturn-v6.localAddress6} udp dport 49160-50159 jump fw-accept-dos
+          ip6 daddr ${config.containers.jitsi.localAddress6} udp dport 10000 jump fw-accept-dos
 
           # Essential ICMPv6
           icmpv6 type packet-too-big accept

@@ -12,11 +12,45 @@ with lib;
     ./caddy.nix
     ./radicale.nix
     ./powerdns.nix
+    ./matrix-synapse.nix
+    ./matrix-coturn.nix
+    ./jitsi.nix
+    ./matrix-web.nix
     ./firewall.nix
   ]
   ++ self.lib.optionalsIfExist [
     ../../external/private/hosts/lux.nix
   ];
+
+  options.mine.services.matrix.domains = {
+    homeserver = mkOption {
+      type = types.str;
+      default = "matrix.${config.mine.info.domain}";
+      description = "Domain Synapse (client-server API + federation) is served on.";
+    };
+    chat = mkOption {
+      type = types.str;
+      default = "chat.${config.mine.info.domain}";
+      description = "Domain the self-hosted Element Web client is served on.";
+    };
+    admin = mkOption {
+      type = types.str;
+      default = "admin.${config.mine.info.domain}";
+      description = "Domain the Ketesa admin UI is served on.";
+    };
+    jitsi = mkOption {
+      type = types.str;
+      default = "meet.${config.mine.info.domain}";
+      description = "Domain the self-hosted Jitsi instance is served on.";
+    };
+    turn = mkOption {
+      type = types.str;
+      default = "turn.${config.mine.info.domain}";
+      description = ''
+        Domain the TURN/STUN service (coturn) is served on.
+      '';
+    };
+  };
 
   config = {
     # General settings

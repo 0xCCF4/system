@@ -44,7 +44,20 @@ with lib;
             A = [ config.mine.info.public.ipv4 ];
             AAAA = [ config.containers.caddy.localAddress6 ];
           };
-        };
+        } // {
+          ${removeSuffix ".${domain}" config.mine.services.matrix.domains.turn} = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.matrix-coturn-v6.localAddress6 ];
+          };
+        } // (
+          # matrix./chat./admin./meet.<domain> (turn excluded, see above)
+          mapAttrs'
+            (_: fqdn: nameValuePair (removeSuffix ".${domain}" fqdn) {
+              A = [ config.mine.info.public.ipv4 ];
+              AAAA = [ config.containers.caddy.localAddress6 ];
+            })
+            (removeAttrs config.mine.services.matrix.domains [ "turn" ])
+        );
         MX = [
           {
             preference = 10;
