@@ -9,7 +9,7 @@ with lib;
     with types;
     mkOption {
       type = bool;
-      default = true;
+      default = config.mine.presets.isServer;
       description = "Whether to disable system suspend.";
     };
 
