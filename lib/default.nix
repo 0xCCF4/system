@@ -50,6 +50,14 @@ in
 
       optionalsIfExist = paths: filter (path: pathExists path) paths;
 
+      requireOption =
+        optionPath: value:
+        if value == null then
+          with inputs.noxa.lib.ansi;
+          throw "${fgRed}Option ${fgCyan + optionPath + fgRed} is null. Is the ${fgCyan}external/private${fgRed} submodule checked out? Did you run with ${fgCyan}?submodules=1${fgRed}, or did you just clone this repo?${reset}"
+        else
+          value;
+
       enumerateAttrs =
         attrs:
         let

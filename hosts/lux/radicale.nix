@@ -1,4 +1,5 @@
 { lib
+, self
 , config
 , specialArgs
 , luxAddr6For
@@ -9,7 +10,7 @@ with lib;
 {
   config =
     let
-      domain = config.mine.info.domain;
+      domain = self.lib.requireOption "mine.info.domain" config.mine.info.domain;
 
       hostAddress6 = luxAddr6For "fc00::/64" "radicale-veth-host";
     in

@@ -28,7 +28,7 @@ with lib;
 
   # Drivers
   hardware.logitech.wireless.enable = true;
-  hardware.logitech.wireless.enableGraphical = true;
+  programs.solaar.enable = true;
   services.udev.packages = with pkgs; [ logitech-udev-rules ];
   boot.initrd.availableKernelModules = [
     "nvme"

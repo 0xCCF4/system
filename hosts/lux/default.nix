@@ -12,11 +12,58 @@ with lib;
     ./caddy.nix
     ./radicale.nix
     ./powerdns.nix
+    ./matrix-synapse.nix
+    ./matrix-coturn.nix
+    ./jitsi.nix
+    ./matrix-web.nix
     ./firewall.nix
   ]
   ++ self.lib.optionalsIfExist [
     ../../external/private/hosts/lux.nix
   ];
+
+  options.mine.services.matrix.domains =
+    let
+      domain = self.lib.requireOption "mine.info.domain" config.mine.info.domain;
+    in
+    {
+      homeserver = mkOption {
+        type = types.str;
+        default = "matrix.${domain}";
+        description = "Domain Synapse (client-server API + federation) is served on.";
+      };
+      chat = mkOption {
+        type = types.str;
+        default = "chat.${domain}";
+        description = "Domain the self-hosted Element Web client is served on.";
+      };
+      admin = mkOption {
+        type = types.str;
+        default = "admin.${domain}";
+        description = "Domain the Ketesa admin UI is served on.";
+      };
+      jitsi = mkOption {
+        type = types.str;
+        default = "meet.${domain}";
+        description = "Domain the self-hosted Jitsi instance is served on.";
+      };
+      turn = mkOption {
+        type = types.str;
+        default = "turn.${domain}";
+        description = ''
+          Domain the TURN/STUN service (coturn) is served on.
+        '';
+      };
+    };
+
+  options.mine.services.matrix.enableFederation = mkOption {
+    type = types.bool;
+    default = false;
+    description = ''
+      Whether Synapse serves the federation API and accepts federation
+      traffic from other homeservers.
+    '';
+  };
 
   config = {
     # General settings

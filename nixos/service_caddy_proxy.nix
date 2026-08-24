@@ -70,12 +70,54 @@ with lib;
               };
             };
 
-            robotsTxt = {
+            blockCrawlers = {
               enable = mkOption {
                 type = types.bool;
                 default = true;
                 description = ''
-                  Serve a `robots.txt` disallowing all crawlers for this route.
+                  Serve a `robots.txt` disallowing all crawlers for this route, and
+                  reject requests whose `User-Agent` matches a known crawler/bot
+                  (see `userAgents`) with a 403 -- regardless of whether the client
+                  honors robots.txt.
+                '';
+              };
+              userAgents = mkOption {
+                type = types.listOf types.str;
+                default = [
+                  "GPTBot"
+                  "ChatGPT-User"
+                  "OAI-SearchBot"
+                  "CCBot"
+                  "ClaudeBot"
+                  "Claude-Web" # deprecated by Anthropic, kept for safety
+                  "Claude-SearchBot"
+                  "Claude-User"
+                  "anthropic-ai" # deprecated by Anthropic, kept for safety
+                  "Bytespider"
+                  "PetalBot"
+                  "Amazonbot"
+                  "Google-Extended"
+                  "FacebookBot"
+                  "meta-externalagent"
+                  "Applebot-Extended"
+                  "PerplexityBot"
+                  "Perplexity-User"
+                  "Diffbot"
+                  "cohere-ai"
+                  "iaskspider"
+                  "YouBot"
+                  "omgili"
+                  "omgilibot"
+                  "img2dataset"
+                  "SemrushBot"
+                  "AhrefsBot"
+                  "MJ12bot"
+                  "DotBot"
+                  "YandexBot"
+                ];
+                description = ''
+                  Case-insensitive substrings matched against the `User-Agent`
+                  header; a match gets a 403 instead of being proxied upstream.
                 '';
               };
             };
@@ -113,6 +155,48 @@ with lib;
                   self-signed vhost is actively harmful, so it is never emitted there regardless of
                   this setting.
                 '';
+              };
+            };
+
+            anubis = {
+              enable = mkOption {
+                type = types.bool;
+                default = false;
+                description = ''
+                  Front this route with Anubis (a proof-of-work challenge for bots
+                  and scrapers) before requests reach the real upstream. Caddy
+                  reverse-proxies to a per-route Anubis instance instead of
+                  `upstream` directly; Anubis itself reverse-proxies to `upstream`
+                  once a client passes the challenge. Only sensible for
+                  human-browser-facing routes.
+                '';
+              };
+              difficulty = mkOption {
+                type = types.nullOr types.int;
+                default = null;
+                description = ''
+                  Override Anubis's proof-of-work difficulty for this route.
+                  Leave unset (`null`) to use Anubis's built-in default.
+                '';
+              };
+            };
+
+            matrixWellKnownClient = {
+              enable = mkOption {
+                type = types.bool;
+                default = false;
+                description = ''
+                  Serve `.well-known/matrix/client` for this route (with the CORS
+                  header the Matrix spec requires).
+                '';
+              };
+              content = mkOption {
+                type = types.nullOr types.str;
+                default = null;
+                description = ''
+                  Raw JSON body served for `.well-known/matrix/client`.
+                '';
+                example = ''{"m.homeserver": {"base_url": "https://matrix.example.com"}}'';
               };
             };
           };
@@ -183,14 +267,22 @@ with lib;
 
       securityTxtContact = route: if route.securityTxt.contact != null then route.securityTxt.contact else cfg.securityTxt.contact;
 
+      routeUpstream = routeName: route:
+        if route.anubis.enable
+        then "unix//run/anubis/anubis-${routeName}/anubis.sock"
+        else route.upstream;
+
       routeExtraConfig =
         route: hasRealCert:
-        (optionalString route.robotsTxt.enable ''
+        (optionalString route.blockCrawlers.enable (''
           respond /robots.txt <<ROBOTS_TXT
           User-agent: *
           Disallow: /
           ROBOTS_TXT 200
-        '')
+        '' + optionalString (route.blockCrawlers.userAgents != [ ]) ''
+          @blocked_crawler_ua header_regexp User-Agent "(?i)(${concatStringsSep "|" route.blockCrawlers.userAgents})"
+          respond @blocked_crawler_ua 403
+        ''))
         + (optionalString route.securityTxt.enable ''
           respond /.well-known/security.txt <<SECURITY_TXT
           Contact: ${securityTxtContact route}
@@ -203,6 +295,15 @@ with lib;
             -Server
             ${optionalString hasRealCert ''Strict-Transport-Security "max-age=15768000"''}
           }
+        '')
+        + (optionalString route.matrixWellKnownClient.enable ''
+          respond /.well-known/matrix/client <<MATRIX_CLIENT_WELL_KNOWN
+          ${route.matrixWellKnownClient.content}
+          MATRIX_CLIENT_WELL_KNOWN 200 {
+            close
+          }
+          header /.well-known/matrix/client Access-Control-Allow-Origin "*"
+          header /.well-known/matrix/client Content-Type "application/json"
         '');
 
       selfSignedVirtualHost = route: {
@@ -246,7 +347,7 @@ with lib;
             routeName: route:
               mapAttrsToList
                 (network: netCfg: {
-                  inherit route network;
+                  inherit route network routeName;
                   inherit (netCfg) cert;
                   hostname = if netCfg.hostname != null then netCfg.hostname else wgDefaultHostname routeName network;
                 })
@@ -258,15 +359,18 @@ with lib;
       wgVirtualHostEntries = map
         (
           e:
+          let
+            effectiveRoute = e.route // { upstream = routeUpstream e.routeName e.route; };
+          in
           nameValuePair e.hostname (
-            if e.cert then certVirtualHost e.route else selfSignedVirtualHost e.route
+            if e.cert then certVirtualHost effectiveRoute else selfSignedVirtualHost effectiveRoute
           )
         )
         wgEntries;
 
       publicEntries = mapAttrsToList
         (
-          _: route: nameValuePair route.public.domain (certVirtualHost route)
+          routeName: route: nameValuePair route.public.domain (certVirtualHost (route // { upstream = routeUpstream routeName route; }))
         )
         routesPublic;
 
@@ -293,6 +397,12 @@ with lib;
             '';
           })
           cfg.routes)
+        ++ (mapAttrsToList
+          (routeName: route: {
+            assertion = route.matrixWellKnownClient.enable -> route.matrixWellKnownClient.content != null;
+            message = "mine.services.caddyProxy.routes.${routeName}: matrixWellKnownClient.content must be set when matrixWellKnownClient.enable is true.";
+          })
+          cfg.routes)
         ++ [
           {
             assertion = needsDns01 -> (cfg.dns01.apiUrl != null && cfg.dns01.apiKeyEnvFile != null);
@@ -303,6 +413,18 @@ with lib;
       containers.caddy.config.services.caddy.virtualHosts = listToAttrs (
         wgVirtualHostEntries ++ publicEntries
       );
+
+      containers.caddy.config.services.anubis.instances = mapAttrs
+        (
+          routeName: route: {
+            settings = {
+              TARGET = "http://${route.upstream}";
+            } // optionalAttrs (route.anubis.difficulty != null) {
+              DIFFICULTY = route.anubis.difficulty;
+            };
+          }
+        )
+        (filterAttrs (_: route: route.anubis.enable) cfg.routes);
 
       # Conservative-but-firm defaults against slow-loris-style abuse.
       containers.caddy.config.services.caddy.globalConfig = ''
