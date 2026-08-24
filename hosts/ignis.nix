@@ -101,5 +101,17 @@ with lib;
     specialisation.selinux.configuration = {
       #security.selinux.enable = true;
     };
+
+    # TEMPORARY: route all queries for lux's domain directly to lux's own
+    # public IPv4 instead of the normal upstream DNS path, to test the new
+    # Matrix records without waiting on public DNS propagation. Remove once
+    # no longer needed.
+    services.resolved.dnsDelegates.lux.Delegate = {
+      DNS = [
+        self.nixosConfigurations.lux.config.mine.info.public.ipv4
+        self.nixosConfigurations.lux.config.mine.info.public.ipv6
+      ];
+      Domains = [ "~${self.nixosConfigurations.lux.config.mine.info.domain}" ];
+    };
   };
 }

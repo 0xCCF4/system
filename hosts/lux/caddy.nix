@@ -1,4 +1,5 @@
 { lib
+, self
 , config
 , noxa
 , specialArgs
@@ -10,7 +11,7 @@ with lib;
 {
   config =
     let
-      domain = config.mine.info.domain;
+      domain = self.lib.requireOption "mine.info.domain" config.mine.info.domain;
 
       hostAddress6 = luxAddr6For "fc00::/64" "caddy-veth-host";
 

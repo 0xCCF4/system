@@ -13,6 +13,7 @@ with lib;
       mailserverConfig = config.containers.mailserver.config;
       hostConfig = config;
       hostAddress6 = luxAddr6For "fc00::/64" "mailserver-veth-host";
+      domain = config.mine.info.domain;
     in
     {
       autoStart = false;
@@ -45,7 +46,7 @@ with lib;
 
           security.acme = {
             acceptTerms = true;
-            defaults.email = "security@johmat.de";
+            defaults.email = "security@${domain}";
             certs.${config.mailserver.fqdn} = {
               # Further setup required, check the manual:
               # https://nixos.org/manual/nixos/stable/#module-security-acme
@@ -56,8 +57,8 @@ with lib;
           mailserver = {
             enable = false;
             stateVersion = 3;
-            fqdn = "mail.johmat.de";
-            domains = [ "johmat.de" ];
+            fqdn = "mail.${domain}";
+            domains = [ domain ];
 
             # reference an existing ACME configuration
             x509.useACMEHost = config.mailserver.fqdn;
@@ -66,10 +67,10 @@ with lib;
 
             # A list of all login accounts. To create the password hashes, use
             # nix-shell -p mkpasswd --run 'mkpasswd -s'
-            loginAccounts = {
-              "postmaster@johmat.de" = {
+            accounts = {
+              "postmaster@${domain}" = {
                 hashedPassword = "$y$j9T$qgo2xCuskPwkggKYEvTbY.$C/.YHb2UhhYJLF6YIfnZabGjFi3nKAFDwbHV8ts2Bm0";
-                aliases = [ "@johmat.de" ];
+                aliases = [ "@${domain}" ];
               };
             };
           };

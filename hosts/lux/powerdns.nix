@@ -1,4 +1,5 @@
 { lib
+, self
 , config
 , noxa
 , specialArgs
@@ -11,7 +12,7 @@ with lib;
 {
   config =
     let
-      domain = config.mine.info.domain;
+      domain = self.lib.requireOption "mine.info.domain" config.mine.info.domain;
 
       hostAddress6 = luxAddr6For "fc00::/64" "powerdns-veth-host";
 
@@ -27,10 +28,15 @@ with lib;
         SOA = {
           nameServer = "ns1.${domain}.";
           adminEmail = "security@${domain}";
-          serial = 1;
+          # Must increase (RFC 1982) whenever the zone changes, or secondaries
+          # ignore our NOTIFYs and never re-pull via AXFR.
+          # self.lastModified is the flake's last-commit/mtime epoch, so it's
+          # deterministic and only ever moves forward.
+          serial = self.lastModified / 60;
         };
         A = [ config.mine.info.public.ipv4 ];
         AAAA = [ config.mine.info.public.ipv6 ];
+        TXT = [ "v=spf1 mx include:_spf.strato.com -all" ];
         subdomains = {
           mail = {
             AAAA = [ config.containers.mailserver.localAddress6 ];
@@ -44,7 +50,20 @@ with lib;
             A = [ config.mine.info.public.ipv4 ];
             AAAA = [ config.containers.caddy.localAddress6 ];
           };
-        };
+        } // {
+          ${removeSuffix ".${domain}" config.mine.services.matrix.domains.turn} = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.mtx-co-v6.localAddress6 ];
+          };
+        } // (
+          # matrix./chat./admin./meet.<domain> (turn excluded, see above)
+          mapAttrs'
+            (_: fqdn: nameValuePair (removeSuffix ".${domain}" fqdn) {
+              A = [ config.mine.info.public.ipv4 ];
+              AAAA = [ config.containers.caddy.localAddress6 ];
+            })
+            (removeAttrs config.mine.services.matrix.domains [ "turn" ])
+        );
         MX = [
           {
             preference = 10;
