@@ -155,6 +155,9 @@ in
           # caddy -> internet (ACME, its own dnscrypt-proxy upstream, etc.)
           iifname == "ve-caddy" oifname == "wan" accept
 
+          # allow wireguard network communication, todo: allow all wireguard interfaces to talk to eachother
+          iifname == "cloud-admin" oifname == "cloud-admin" accept
+
           drop
         }
 
