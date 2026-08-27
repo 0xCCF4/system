@@ -24,7 +24,17 @@ with lib;
 
       powerdnsApiKeySecret = config.age.secrets.${powerdnsApiKeyIdentifier};
 
+      ednsCookieSecretIdentifier = noxa.lib.secrets.computeIdentifier {
+        module = "powerdns";
+        ident = "edns-cookie-secret";
+        hosts = [ "lux" ];
+      };
+
+      ednsCookieSecret = config.age.secrets.${ednsCookieSecretIdentifier};
+
       zoneRecords = with dns.lib.combinators; {
+        # TEMPORARY: lowered from the 24h default for faster debugging turnaround. Remove after 2026-09-03.
+        TTL = 60;
         SOA = {
           nameServer = "ns1.${domain}.";
           adminEmail = "security@${domain}";
@@ -33,6 +43,12 @@ with lib;
           # self.lastModified is the flake's last-commit/mtime epoch, so it's
           # deterministic and only ever moves forward.
           serial = self.lastModified / 60;
+          # TEMPORARY: lowered from defaults (24h/10min/10days) for faster
+          # debugging turnaround. Remove after 2026-09-03.
+          refresh = 60;
+          retry = 60;
+          expire = 60;
+          minimum = 60;
         };
         A = [ config.mine.info.public.ipv4 ];
         AAAA = [ config.mine.info.public.ipv6 ];
@@ -74,13 +90,17 @@ with lib;
             exchange = "smtpin.rzone.de.";
           } # STRATO, fallback
         ];
-        NS = [ "ns1.${domain}." "sns.serverkompetenz.de." ];
+        NS = [ "ns1.${domain}." "ns2.${domain}." ]; # "sns.serverkompetenz.de." ];
       };
 
       zoneFile = toString (dns.lib.evalZone domain zoneRecords);
       zoneFilePath = builtins.toFile "${domain}.zone" zoneFile;
     in
     {
+      # PowerDNS edns-cookie-secret must be exactly 32 hex chars (16 bytes);
+      # agenix-rekey's built-in "hex" generator produces 48 (24 bytes).
+      age.generators.hex32 = { pkgs, ... }: "${pkgs.openssl}/bin/openssl rand -hex 16";
+
       noxa.secrets.def = [
         {
           ident = "api-key";
@@ -88,11 +108,18 @@ with lib;
           hosts = [ "lux" ];
           generator.script = "alnum";
         }
+        {
+          ident = "edns-cookie-secret";
+          module = "powerdns";
+          hosts = [ "lux" ];
+          generator.script = "hex32";
+        }
       ];
 
       # systemd-nspawn's --bind(-ro)= parses its argument as a colon-separated
       # tuple, remove the colons
       age.secrets.${powerdnsApiKeyIdentifier}.name = "powerdns-api-key";
+      age.secrets.${ednsCookieSecretIdentifier}.name = "powerdns-edns-cookie-secret";
 
       mine.services.caddyProxy.dns01 = {
         apiUrl = "http://[${config.containers.powerdns.localAddress6}]:8081";
@@ -116,11 +143,18 @@ with lib;
           mountPoint = "/run/secrets/powerdns-api-key";
           isReadOnly = true;
         };
+        bindMounts.ednsCookieSecret = {
+          hostPath = ednsCookieSecret.path;
+          mountPoint = "/run/secrets/powerdns-edns-cookie-secret";
+          isReadOnly = true;
+        };
 
         config = { pkgs, ... }: {
           imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
 
-          networking.firewall.allowedTCPPorts = [ 53 ];
+          # 8081: PowerDNS API/webserver, called by caddy's DNS-01 plugin.
+          # Source restricted at the application layer via webserver-allow-from.
+          networking.firewall.allowedTCPPorts = [ 53 8081 ];
           networking.firewall.allowedUDPPorts = [ 53 ];
 
           environment.systemPackages = [ pkgs.pdns ];
@@ -143,6 +177,9 @@ with lib;
               # IPv6-only
               local-address=::
 
+              # Avoid disclosing the exact PowerDNS version to CH TXT version.bind queries
+              version-string=anonymous
+
               api=yes
               webserver=yes
               webserver-address=::
@@ -152,8 +189,9 @@ with lib;
               include-dir=/run/pdns/secrets
 
               # Strato's secondary DNS
-              allow-axfr-ips=64:ff9b::81.169.148.38
-              also-notify=64:ff9b::81.169.148.38
+              # TEMPORARY: also allow 93.131.234.98 as a secondary. Remove after 2026-09-03.
+              allow-axfr-ips=64:ff9b::81.169.148.38,64:ff9b::93.131.234.98
+              also-notify=64:ff9b::81.169.148.38,64:ff9b::93.131.234.98
             '';
           };
 
@@ -176,6 +214,12 @@ with lib;
               echo "api-key=$(cat /run/secrets/powerdns-api-key)" > /run/pdns/secrets/api-key.conf
               chown pdns:pdns /run/pdns/secrets/api-key.conf
               chmod 600 /run/pdns/secrets/api-key.conf
+            ''}"
+            "+${pkgs.writeShellScript "pdns-edns-cookie-conf" ''
+              mkdir -p /run/pdns/secrets
+              echo "edns-cookie-secret=$(cat /run/secrets/powerdns-edns-cookie-secret)" > /run/pdns/secrets/edns-cookie-secret.conf
+              chown pdns:pdns /run/pdns/secrets/edns-cookie-secret.conf
+              chmod 600 /run/pdns/secrets/edns-cookie-secret.conf
             ''}"
           ];
 

@@ -37,7 +37,7 @@ with lib;
       };
 
       containers.jitsi = {
-        autoStart = true;
+        autoStart = config.mine.services.matrix.enable;
         privateNetwork = true;
         inherit hostAddress6;
         localAddress6 = luxAddr6For luxPublicNetwork6 "jitsi";

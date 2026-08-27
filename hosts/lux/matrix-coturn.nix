@@ -25,7 +25,7 @@ with lib;
           localAddress6 = luxAddr6For luxPublicNetwork6 name;
         in
         {
-          autoStart = true;
+          autoStart = config.mine.services.matrix.enable;
           privateNetwork = true;
           inherit hostAddress6 localAddress6;
           ephemeral = true;

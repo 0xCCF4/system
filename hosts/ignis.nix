@@ -106,6 +106,9 @@ with lib;
     # public IPv4 instead of the normal upstream DNS path, to test the new
     # Matrix records without waiting on public DNS propagation. Remove once
     # no longer needed.
+    # Commented out: was masking that johmat.de's registrar-level NS
+    # delegation still points at Strato (docks06/shades12.rzone.de), not lux.
+    /*
     services.resolved.dnsDelegates.lux.Delegate = {
       DNS = [
         self.nixosConfigurations.lux.config.mine.info.public.ipv4
@@ -113,5 +116,6 @@ with lib;
       ];
       Domains = [ "~${self.nixosConfigurations.lux.config.mine.info.domain}" ];
     };
+    */
   };
 }

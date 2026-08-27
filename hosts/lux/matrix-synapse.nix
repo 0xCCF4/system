@@ -98,7 +98,7 @@ with lib;
       };
 
       containers.mtx-syn = {
-        autoStart = true;
+        autoStart = config.mine.services.matrix.enable;
         privateNetwork = true;
         inherit hostAddress6;
         localAddress6 = luxAddr6For luxPublicNetwork6 "mtx-syn";
@@ -133,6 +133,7 @@ with lib;
 
           services.postgresql = {
             enable = true;
+            initdbArgs = [ "--locale=C" "--encoding=UTF8" ];
             ensureDatabases = [ "matrix-synapse" ];
             ensureUsers = [
               {

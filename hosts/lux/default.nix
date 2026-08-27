@@ -56,6 +56,15 @@ with lib;
       };
     };
 
+  options.mine.services.matrix.enable = mkOption {
+    type = types.bool;
+    default = true;
+    description = ''
+      Master switch for the whole self-hosted Matrix stack: Synapse, the
+      Element Web client, coturn, and Jitsi.
+    '';
+  };
+
   options.mine.services.matrix.enableFederation = mkOption {
     type = types.bool;
     default = false;
@@ -113,5 +122,9 @@ with lib;
         bindPort = config.boot.initrd.network.ssh.port;
       }
     ];
+
+    # TEMPORARY: matrix stack turned off for now. Set back to true (or drop
+    # this line, the option defaults to true) to fast re-enable.
+    mine.services.matrix.enable = false;
   };
 }
