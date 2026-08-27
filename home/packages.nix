@@ -161,7 +161,7 @@ with builtins;
           xhost
           chromium
           openocd
-          remina
+          remmina
           inkscape
           gparted
         ]
