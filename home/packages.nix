@@ -86,6 +86,9 @@ with builtins;
           pciutils # PCI device management
           usbutils # USB device management
           sshfs # SSH remote fs mount
+          socat # udp netcat
+          tty-clock # tty clock
+          tor # toe
         ]
         ++ lists.optionals cfg.cmdlineExtras [
           uutils-coreutils-noprefix
@@ -112,6 +115,9 @@ with builtins;
           yazi # terminal file manager
           pv # monitor data stream progress
           zrb # ZFS backup tool
+          nixpkgs-review # pr checker tool
+          vmtouch # pin files to memory
+          smartmontools # check drive health
         ]
         ++ lists.optionals cfg.latex [
           texliveFull
@@ -126,6 +132,11 @@ with builtins;
           rustup
           gcc
           devenv
+          wireshark
+          ffmpeg
+          sqlitebrowser
+          nmap
+          mdbook
         ])
         ++ lists.optionals cfg.graphicalEssentials [
           gnome-clocks
@@ -147,6 +158,12 @@ with builtins;
           vlc
           gimp
           libnotify
+          xhost
+          chromium
+          openocd
+          remina
+          inkscape
+          gparted
         ]
         ++ lists.optionals cfg.hardwareDesign [
           kicad
@@ -155,6 +172,7 @@ with builtins;
         ++ lists.optionals cfg.office [
           libreoffice
           xournalpp
+          drawio
         ];
 
       home.mine.persistence.cache.directories =
