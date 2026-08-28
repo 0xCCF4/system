@@ -137,6 +137,7 @@ with builtins;
           sqlitebrowser
           nmap
           mdbook
+          octave
         ])
         ++ lists.optionals cfg.graphicalEssentials [
           gnome-clocks
