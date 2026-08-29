@@ -47,9 +47,9 @@ with lib;
                       type = types.bool;
                       default = true;
                       description = ''
-                        Request a real, publicly-trusted cert for this hostname, via whichever
-                        `acmeMethod` is globally configured. When false, serves this hostname
-                        with a self-signed cert from Caddy's internal CA instead.
+                        Request a real, publicly-trusted cert for this hostname via Caddy's
+                        automatic HTTP-01 ACME. When false, serves this hostname with a
+                        self-signed cert from Caddy's internal CA instead.
                       '';
                     };
                   };
@@ -179,6 +179,16 @@ with lib;
                   Leave unset (`null`) to use Anubis's built-in default.
                 '';
               };
+              bypassPaths = mkOption {
+                type = types.listOf types.str;
+                default = [ ];
+                description = ''
+                  Caddy path patterns (e.g. `"/api/*"`) that skip the Anubis
+                  challenge and go straight to `upstream`, even when
+                  `anubis.enable` is true.
+                '';
+                example = [ "/api/*" "/identity/*" ];
+              };
             };
 
             matrixWellKnownClient = {
@@ -217,45 +227,13 @@ with lib;
       };
     };
 
-    acmeMethod = mkOption {
-      type = types.enum [ "dns01" "http01" ];
-      default = "http01";
-      description = ''
-        Challenge method used for every real (non-self-signed) cert this caddy instance issues,
-        across both public and WireGuard routes. "dns01" uses the self-hosted PowerDNS API
-        (dns01.apiUrl/apiKeyEnvFile); "http01" uses Caddy's standard automatic ACME (no explicit
-        `tls` directive), which requires the hostname to have a real, publicly-resolvable and
-        reachable A/AAAA record.
-      '';
-    };
-
-    dns01 = {
-      apiUrl = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        description = ''
-          URL of the PowerDNS REST API used for DNS-01 challenges (any wireguard network with
-          `dns01 = true` or a route with `public.enable = true`). Not secret - set to the
-          provider's API endpoint.
-        '';
-        example = "http://192.168.100.41:8081";
-      };
-
-      apiKeyEnvFile = mkOption {
-        type = types.nullOr types.path;
-        default = null;
-        description = ''
-          Path (inside the caddy container) to an EnvironmentFile defining `POWERDNS_API_KEY`.
-          Required when any route needs a real DNS-01 certificate.
-        '';
-      };
-    };
   };
 
   config =
     let
       cfg = config.mine.services.caddyProxy;
       routesPublic = filterAttrs (_: route: route.public.enable) cfg.routes;
+      anubisRoutes = filterAttrs (_: route: route.anubis.enable) cfg.routes;
 
       # This host's own address on a wireguard network, mask stripped.
       wgSelfAddress =
@@ -271,6 +249,21 @@ with lib;
         if route.anubis.enable
         then "unix//run/anubis/anubis-${routeName}/anubis.sock"
         else route.upstream;
+
+      # When bypassPaths is set, matching requests skip Anubis entirely and go
+      # straight to the real upstream (first match wins, same as the
+      # respond-then-catch-all-reverse_proxy pattern routeExtraConfig already
+      # relies on below); everything else still goes through Anubis.
+      reverseProxyBlock = routeName: route:
+        if route.anubis.enable && route.anubis.bypassPaths != [ ]
+        then ''
+          @anubis_bypass path ${concatStringsSep " " route.anubis.bypassPaths}
+          reverse_proxy @anubis_bypass ${route.upstream}
+          reverse_proxy ${routeUpstream routeName route}
+        ''
+        else ''
+          reverse_proxy ${routeUpstream routeName route}
+        '';
 
       routeExtraConfig =
         route: hasRealCert:
@@ -306,35 +299,24 @@ with lib;
           header /.well-known/matrix/client Content-Type "application/json"
         '');
 
-      selfSignedVirtualHost = route: {
+      selfSignedVirtualHost = routeName: route: {
         extraConfig = ''
           ${routeExtraConfig route false}
-          reverse_proxy ${route.upstream}
+          ${reverseProxyBlock routeName route}
           tls internal {
             protocols tls1.3 tls1.3
           }
         '';
       };
 
-      # A real, publicly-trusted cert, via whichever `acmeMethod` is configured: DNS-01 against
-      # the self-hosted PowerDNS instance, or Caddy's own automatic HTTP-01 ACME (no explicit
-      # issuer needed for the latter -- Caddy handles it by default). Either way, pin TLS to
-      # 1.3-only.
+      # A real, publicly-trusted cert via Caddy's own automatic HTTP-01 ACME (no explicit
+      # issuer needed -- Caddy handles it by default). Requires the hostname to have a real,
+      # publicly-resolvable and reachable A/AAAA record. Pin TLS to 1.3-only.
       certVirtualHost =
-        route:
-        if cfg.acmeMethod == "dns01" then {
+        routeName: route: {
           extraConfig = ''
             ${routeExtraConfig route true}
-            reverse_proxy ${route.upstream}
-            tls {
-              dns powerdns ${cfg.dns01.apiUrl} {$POWERDNS_API_KEY}
-              protocols tls1.3 tls1.3
-            }
-          '';
-        } else {
-          extraConfig = ''
-            ${routeExtraConfig route true}
-            reverse_proxy ${route.upstream}
+            ${reverseProxyBlock routeName route}
             tls {
               protocols tls1.3 tls1.3
             }
@@ -359,25 +341,21 @@ with lib;
       wgVirtualHostEntries = map
         (
           e:
-          let
-            effectiveRoute = e.route // { upstream = routeUpstream e.routeName e.route; };
-          in
           nameValuePair e.hostname (
-            if e.cert then certVirtualHost effectiveRoute else selfSignedVirtualHost effectiveRoute
+            if e.cert then certVirtualHost e.routeName e.route else selfSignedVirtualHost e.routeName e.route
           )
         )
         wgEntries;
 
       publicEntries = mapAttrsToList
         (
-          routeName: route: nameValuePair route.public.domain (certVirtualHost (route // { upstream = routeUpstream routeName route; }))
+          routeName: route: nameValuePair route.public.domain (certVirtualHost routeName route)
         )
         routesPublic;
 
       dnsHostsOverrides = mkMerge (map (e: { ${e.hostname} = [ (wgSelfAddress e.network) ]; }) wgEntries);
-
-      needsDns01 = cfg.acmeMethod == "dns01" && ((any (e: e.cert) wgEntries) || routesPublic != { });
     in
+    mkMerge [
     {
       assertions =
         (mapAttrsToList
@@ -402,49 +380,59 @@ with lib;
             assertion = route.matrixWellKnownClient.enable -> route.matrixWellKnownClient.content != null;
             message = "mine.services.caddyProxy.routes.${routeName}: matrixWellKnownClient.content must be set when matrixWellKnownClient.enable is true.";
           })
-          cfg.routes)
-        ++ [
-          {
-            assertion = needsDns01 -> (cfg.dns01.apiUrl != null && cfg.dns01.apiKeyEnvFile != null);
-            message = "mine.services.caddyProxy: dns01.apiUrl and dns01.apiKeyEnvFile must be set when acmeMethod is \"dns01\" and any wireguard network uses `cert = true` or a route uses `public.enable`.";
-          }
-        ];
-
-      containers.caddy.config.services.caddy.virtualHosts = listToAttrs (
-        wgVirtualHostEntries ++ publicEntries
-      );
-
-      containers.caddy.config.services.anubis.instances = mapAttrs
-        (
-          routeName: route: {
-            settings = {
-              TARGET = "http://${route.upstream}";
-            } // optionalAttrs (route.anubis.difficulty != null) {
-              DIFFICULTY = route.anubis.difficulty;
-            };
-          }
-        )
-        (filterAttrs (_: route: route.anubis.enable) cfg.routes);
-
-      # Conservative-but-firm defaults against slow-loris-style abuse.
-      containers.caddy.config.services.caddy.globalConfig = ''
-        servers {
-          timeouts {
-            read_header 10s
-            read_body 30s
-            write 30s
-            idle 2m
-          }
-        }
-      '';
-
-      # "-" prefix: this file is generated by the caddy service's own preStart (see
-      # hosts/lux/caddy.nix), so it must be tolerated as missing on the very first
-      # ExecStartPre invocation.
-      containers.caddy.config.systemd.services.caddy.serviceConfig.EnvironmentFile =
-        mkIf needsDns01 "-${cfg.dns01.apiKeyEnvFile}";
+          cfg.routes);
 
       mine.dns.hosts = dnsHostsOverrides;
+    }
+    # Only touch the caddy container's own config on the host that actually
+    # declares routes (lux). Every host imports this module, and cfg.routes
+    # is a plain attrsOf option -- merely *referencing* a nested attrsOf-
+    # submodule path like containers.caddy.config.users.users.caddy.<x>
+    # registers "caddy" as a real users.users entry with all-default values,
+    # even when the value itself is `mkIf false ...`  (attrsOf key presence is
+    # structural, not value-dependent). On a host where services.caddy.enable
+    # never fires, nothing else supplies isSystemUser, so that phantom entry
+    # fails NixOS's "exactly one of isSystemUser/isNormalUser must be set"
+    # assertion -- confirmed live on ignis, which has no caddy routes at all.
+    (mkIf (cfg.routes != { }) {
+      containers.caddy.config = {
+        services.caddy.virtualHosts = listToAttrs (
+          wgVirtualHostEntries ++ publicEntries
+        );
 
-    };
+        services.anubis.instances = mapAttrs
+          (
+            routeName: route: {
+              settings = {
+                TARGET = "http://${route.upstream}";
+              } // optionalAttrs (route.anubis.difficulty != null) {
+                DIFFICULTY = route.anubis.difficulty;
+              };
+            }
+          )
+          anubisRoutes;
+
+        services.anubis.defaultOptions.settings.SOCKET_MODE =
+          mkIf (anubisRoutes != { }) "0660";
+        # Bumped from Anubis's own default of 4; a route can still override via
+        # its own `anubis.difficulty`.
+        services.anubis.defaultOptions.settings.DIFFICULTY =
+          mkIf (anubisRoutes != { }) 5;
+        users.users.caddy.extraGroups =
+          mkIf (anubisRoutes != { }) [ "anubis" ];
+
+        # Conservative-but-firm defaults against slow-loris-style abuse.
+        services.caddy.globalConfig = ''
+          servers {
+            timeouts {
+              read_header 10s
+              read_body 30s
+              write 30s
+              idle 2m
+            }
+          }
+        '';
+      };
+    })
+    ];
 }

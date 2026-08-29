@@ -25,12 +25,7 @@ let
 
   # Caddy <-> upstream URLs of containers
   caddyOutboundTargets =
-    (lib.mapAttrsToList (_: route: route.upstream) config.mine.services.caddyProxy.routes)
-    ++ (lib.optional
-      (
-        config.mine.services.caddyProxy.dns01.apiUrl != null
-      )
-      config.mine.services.caddyProxy.dns01.apiUrl);
+    lib.mapAttrsToList (_: route: route.upstream) config.mine.services.caddyProxy.routes;
 
   # Caddy <-> container interfaces
   caddyContainerTargets = lib.unique (
@@ -193,7 +188,7 @@ in
           # wireguard -> caddy
           ${caddyWireguardForwardRules}
 
-          # caddy -> backend containers (reverse-proxy upstreams, DNS-01 API)
+          # caddy -> backend containers (reverse-proxy upstreams)
           ${caddyContainersForwardRules}
 
           # caddy -> internet (ACME, its own dnscrypt-proxy upstream, etc.)

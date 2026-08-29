@@ -11,6 +11,7 @@ with lib;
     ./mailserver.nix
     ./caddy.nix
     ./radicale.nix
+    ./vaultwarden.nix
     ./powerdns.nix
     ./matrix-synapse.nix
     ./matrix-coturn.nix
