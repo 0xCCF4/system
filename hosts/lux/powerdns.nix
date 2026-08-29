@@ -16,14 +16,6 @@ with lib;
 
       hostAddress6 = luxAddr6For "fc00::/64" "powerdns-veth-host";
 
-      powerdnsApiKeyIdentifier = noxa.lib.secrets.computeIdentifier {
-        module = "powerdns";
-        ident = "api-key";
-        hosts = [ "lux" ];
-      };
-
-      powerdnsApiKeySecret = config.age.secrets.${powerdnsApiKeyIdentifier};
-
       ednsCookieSecretIdentifier = noxa.lib.secrets.computeIdentifier {
         module = "powerdns";
         ident = "edns-cookie-secret";
@@ -31,6 +23,19 @@ with lib;
       };
 
       ednsCookieSecret = config.age.secrets.${ednsCookieSecretIdentifier};
+
+      tsigKeySecretIdentifier = noxa.lib.secrets.computeIdentifier {
+        module = "powerdns";
+        ident = "tsig-key";
+        hosts = [ "lux" ];
+      };
+
+      tsigKeySecret = config.age.secrets.${tsigKeySecretIdentifier};
+      tsigKeyName = "${domain}.${config.mine.info.public.ipv4}";
+
+      hetznerSecondariesV4 = [ "213.239.242.238" "213.133.100.103" "193.47.99.3" ];
+      hetznerSecondariesV6 = [ "2a01:4f8:0:a101::a:1" "2a01:4f8:0:1::5ddc:2" "2001:67c:192c::add:a3" ];
+      hetznerSecondaries = (map (ip: "64:ff9b::${ip}") hetznerSecondariesV4) ++ hetznerSecondariesV6;
 
       zoneRecords = with dns.lib.combinators; {
         # TEMPORARY: lowered from the 24h default for faster debugging turnaround. Remove after 2026-09-03.
@@ -43,11 +48,11 @@ with lib;
           # self.lastModified is the flake's last-commit/mtime epoch, so it's
           # deterministic and only ever moves forward.
           serial = self.lastModified / 60;
-          # TEMPORARY: lowered from defaults (24h/10min/10days) for faster
-          # debugging turnaround. Remove after 2026-09-03.
-          refresh = 60;
-          retry = 60;
-          expire = 60;
+          refresh = 600;
+          retry = 120;
+          expire = 1800;
+          # TEMPORARY: lowered from the 10-day default for faster debugging
+          # turnaround. Remove after 2026-09-03.
           minimum = 60;
         };
         A = [ config.mine.info.public.ipv4 ];
@@ -63,6 +68,10 @@ with lib;
             AAAA = [ config.containers.powerdns.localAddress6 ];
           };
           todos = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.caddy.localAddress6 ];
+          };
+          vault = {
             A = [ config.mine.info.public.ipv4 ];
             AAAA = [ config.containers.caddy.localAddress6 ];
           };
@@ -90,7 +99,7 @@ with lib;
             exchange = "smtpin.rzone.de.";
           } # STRATO, fallback
         ];
-        NS = [ "ns1.${domain}." "ns2.${domain}." ]; # "sns.serverkompetenz.de." ];
+        NS = [ "ns1.${domain}." "ns1.first-ns.de." "robotns2.second-ns.de." "robotns3.second-ns.com." ];
       };
 
       zoneFile = toString (dns.lib.evalZone domain zoneRecords);
@@ -100,30 +109,29 @@ with lib;
       # PowerDNS edns-cookie-secret must be exactly 32 hex chars (16 bytes);
       # agenix-rekey's built-in "hex" generator produces 48 (24 bytes).
       age.generators.hex32 = { pkgs, ... }: "${pkgs.openssl}/bin/openssl rand -hex 16";
+      # hmac-sha256 TSIG keys are base64-encoded 32-byte secrets (pdnsutil's own
+      # expected format), not the hex the hex32 generator above produces.
+      age.generators.base64_32 = { pkgs, ... }: "${pkgs.openssl}/bin/openssl rand -base64 32";
 
       noxa.secrets.def = [
-        {
-          ident = "api-key";
-          module = "powerdns";
-          hosts = [ "lux" ];
-          generator.script = "alnum";
-        }
         {
           ident = "edns-cookie-secret";
           module = "powerdns";
           hosts = [ "lux" ];
           generator.script = "hex32";
         }
+        {
+          ident = "tsig-key";
+          module = "powerdns";
+          hosts = [ "lux" ];
+          generator.script = "base64_32";
+        }
       ];
 
       # systemd-nspawn's --bind(-ro)= parses its argument as a colon-separated
       # tuple, remove the colons
-      age.secrets.${powerdnsApiKeyIdentifier}.name = "powerdns-api-key";
       age.secrets.${ednsCookieSecretIdentifier}.name = "powerdns-edns-cookie-secret";
-
-      mine.services.caddyProxy.dns01 = {
-        apiUrl = "http://[${config.containers.powerdns.localAddress6}]:8081";
-      };
+      age.secrets.${tsigKeySecretIdentifier}.name = "powerdns-tsig-key";
 
       containers.powerdns = {
         autoStart = true;
@@ -138,23 +146,21 @@ with lib;
           mountPoint = "/var/lib/powerdns";
           isReadOnly = false;
         };
-        bindMounts.apiKey = {
-          hostPath = powerdnsApiKeySecret.path;
-          mountPoint = "/run/secrets/powerdns-api-key";
-          isReadOnly = true;
-        };
         bindMounts.ednsCookieSecret = {
           hostPath = ednsCookieSecret.path;
           mountPoint = "/run/secrets/powerdns-edns-cookie-secret";
+          isReadOnly = true;
+        };
+        bindMounts.tsigKeySecret = {
+          hostPath = tsigKeySecret.path;
+          mountPoint = "/run/secrets/powerdns-tsig-key";
           isReadOnly = true;
         };
 
         config = { pkgs, ... }: {
           imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
 
-          # 8081: PowerDNS API/webserver, called by caddy's DNS-01 plugin.
-          # Source restricted at the application layer via webserver-allow-from.
-          networking.firewall.allowedTCPPorts = [ 53 8081 ];
+          networking.firewall.allowedTCPPorts = [ 53 ];
           networking.firewall.allowedUDPPorts = [ 53 ];
 
           environment.systemPackages = [ pkgs.pdns ];
@@ -180,18 +186,10 @@ with lib;
               # Avoid disclosing the exact PowerDNS version to CH TXT version.bind queries
               version-string=anonymous
 
-              api=yes
-              webserver=yes
-              webserver-address=::
-              webserver-port=8081
-              # Only caddy calls this (DNS-01 challenges)
-              webserver-allow-from=${config.containers.caddy.localAddress6}/128
               include-dir=/run/pdns/secrets
 
-              # Strato's secondary DNS
-              # TEMPORARY: also allow 93.131.234.98 as a secondary. Remove after 2026-09-03.
-              allow-axfr-ips=64:ff9b::81.169.148.38,64:ff9b::93.131.234.98
-              also-notify=64:ff9b::81.169.148.38,64:ff9b::93.131.234.98
+              allow-axfr-ips=${concatStringsSep "," hetznerSecondaries}
+              also-notify=${concatStringsSep "," hetznerSecondaries}
             '';
           };
 
@@ -209,17 +207,15 @@ with lib;
                 chown pdns:pdns "$db"
               fi
             ''}"
-            "+${pkgs.writeShellScript "pdns-api-key-conf" ''
-              mkdir -p /run/pdns/secrets
-              echo "api-key=$(cat /run/secrets/powerdns-api-key)" > /run/pdns/secrets/api-key.conf
-              chown pdns:pdns /run/pdns/secrets/api-key.conf
-              chmod 600 /run/pdns/secrets/api-key.conf
-            ''}"
             "+${pkgs.writeShellScript "pdns-edns-cookie-conf" ''
               mkdir -p /run/pdns/secrets
               echo "edns-cookie-secret=$(cat /run/secrets/powerdns-edns-cookie-secret)" > /run/pdns/secrets/edns-cookie-secret.conf
               chown pdns:pdns /run/pdns/secrets/edns-cookie-secret.conf
               chmod 600 /run/pdns/secrets/edns-cookie-secret.conf
+            ''}"
+            "+${pkgs.writeShellScript "pdns-tsig-key-import" ''
+              ${pkgs.pdns}/bin/pdnsutil tsigkey import ${tsigKeyName} hmac-sha256 "$(cat /run/secrets/powerdns-tsig-key)"
+              ${pkgs.pdns}/bin/pdnsutil tsigkey activate ${domain} ${tsigKeyName} primary
             ''}"
           ];
 

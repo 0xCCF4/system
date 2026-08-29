@@ -21,7 +21,10 @@ in
       (mkBind "Return" "hl.dsp.exec_cmd(terminal)")
       (mkBind "E" "hl.dsp.exec_cmd(fileManager)")
       (mkBind "D" "hl.dsp.exec_cmd(menu)")
-
+    ]
+    ++ optional config.home.mine.bitwarden.enable
+      (mkBind "S" "hl.dsp.exec_cmd(\"${getExe config.home.mine.bitwarden.rofiPickerPackage}\")")
+    ++ [
       # Lock, reload, exit
       (mkBind "P" "hl.dsp.exec_cmd(hyprctl .. \" reload\")")
       (mkBind "M" "hl.dsp.exit()")
