@@ -53,8 +53,9 @@ with lib;
         # subdirectory (basePath/todos/<collection>), so todoman needs to glob
         # two levels deep to see individual lists instead of just "todos".
         glob = "*/*";
-        extraConfig = mkDefault ''
+        extraConfig = ''
           date_format = "%d.%m.%Y"
+          time_format = "%H:%M"
         '';
       };
 
