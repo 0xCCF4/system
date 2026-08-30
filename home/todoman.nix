@@ -4,6 +4,10 @@
 }:
 with lib;
 {
+  imports = [
+    ./persistence.nix
+  ];
+
   options.home.mine.todoman = {
     enable = mkOption {
       type = types.bool;
@@ -45,10 +49,18 @@ with lib;
       programs.vdirsyncer.enable = true;
       programs.todoman = {
         enable = true;
+        # The "todos" account stores each discovered collection in its own
+        # subdirectory (basePath/todos/<collection>), so todoman needs to glob
+        # two levels deep to see individual lists instead of just "todos".
+        glob = "*/*";
         extraConfig = mkDefault ''
           date_format = "%d.%m.%Y"
         '';
       };
+
+      home.mine.persistence.data.directories = [
+        ".local/share/vdirsyncer"
+      ];
 
       accounts.calendar.basePath = ".local/share/vdirsyncer";
       accounts.calendar.accounts.todos = {
@@ -70,11 +82,25 @@ with lib;
 
       # home-manager's programs.vdirsyncer only installs the package and writes the
       # config file - it runs nothing on its own, so this timer does the actual sync.
+      #
+      # `discover` must run before `sync`: with collections = ["from a", "from b"],
+      # vdirsyncer only creates local storage dirs for collections it has cached via
+      # discover. Without it, a fresh setup has no local dirs, so `sync` has nothing
+      # to sync and todoman fails with "No lists found matching ...".
+      #
+      # `metasync` pulls each collection's displayname/color from the CalDAV server
+      # into a local `displayname`/`color` file; todoman uses that as the list's
+      # name (see todoman/model.py: TodoList.name_for_path), falling back to the
+      # bare collection UUID otherwise.
       systemd.user.services.vdirsyncer-sync = {
         Unit.Description = "Sync CalDAV todo list via vdirsyncer";
         Service = {
           Type = "oneshot";
-          ExecStart = "${config.programs.vdirsyncer.package}/bin/vdirsyncer sync";
+          ExecStart = [
+            "${config.programs.vdirsyncer.package}/bin/vdirsyncer discover"
+            "${config.programs.vdirsyncer.package}/bin/vdirsyncer metasync"
+            "${config.programs.vdirsyncer.package}/bin/vdirsyncer sync"
+          ];
         };
       };
 
