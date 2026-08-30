@@ -49,6 +49,52 @@ in
       tomatScript = pkgs.writeShellScriptBin "tomat-status" ''
         ${getExe config.services.tomat.package} watch -f "{state} {phase} {time}"
       '';
+
+      todoScript = pkgs.writeShellScriptBin "todo-status" ''
+        ${getExe config.programs.todoman.package} --porcelain list | ${getExe pkgs.jq} -c '
+          def priority_marker:
+            if .priority == 0 then
+              ""
+            elif .priority <= 4 then
+              "<span foreground=\"#${config.lib.stylix.colors.base08-hex}\"></span> "
+            elif .priority == 5 then
+              "<span foreground=\"#${config.lib.stylix.colors.base0D-hex}\"></span> "
+            else
+              "<span foreground=\"#${config.lib.stylix.colors.base0B-hex}\"></span> "
+            end;
+          def fmt_line:
+            "\(.due | localtime | strftime("%a %H:%M"))  \(priority_marker)\(.summary)";
+          def plain_line:
+            "\(.due | localtime | strftime("%a %H:%M"))  \(if .priority == 0 then "" else "X " end)\(.summary)";
+          [.[] | select(.due != null and (.start == null or .start <= now))]
+          | sort_by([.due, (if .priority == 0 then 999 else .priority end)]) as $due
+          | ($due | map(select(.due < now)) | sort_by([(if .priority == 0 then 999 else .priority end), .due])) as $overdueItems
+          | ($due | map(select(.due >= now))) as $upcomingItems
+          | ($due | map(plain_line | length) | (if length > 0 then max else 0 end)) as $maxlen
+          | ($overdueItems | length) as $overdue
+          | {
+              text: (
+                if ($due | length) == 0 then
+                  "<span foreground=\"#${config.lib.stylix.colors.base0A-hex}\"></span>"
+                else
+                  "<span foreground=\"#${config.lib.stylix.colors.base0A-hex}\">󰥪 \($due | length)</span>" +
+                  (if $overdue > 0 then " <span foreground=\"#${config.lib.stylix.colors.base08-hex}\">(\($overdue))</span>" else "" end)
+                end
+              ),
+              tooltip: (
+                if ($due | length) == 0 then
+                  "Nothing due"
+                else
+                  (
+                    ($overdueItems | map("<span foreground=\"#${config.lib.stylix.colors.base08-hex}\">\(fmt_line)</span>"))
+                    + (if ($overdueItems | length) > 0 and ($upcomingItems | length) > 0 then [("─" * $maxlen)] else [] end)
+                    + ($upcomingItems | map(fmt_line))
+                  ) | join("\n")
+                end
+              )
+            }
+        '
+      '';
     in
     {
       home.packages = [ pkgs.playerctl ];
@@ -77,7 +123,6 @@ in
             ];
             modules-right = [
               "custom/tomat"
-              "hyprland/language"
               # "cpu"
               # "memory"
               "network"
@@ -86,6 +131,7 @@ in
               "pulseaudio#microphone"
               "battery"
               "idle_inhibitor"
+              "custom/todo"
               "clock"
               "tray"
             ];
@@ -199,6 +245,15 @@ in
               return-type = "json";
               format = "{text}";
               tooltip = true;
+            };
+
+            "custom/todo" = mkIf (config.programs.todoman.enable) {
+              exec = "${getExe todoScript}";
+              return-type = "json";
+              format = "{}";
+              interval = 60;
+              tooltip = true;
+              on-click = "${getExe config.programs.kitty.package} --hold -e ${getExe config.programs.todoman.package} list";
             };
 
             "hyprland/window" = {
@@ -347,7 +402,8 @@ in
           #custom-wallchange,
           #custom-mode,
           #custom-submap,
-          #custom-tomat
+          #custom-tomat,
+          #custom-todo,
           #idle_inhibitor,
           #battery
           #tray {
@@ -465,6 +521,10 @@ in
               color: @blue_1;
               padding-left: 8px;
               padding-right: 8px;
+          }
+
+          #custom-todo {
+              margin-left: 10px;
           }
 
           /* system tray block */
