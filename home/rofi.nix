@@ -62,7 +62,7 @@ with builtins;
         in
         {
           "*" = {
-            "font" = "${config.stylix.fonts.monospace.name}, FiraCode Nerd Font 15";
+            "font" = "${config.stylix.fonts.monospace.name}, FiraCode Nerd Font 20";
           };
 
           "window" = {
@@ -70,6 +70,11 @@ with builtins;
             "border-color" = mkRgba rofiOpacity "base0D";
             "border-width" = "2px";
             "border" = mkLiteral "2";
+            # "width" = mkLiteral "35%";
+          };
+
+          "inputbar" = {
+            "spacing" = mkLiteral "0.5em";
           };
 
           "element-icon" = { };
