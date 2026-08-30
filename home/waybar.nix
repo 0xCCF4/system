@@ -64,6 +64,8 @@ in
             end;
           def fmt_line:
             "\(.due | localtime | strftime("%a %H:%M"))  \(priority_marker)\(.summary)";
+          def fmt_line_overdue:
+            "<span foreground=\"#${config.lib.stylix.colors.base08-hex}\">\(.due | localtime | strftime("%a %H:%M"))</span>  \(priority_marker)\(.summary)";
           def plain_line:
             "\(.due | localtime | strftime("%a %H:%M"))  \(if .priority == 0 then "" else "X " end)\(.summary)";
           [.[] | select(.due != null and (.start == null or .start <= now))]
@@ -86,7 +88,7 @@ in
                   "Nothing due"
                 else
                   (
-                    ($overdueItems | map("<span foreground=\"#${config.lib.stylix.colors.base08-hex}\">\(fmt_line)</span>"))
+                    ($overdueItems | map(fmt_line_overdue))
                     + (if ($overdueItems | length) > 0 and ($upcomingItems | length) > 0 then [("─" * $maxlen)] else [] end)
                     + ($upcomingItems | map(fmt_line))
                   ) | join("\n")
