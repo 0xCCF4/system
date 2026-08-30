@@ -109,13 +109,13 @@ with lib;
     # Commented out: was masking that johmat.de's registrar-level NS
     # delegation still points at Strato (docks06/shades12.rzone.de), not lux.
     /*
-    services.resolved.dnsDelegates.lux.Delegate = {
+      services.resolved.dnsDelegates.lux.Delegate = {
       DNS = [
         self.nixosConfigurations.lux.config.mine.info.public.ipv4
         self.nixosConfigurations.lux.config.mine.info.public.ipv6
       ];
       Domains = [ "~${self.nixosConfigurations.lux.config.mine.info.domain}" ];
-    };
+      };
     */
   };
 }

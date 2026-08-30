@@ -356,83 +356,83 @@ with lib;
       dnsHostsOverrides = mkMerge (map (e: { ${e.hostname} = [ (wgSelfAddress e.network) ]; }) wgEntries);
     in
     mkMerge [
-    {
-      assertions =
-        (mapAttrsToList
-          (routeName: route: {
-            assertion = route.public.enable -> route.public.domain != null;
-            message = "mine.services.caddyProxy.routes.${routeName}: public.domain must be set when public.enable is true.";
-          })
-          cfg.routes)
-        ++ (mapAttrsToList
-          (routeName: route: {
-            assertion = route.securityTxt.enable -> securityTxtContact route != null;
-            message = ''
-              mine.services.caddyProxy.routes.${routeName}: securityTxt.enable is true but no
-              contact is configured. Set routes.${routeName}.securityTxt.contact, the global
-              mine.services.caddyProxy.securityTxt.contact, or mine.info.domain (from which the
-              global default is derived).
-            '';
-          })
-          cfg.routes)
-        ++ (mapAttrsToList
-          (routeName: route: {
-            assertion = route.matrixWellKnownClient.enable -> route.matrixWellKnownClient.content != null;
-            message = "mine.services.caddyProxy.routes.${routeName}: matrixWellKnownClient.content must be set when matrixWellKnownClient.enable is true.";
-          })
-          cfg.routes);
+      {
+        assertions =
+          (mapAttrsToList
+            (routeName: route: {
+              assertion = route.public.enable -> route.public.domain != null;
+              message = "mine.services.caddyProxy.routes.${routeName}: public.domain must be set when public.enable is true.";
+            })
+            cfg.routes)
+          ++ (mapAttrsToList
+            (routeName: route: {
+              assertion = route.securityTxt.enable -> securityTxtContact route != null;
+              message = ''
+                mine.services.caddyProxy.routes.${routeName}: securityTxt.enable is true but no
+                contact is configured. Set routes.${routeName}.securityTxt.contact, the global
+                mine.services.caddyProxy.securityTxt.contact, or mine.info.domain (from which the
+                global default is derived).
+              '';
+            })
+            cfg.routes)
+          ++ (mapAttrsToList
+            (routeName: route: {
+              assertion = route.matrixWellKnownClient.enable -> route.matrixWellKnownClient.content != null;
+              message = "mine.services.caddyProxy.routes.${routeName}: matrixWellKnownClient.content must be set when matrixWellKnownClient.enable is true.";
+            })
+            cfg.routes);
 
-      mine.dns.hosts = dnsHostsOverrides;
-    }
-    # Only touch the caddy container's own config on the host that actually
-    # declares routes (lux). Every host imports this module, and cfg.routes
-    # is a plain attrsOf option -- merely *referencing* a nested attrsOf-
-    # submodule path like containers.caddy.config.users.users.caddy.<x>
-    # registers "caddy" as a real users.users entry with all-default values,
-    # even when the value itself is `mkIf false ...`  (attrsOf key presence is
-    # structural, not value-dependent). On a host where services.caddy.enable
-    # never fires, nothing else supplies isSystemUser, so that phantom entry
-    # fails NixOS's "exactly one of isSystemUser/isNormalUser must be set"
-    # assertion -- confirmed live on ignis, which has no caddy routes at all.
-    (mkIf (cfg.routes != { }) {
-      containers.caddy.config = {
-        services.caddy.virtualHosts = listToAttrs (
-          wgVirtualHostEntries ++ publicEntries
-        );
+        mine.dns.hosts = dnsHostsOverrides;
+      }
+      # Only touch the caddy container's own config on the host that actually
+      # declares routes (lux). Every host imports this module, and cfg.routes
+      # is a plain attrsOf option -- merely *referencing* a nested attrsOf-
+      # submodule path like containers.caddy.config.users.users.caddy.<x>
+      # registers "caddy" as a real users.users entry with all-default values,
+      # even when the value itself is `mkIf false ...`  (attrsOf key presence is
+      # structural, not value-dependent). On a host where services.caddy.enable
+      # never fires, nothing else supplies isSystemUser, so that phantom entry
+      # fails NixOS's "exactly one of isSystemUser/isNormalUser must be set"
+      # assertion -- confirmed live on ignis, which has no caddy routes at all.
+      (mkIf (cfg.routes != { }) {
+        containers.caddy.config = {
+          services.caddy.virtualHosts = listToAttrs (
+            wgVirtualHostEntries ++ publicEntries
+          );
 
-        services.anubis.instances = mapAttrs
-          (
-            routeName: route: {
-              settings = {
-                TARGET = "http://${route.upstream}";
-              } // optionalAttrs (route.anubis.difficulty != null) {
-                DIFFICULTY = route.anubis.difficulty;
-              };
+          services.anubis.instances = mapAttrs
+            (
+              routeName: route: {
+                settings = {
+                  TARGET = "http://${route.upstream}";
+                } // optionalAttrs (route.anubis.difficulty != null) {
+                  DIFFICULTY = route.anubis.difficulty;
+                };
+              }
+            )
+            anubisRoutes;
+
+          services.anubis.defaultOptions.settings.SOCKET_MODE =
+            mkIf (anubisRoutes != { }) "0660";
+          # Bumped from Anubis's own default of 4; a route can still override via
+          # its own `anubis.difficulty`.
+          services.anubis.defaultOptions.settings.DIFFICULTY =
+            mkIf (anubisRoutes != { }) 5;
+          users.users.caddy.extraGroups =
+            mkIf (anubisRoutes != { }) [ "anubis" ];
+
+          # Conservative-but-firm defaults against slow-loris-style abuse.
+          services.caddy.globalConfig = ''
+            servers {
+              timeouts {
+                read_header 10s
+                read_body 30s
+                write 30s
+                idle 2m
+              }
             }
-          )
-          anubisRoutes;
-
-        services.anubis.defaultOptions.settings.SOCKET_MODE =
-          mkIf (anubisRoutes != { }) "0660";
-        # Bumped from Anubis's own default of 4; a route can still override via
-        # its own `anubis.difficulty`.
-        services.anubis.defaultOptions.settings.DIFFICULTY =
-          mkIf (anubisRoutes != { }) 5;
-        users.users.caddy.extraGroups =
-          mkIf (anubisRoutes != { }) [ "anubis" ];
-
-        # Conservative-but-firm defaults against slow-loris-style abuse.
-        services.caddy.globalConfig = ''
-          servers {
-            timeouts {
-              read_header 10s
-              read_body 30s
-              write 30s
-              idle 2m
-            }
-          }
-        '';
-      };
-    })
+          '';
+        };
+      })
     ];
 }
