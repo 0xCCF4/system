@@ -19,6 +19,8 @@ with lib;
       ifaceInternal = "ethDocking";
     in
     {
+      networking.networkmanager.unmanaged = [ "interface-name:${ifaceExternal}" ];
+
       # General settings
       networking.hostName = "solis";
       mine.presets.primary = "workstation";

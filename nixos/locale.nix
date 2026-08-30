@@ -29,7 +29,7 @@ with builtins;
     };
     keyboardVariant = mkOption {
       type = str;
-      default = "de_se_fi,nodeadkeys";
+      default = "de_se_fi";
       description = "The keyboard variant to use for the system.";
     };
   };
