@@ -44,7 +44,7 @@ in
         _var = "pkill waybar; ${waybar} &";
       };
       lock = {
-        _var = "${lock}";
+        _var = "${optionalString config.home.mine.bitwarden.enable "${getExe rbw} lock; "}${lock}";
       };
       hyprctl = {
         _var = "${hyprctl}";

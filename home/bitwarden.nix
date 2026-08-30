@@ -52,26 +52,28 @@ let
     disown
   '';
 
-  rbwFzf = pkgs.writeShellApplication {
-    name = "rbw-fzf";
-    runtimeInputs = [ pkgs.rbw pkgs.fzf pkgs.gawk pkgs.wl-clipboard ];
+  rbwPicker = pkgs.writeShellApplication {
+    name = "rbw-picker";
+    runtimeInputs = [ pkgs.rbw pkgs.gawk pkgs.fzf pkgs.wl-clipboard config.programs.rofi.package ];
     text = ''
-      selection="$(rbw list --fields name,user | ${rbwListFormatAwk} | fzf --delimiter='\t' --with-nth=1 --prompt='rbw> ')"
-      if [ -z "$selection" ]; then
-        exit 0
+      if [ $# -ne 1 ] || { [ "$1" != "rofi" ] && [ "$1" != "fzf" ]; }; then
+        echo "Usage: rbw-picker <rofi|fzf>" >&2
+        exit 1
+      fi
+      selector="$1"
+
+      if ! rbw unlocked >/dev/null 2>&1; then
+        rbw unlock
       fi
 
-      IFS=$'\t' read -r _ name user <<< "$selection"
+      formatted="$(rbw list --fields name,user | ${rbwListFormatAwk})"
 
-      ${rbwCopyClear} "$name" "$user"
-    '';
-  };
+      if [ "$selector" = "rofi" ]; then
+        selection="$(echo "$formatted" | rofi -dmenu -p 'rbw> ' -display-columns 1 -display-column-separator '\t')"
+      else
+        selection="$(echo "$formatted" | fzf --delimiter='\t' --with-nth=1 --prompt='rbw> ')"
+      fi
 
-  rbwRofi = pkgs.writeShellApplication {
-    name = "rbw-rofi";
-    runtimeInputs = [ pkgs.rbw pkgs.gawk pkgs.wl-clipboard config.programs.rofi.package ];
-    text = ''
-      selection="$(rbw list --fields name,user | ${rbwListFormatAwk} | rofi -dmenu -p 'rbw> ' -display-columns 1 -display-column-separator '\t')"
       if [ -z "$selection" ]; then
         exit 0
       fi
@@ -84,6 +86,8 @@ let
 
 in
 {
+  imports = [ ./persistence.nix ];
+
   options.home.mine.bitwarden = {
     enable = mkOption {
       type = types.bool;
@@ -105,14 +109,14 @@ in
       '';
     };
 
-    rofiPickerPackage = mkOption {
+    pickerPackage = mkOption {
       type = types.package;
       internal = true;
       readOnly = true;
-      default = rbwRofi;
+      default = rbwPicker;
       description = ''
-        The rbw-rofi wrapper package, exposed so other modules (e.g.
-        keybindings) can reference its executable.
+        The rbw-picker package (`rbw-picker <rofi|fzf>`), exposed so other
+        modules (e.g. keybindings) can reference its executable.
       '';
     };
   };
@@ -124,13 +128,18 @@ in
       email = cfg.email;
       base_url = serverUrl;
       pinentry = getExe pkgs.pinentry-rofi;
+      lock_timeout = 3600;
     };
+
+    home.mine.persistence.data.directories = [
+      ".config/Bitwarden"
+      ".config/Bitwarden CLI"
+    ];
 
     home.packages = [
       pkgs.bitwarden-cli
       pkgs.bitwarden-desktop
-      rbwFzf
-      rbwRofi
+      rbwPicker
     ];
 
     home.activation.bwConfigServer = lib.hm.dag.entryAfter [ "writeBoundary" ] ''

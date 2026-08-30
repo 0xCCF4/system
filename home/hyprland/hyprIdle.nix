@@ -53,7 +53,7 @@ with lib;
           general = {
             before_sleep_cmd = "${loginCtrl} lock-session"; # lock before suspend
             after_sleep_cmd = "${hyprctl} dispatch 'hl.dsp.dpms({ action = \"enable\" })'"; # enable monitors
-            lock_cmd = "${pidof} hyprlock || ${hyprlock}"; # lock only if not already locked
+            lock_cmd = "${optionalString config.home.mine.bitwarden.enable "${getExe rbw} lock; "}${pidof} hyprlock || ${hyprlock}"; # lock only if not already locked
           };
 
           listener = [
