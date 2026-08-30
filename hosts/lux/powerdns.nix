@@ -39,7 +39,7 @@ with lib;
 
       zoneRecords = with dns.lib.combinators; {
         # TEMPORARY: lowered from the 24h default for faster debugging turnaround. Remove after 2026-09-03.
-        TTL = 60;
+        TTL = 60; # 1 min
         SOA = {
           nameServer = "ns1.${domain}.";
           adminEmail = "security@${domain}";
@@ -48,12 +48,12 @@ with lib;
           # self.lastModified is the flake's last-commit/mtime epoch, so it's
           # deterministic and only ever moves forward.
           serial = self.lastModified / 60;
-          refresh = 600;
-          retry = 120;
-          expire = 1800;
+          refresh = 600; # 10 min
+          retry = 120; # 2 min
+          expire = 1800; # 30 min
           # TEMPORARY: lowered from the 10-day default for faster debugging
           # turnaround. Remove after 2026-09-03.
-          minimum = 60;
+          minimum = 60; # 1 min
         };
         A = [ config.mine.info.public.ipv4 ];
         AAAA = [ config.mine.info.public.ipv6 ];

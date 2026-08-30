@@ -38,8 +38,8 @@ with lib;
           do-ip4 = true;
           do-ip6 = true;
 
-          cache-min-ttl = 60;
-          cache-max-ttl = 86400;
+          cache-min-ttl = 60; # 1 min
+          cache-max-ttl = 86400; # 24 hours
 
           edns-buffer-size = 1472;
           rrset-roundrobin = true;

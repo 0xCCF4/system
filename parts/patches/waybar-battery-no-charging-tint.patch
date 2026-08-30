@@ -1,0 +1,15 @@
+--- a/src/modules/battery.cpp
++++ b/src/modules/battery.cpp
+@@ -692,7 +692,11 @@
+   auto format = format_;
+   auto state = getState(capacity, true);
+   processEvents(state, status, capacity);
+-  setBarClass(state);
++  // Only tint the top-level bar window for warning/critical capacity while
++  // actually discharging - a plugged-in/charging/full battery shouldn't
++  // color the whole bar just because its capacity happens to be low.
++  auto bar_state = (status == "discharging") ? state : std::string();
++  setBarClass(bar_state);
+   auto time_remaining_formatted = formatTimeRemaining(time_remaining);
+   if (tooltipEnabled()) {
+     std::string tooltip_text_default;

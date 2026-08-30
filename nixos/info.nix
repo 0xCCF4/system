@@ -20,6 +20,16 @@ with noxa.lib.net.types;
     '';
   };
 
+  options.mine.info.weatherCity = mkOption {
+    type = nullOr str;
+    default = null;
+    description = ''
+      Default city name for the waybar weather module (wttrbar), used when
+      no per-session override has been set via `waybar-set-city`.
+    '';
+    example = "Berlin";
+  };
+
   options.mine.info.public = {
     ipv4 = mkOption {
       type = nullOr ip4NoMask;

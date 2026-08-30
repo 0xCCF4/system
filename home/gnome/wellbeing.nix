@@ -16,8 +16,8 @@
         ];
       };
       "org/gnome/desktop/break-reminders/movement" = {
-        duration-seconds = 300;
-        interval-seconds = 1800;
+        duration-seconds = 300; # 5 min
+        interval-seconds = 1800; # 30 min
       };
       "org/gnome/desktop/break-reminders/eyesight".play-sound = true;
       "org/gnome/desktop/break-reminders/movement".play-sound = true;
