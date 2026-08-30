@@ -116,12 +116,12 @@ with lib;
               name = "/var/lib/kea/dhcp4-leases.csv";
               type = "memfile";
               persist = true;
-              lfc-interval = 3600;
+              lfc-interval = 3600; # 1 hour
             };
 
-            valid-lifetime = 4000;
-            renew-timer = 1000;
-            rebind-timer = 2000;
+            valid-lifetime = 4000; # ~67 min
+            renew-timer = 1000; # ~17 min
+            rebind-timer = 2000; # ~33 min
 
             subnet4 = [
               {

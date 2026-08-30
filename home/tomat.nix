@@ -14,7 +14,7 @@ with lib;
         notifications = {
           enabled = true;
           icon = "auto";
-          timeout = 120 * 1000;
+          timeout = 120 * 1000; # 2 min (ms)
         };
         timer = {
           auto_advance = false;
