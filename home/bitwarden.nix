@@ -69,7 +69,7 @@ let
       formatted="$(rbw list --fields name,user | ${rbwListFormatAwk})"
 
       if [ "$selector" = "rofi" ]; then
-        selection="$(echo "$formatted" | rofi -dmenu -p 'rbw> ' -display-columns 1 -display-column-separator '\t')"
+        selection="$(echo "$formatted" | rofi -dmenu -p 'rbw>' -display-columns 1 -display-column-separator '\t')"
       else
         selection="$(echo "$formatted" | fzf --delimiter='\t' --with-nth=1 --prompt='rbw> ')"
       fi

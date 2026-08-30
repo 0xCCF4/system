@@ -56,6 +56,7 @@
             module = "caldav";
             global = true;
             generator.script = "alnum";
+            owner = "mx";
           }
         ];
       };
