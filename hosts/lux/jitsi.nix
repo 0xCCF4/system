@@ -56,7 +56,7 @@ with lib;
           # jitsi-meet is nixpkgs-flagged insecure because its bundled JS
           # ships an in-call E2EE feature depending on deprecated
           # Olm library
-          nixpkgs.config.permittedInsecurePackages = [ "jitsi-meet-1.0.8792" ];
+          nixpkgs.config.allowInsecurePredicate = pkg: builtins.elem (lib.getName pkg) [ "jitsi-meet" ];
 
           networking.firewall.allowedTCPPorts = [ 80 ];
           networking.firewall.allowedUDPPorts = [ jvbPort ];
