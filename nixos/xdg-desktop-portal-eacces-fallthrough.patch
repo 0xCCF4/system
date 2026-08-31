@@ -1,0 +1,22 @@
+--- a/src/xdp-app-info-flatpak.c
++++ b/src/xdp-app-info-flatpak.c
+@@ -667,6 +667,19 @@
+                            "Not a flatpak (fuse rootfs)");
+               return -1;
+             }
++
++          /* Any other reason /proc/<pid>/root is inaccessible (e.g. the
++           * caller made itself non-dumpable via prctl(PR_SET_DUMPABLE, 0),
++           * which makes /proc/<pid> root-owned mode 0500, see proc(5)) is
++           * also not something a real flatpak app would ever hit, since
++           * bwrap always leaves the sandboxed process's /proc/<pid>/root
++           * readable to the portal. Treat it the same way: not a flatpak,
++           * keep trying other app kinds instead of hard-failing.
++           */
++          g_set_error (error, XDP_APP_INFO_ERROR, XDP_APP_INFO_ERROR_WRONG_APP_KIND,
++                       "Not a flatpak (unable to access %s: %s)",
++                       root_path, g_strerror (errno));
++          return -1;
+         }
+
+       /* Otherwise, we should be able to open the root dir. Probably the app died and

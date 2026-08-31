@@ -1,0 +1,22 @@
+--- a/src/xdp-app-info-linyaps.c
++++ b/src/xdp-app-info-linyaps.c
+@@ -132,6 +132,19 @@
+                          "Not a linyaps (fuse rootfs)");
+             return -1;
+           }
++
++          /* Any other reason /proc/<pid>/root is inaccessible (e.g. the
++           * caller made itself non-dumpable via prctl(PR_SET_DUMPABLE, 0),
++           * which makes /proc/<pid> root-owned mode 0500, see proc(5)) is
++           * also not something a real linyaps app would ever hit. Treat it
++           * the same way: not a linyaps app, keep trying other app kinds
++           * instead of hard-failing. See the matching fix in
++           * xdp-app-info-flatpak.c for the full rationale.
++           */
++          g_set_error (error, XDP_APP_INFO_ERROR, XDP_APP_INFO_ERROR_WRONG_APP_KIND,
++                       "Not a linyaps (unable to access %s: %s)",
++                       root_path, g_strerror (errno));
++          return -1;
+         }
+
+       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "Unable to open %s",

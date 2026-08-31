@@ -35,7 +35,7 @@ with builtins;
       };
       distrobox = mkOption {
         type = bool;
-        default = presets.isWorkstation;
+        default = false;
         description = "Enable Distrobox support.";
       };
       virtmanager = mkOption {
@@ -45,7 +45,7 @@ with builtins;
       };
       flatpak = mkOption {
         type = bool;
-        default = presets.isWorkstation;
+        default = false;
         description = "Enable Flatpak support.";
       };
     };
@@ -55,6 +55,7 @@ with builtins;
       cfg = config.mine.virtualization;
 
       flatpak = cfg.flatpak || cfg.distrobox;
+      podman = cfg.distrobox || config.mine.presets.isWorkstation;
     in
     {
       virtualisation.virtualbox.host.enable = mkDefault cfg.virtualBox;
@@ -70,12 +71,13 @@ with builtins;
       programs.virt-manager.enable = mkDefault cfg.virtmanager;
       users.extraGroups.libvirtd.members = cfg.virtUsers;
 
-      virtualisation.podman.enable = mkDefault cfg.distrobox;
-      virtualisation.podman.dockerCompat = mkDefault cfg.distrobox;
+      virtualisation.podman.enable = mkDefault podman;
+      virtualisation.podman.dockerCompat = mkDefault podman;
       environment.systemPackages =
         [ ]
         ++ lists.optionals cfg.distrobox [
           pkgs.distrobox
+        ] ++ lists.optionals podman [
           pkgs.podman-compose
         ]
         ++ lists.optionals cfg.flatpak [
