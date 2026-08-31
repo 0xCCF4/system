@@ -114,6 +114,128 @@ in
 
   config =
     let
+      # Modules shared for all monitors
+      ipcPublish = pkgs.writers.writePython3Bin "waybar-ipc-publish" { } ''
+        import os
+        import socket
+        import sys
+        import threading
+
+
+        def main():
+            sock_path = sys.argv[1]
+            try:
+                os.unlink(sock_path)
+            except FileNotFoundError:
+                pass
+
+            server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            server.bind(sock_path)
+            server.listen(8)
+
+            clients = []
+            clients_lock = threading.Lock()
+            last_line = None
+            last_lock = threading.Lock()
+
+            def accept_loop():
+                while True:
+                    conn, _ = server.accept()
+                    with last_lock:
+                        cached = last_line
+                    if cached is not None:
+                        try:
+                            conn.sendall(cached)
+                        except OSError:
+                            conn.close()
+                            continue
+                    with clients_lock:
+                        clients.append(conn)
+
+            threading.Thread(target=accept_loop, daemon=True).start()
+
+            for line in sys.stdin.buffer:
+                with last_lock:
+                    last_line = line
+                with clients_lock:
+                    dead = []
+                    for c in clients:
+                        try:
+                            c.sendall(line)
+                        except OSError:
+                            dead.append(c)
+                    for c in dead:
+                        clients.remove(c)
+                        c.close()
+
+
+        if __name__ == "__main__":
+            main()
+      '';
+
+      ipcSubscribe = pkgs.writeShellScriptBin "waybar-ipc-subscribe" ''
+        set -uo pipefail
+        sock="$1"
+        placeholder="''${2:-}"
+
+        printedPlaceholder=0
+        while true; do
+          if [ -S "$sock" ]; then
+            printedPlaceholder=0
+            ${getExe pkgs.socat} -u UNIX-CONNECT:"$sock" - 2>/dev/null
+          elif [ "$printedPlaceholder" -eq 0 ]; then
+            [ -n "$placeholder" ] && printf '%s\n' "$placeholder"
+            printedPlaceholder=1
+          fi
+          sleep 1
+        done
+      '';
+
+      sockPath = name: "$XDG_RUNTIME_DIR/waybar-${name}.sock";
+
+      # Wraps a one-shot compute command in a self-looping `sleep`
+      # realtime signal can interrupt the sleep for an immediate refresh
+      mkIntervalLoop = { cmd, interval, refreshSignal ? null }: ''
+        while true; do
+          ${cmd}
+          sleep ${toString interval} &
+          sleepPid=$!
+          ${lib.optionalString (refreshSignal != null) ''
+          trap 'kill "$sleepPid" 2>/dev/null' RTMIN+${toString refreshSignal}
+          ''}
+          wait "$sleepPid" 2>/dev/null
+        done
+      '';
+
+      mkLoopPublisher = name: bodyLoop:
+        pkgs.writeShellScriptBin "waybar-publish-${name}" ''
+          set -uo pipefail
+          sock="${sockPath name}"
+          {
+            ${bodyLoop}
+          } | ${getExe ipcPublish} "$sock"
+        '';
+
+      mkStreamPublisher = name: cmd:
+        pkgs.writeShellScriptBin "waybar-publish-${name}" ''
+          set -uo pipefail
+          sock="${sockPath name}"
+          ${cmd} | ${getExe ipcPublish} "$sock"
+        '';
+
+      mkPublisherUnit = name: script: {
+        Unit = {
+          Description = "waybar ${name} data publisher";
+          PartOf = [ "waybar-publishers.target" ];
+        };
+        Service = {
+          ExecStart = getExe script;
+          Restart = "on-failure";
+          RestartSec = 2;
+        };
+        Install.WantedBy = [ "waybar-publishers.target" ];
+      };
+
       submapScript = pkgs.writeShellScriptBin "submap-status" ''
         filterDefault() {
           if [ "$1" = "default" ]; then
@@ -153,10 +275,6 @@ in
         on-click = "activate";
         # persistent_workspaces = { "*" = 10; };
       };
-
-      tomatScript = pkgs.writeShellScriptBin "tomat-status" ''
-        ${getExe config.services.tomat.package} watch -f "{state} {phase} {time}"
-      '';
 
       todoScript = pkgs.writeShellScriptBin "todo-status" ''
         ${getExe config.programs.todoman.package} --porcelain list ${lib.concatMapStringsSep " " lib.escapeShellArg cfg.todoLists} | ${getExe pkgs.jq} -c '
@@ -226,7 +344,7 @@ in
           printf '%s' "$*" > "$stateDir/city"
           echo "Weather city set to: $*"
         fi
-        ${getExe' pkgs.procps "pkill"} -RTMIN+${toString weatherRefreshSignal} waybar 2>/dev/null || true
+        ${getExe' pkgs.systemd "systemctl"} --user kill --signal=RTMIN+${toString weatherRefreshSignal} waybar-weather.service 2>/dev/null || true
       '';
 
       weatherReformatScript = pkgs.writeText "weather-reformat.py" ''
@@ -677,9 +795,63 @@ in
           esac
         done
       '';
+
+      weatherPublisher = mkLoopPublisher "weather" (mkIntervalLoop {
+        cmd = getExe weatherScript;
+        interval = 1800; # 30 min
+        refreshSignal = weatherRefreshSignal;
+      });
+      diskPublisher = mkLoopPublisher "disk" (mkIntervalLoop {
+        cmd = getExe diskScript;
+        interval = 300; # 5 min
+      });
+      networkPublisher = mkLoopPublisher "network" (mkIntervalLoop {
+        cmd = getExe networkScript;
+        interval = 5; # 5 sec
+      });
+      todoPublisher = mkLoopPublisher "todo" (mkIntervalLoop {
+        cmd = getExe todoScript;
+        interval = 60; # 1 min
+      });
+      cpuPublisher = mkStreamPublisher "cpu" (getExe cpuScript);
+      memPublisher = mkStreamPublisher "mem" (getExe memScript);
+      volumePublisher = mkStreamPublisher "volume" (getExe volumeScript);
+      micPublisher = mkStreamPublisher "microphone" (getExe micScript);
+      submapPublisher = mkStreamPublisher "submap" (getExe submapScript);
+
     in
     {
       home.packages = [ pkgs.playerctl pkgs.wttrbar citySetterScript weatherScript diskScript networkScript cpuScript memScript volumeScript micScript ];
+
+      systemd.user.targets."waybar-publishers" = {
+        Unit = {
+          Description = "waybar data publishers";
+          PartOf = [ "hyprland-session.target" ];
+        };
+        Install.WantedBy = [ "hyprland-session.target" ];
+      };
+
+      systemd.user.services =
+        {
+          "waybar-weather" = mkPublisherUnit "weather" weatherPublisher;
+          "waybar-disk" = mkPublisherUnit "disk" diskPublisher;
+          "waybar-network" = mkPublisherUnit "network" networkPublisher;
+          "waybar-cpu" = mkPublisherUnit "cpu" cpuPublisher;
+          "waybar-mem" = mkPublisherUnit "mem" memPublisher;
+          "waybar-volume" = mkPublisherUnit "volume" volumePublisher;
+          "waybar-microphone" = mkPublisherUnit "microphone" micPublisher;
+          "waybar-submap" = mkPublisherUnit "submap" submapPublisher;
+        }
+        // lib.optionalAttrs config.programs.todoman.enable {
+          "waybar-todo" = mkPublisherUnit "todo" todoPublisher;
+        }
+        // lib.optionalAttrs config.services.tomat.enable {
+          "waybar-tomat" = mkPublisherUnit "tomat" (mkStreamPublisher "tomat" ''${getExe config.services.tomat.package} watch -f "{phase} {time}"'');
+        }
+        // {
+          waybar.Unit.Wants = [ "waybar-publishers.target" ];
+          waybar.Unit.After = [ "waybar-publishers.target" ];
+        };
 
       programs.waybar = with config.lib.stylix.colors; {
         enable = mkDefault (
@@ -777,18 +949,16 @@ in
             };
 
             "custom/cpu" = {
-              exec = "${getExe cpuScript}";
+              exec = "${getExe ipcSubscribe} ${sockPath "cpu"}";
               return-type = "json";
               format = "{}";
-              restart-interval = 10; # 10 sec
               tooltip = true;
             };
 
             "custom/mem" = {
-              exec = "${getExe memScript}";
+              exec = "${getExe ipcSubscribe} ${sockPath "mem"}";
               return-type = "json";
               format = "{}";
-              restart-interval = 10; # 10 sec
               tooltip = true;
             };
 
@@ -809,19 +979,16 @@ in
             };
 
             "custom/weather" = {
-              exec = "${getExe weatherScript}";
+              exec = "${getExe ipcSubscribe} ${sockPath "weather"}";
               format = "{}°";
               tooltip = true;
               return-type = "json";
-              interval = 1800; # 30 min
-              signal = weatherRefreshSignal;
             };
 
             "custom/disk" = {
-              exec = "${getExe diskScript}";
+              exec = "${getExe ipcSubscribe} ${sockPath "disk"}";
               return-type = "json";
               format = "{}";
-              interval = 300; # 5 min
               tooltip = true;
             };
 
@@ -831,25 +998,24 @@ in
             };
 
             "custom/submap" = {
-              exec = "${getExe submapScript}";
+              exec = "${getExe ipcSubscribe} ${sockPath "submap"}";
               format = "{}";
             };
 
             "custom/tomat" = mkIf (config.services.tomat.enable) {
-              exec = "${getExe config.services.tomat.package} watch -f \"{phase} {time}\"";
+              exec = "${getExe ipcSubscribe} ${sockPath "tomat"}";
               return-type = "json";
               format = "{text}";
               tooltip = true;
             };
 
             "custom/todo" = mkIf (config.programs.todoman.enable) {
-              exec = "${getExe todoScript}";
+              exec = "${getExe ipcSubscribe} ${sockPath "todo"}";
               return-type = "json";
               format = "{}";
               hide-empty-text = true;
-              interval = 60; # 1 min
               tooltip = true;
-              on-click = "${setsid} -f ${getExe config.programs.kitty.package} --hold -e ${getExe config.programs.todoman.package} list ${lib.concatMapStringsSep " " lib.escapeShellArg cfg.todoLists} &";
+              on-click = "${setsid} -f ${getExe config.programs.kitty.package} --hold -e ${getExe config.programs.todoman.package} list --sort due ${lib.concatMapStringsSep " " lib.escapeShellArg cfg.todoLists} &";
             };
 
             "hyprland/window" = {
@@ -867,18 +1033,16 @@ in
             };
 
             "custom/network" = {
-              exec = "${getExe networkScript}";
+              exec = "${getExe ipcSubscribe} ${sockPath "network"}";
               return-type = "json";
               format = "{}";
-              interval = 5; # 5 sec
               tooltip = true;
             };
 
             "custom/volume" = {
-              exec = "${getExe volumeScript}";
+              exec = "${getExe ipcSubscribe} ${sockPath "volume"}";
               return-type = "json";
               format = "{}";
-              restart-interval = 5; # 5 sec
               tooltip = true;
               on-click = "${setsid} -f ${pavucontrol} -t 3 &";
               on-click-middle = "${pamixer} -t";
@@ -888,10 +1052,9 @@ in
             };
 
             "custom/microphone" = {
-              exec = "${getExe micScript}";
+              exec = "${getExe ipcSubscribe} ${sockPath "microphone"}";
               return-type = "json";
               format = "{}";
-              restart-interval = 5; # 5 sec
               tooltip = true;
               on-click = "${setsid} -f ${pavucontrol} -t 4 &";
               on-click-middle = "${pamixer} --default-source -t";
