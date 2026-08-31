@@ -58,6 +58,48 @@ in
       description = "Weather tooltip: sunshine chance (%) above this is highlighted yellow.";
     };
 
+    diskFreeWarningGB = mkOption {
+      type = int;
+      default = 50;
+      description = "Disk tile: free space (GB) at or below this turns the tile yellow (warning).";
+    };
+
+    diskFreeCriticalGB = mkOption {
+      type = int;
+      default = 10;
+      description = "Disk tile: free space (GB) at or below this turns the tile red (critical).";
+    };
+
+    batteryNeutral = mkOption {
+      type = int;
+      default = 80;
+      description = "Battery tile: capacity (%) at or below this switches from green to neutral gray.";
+    };
+
+    batteryWarning = mkOption {
+      type = int;
+      default = 30;
+      description = "Battery tile: capacity (%) at or below this turns the tile yellow (warning).";
+    };
+
+    batteryCritical = mkOption {
+      type = int;
+      default = 15;
+      description = "Battery tile: capacity (%) at or below this turns the tile red (critical).";
+    };
+
+    memWarning = mkOption {
+      type = int;
+      default = 85;
+      description = "Memory tile: usage (%) at or above this turns the tile yellow (warning).";
+    };
+
+    memCritical = mkOption {
+      type = int;
+      default = 95;
+      description = "Memory tile: usage (%) at or above this turns the tile red (critical).";
+    };
+
     todoLists = mkOption {
       type = listOf str;
       default = [ config.home.mine.todoman.defaultList ];
@@ -171,16 +213,20 @@ in
 
       defaultCity = self.lib.evalMissingOption osConfig "mine.info.weatherCity" "Berlin";
 
+      weatherRefreshSignal = 8;
+
       citySetterScript = pkgs.writeShellScriptBin "waybar-set-city" ''
         set -euo pipefail
-        if [ $# -lt 1 ]; then
-          echo "Usage: waybar-set-city <city name>" >&2
-          exit 1
-        fi
         stateDir="''${XDG_STATE_HOME:-$HOME/.local/state}/waybar"
         mkdir -p "$stateDir"
-        printf '%s' "$*" > "$stateDir/city"
-        echo "Weather city set to: $*"
+        if [ $# -lt 1 ]; then
+          rm -f "$stateDir/city"
+          echo "Weather city override removed, falling back to ${defaultCity}"
+        else
+          printf '%s' "$*" > "$stateDir/city"
+          echo "Weather city set to: $*"
+        fi
+        ${getExe' pkgs.procps "pkill"} -RTMIN+${toString weatherRefreshSignal} waybar 2>/dev/null || true
       '';
 
       weatherReformatScript = pkgs.writeText "weather-reformat.py" ''
@@ -318,9 +364,9 @@ in
           | ${getExe pkgs.jq} --arg name "${cfg.zfsDataset}" -r \
               '(.datasets[$name].properties.available.value | tonumber) / 1073741824 | round')"
 
-        if [ "$freeGB" -lt 10 ]; then
+        if [ "$freeGB" -lt ${toString cfg.diskFreeCriticalGB} ]; then
           class='["critical"]'
-        elif [ "$freeGB" -lt 50 ]; then
+        elif [ "$freeGB" -lt ${toString cfg.diskFreeWarningGB} ]; then
           class='["warning"]'
         else
           class='[]'
@@ -477,9 +523,9 @@ in
           totalGb="$(awk -v kb="$totalKb" 'BEGIN { printf "%.1f", kb / 1048576 }')"
           usedGb="$(awk -v kb="$usedKb" 'BEGIN { printf "%.1f", kb / 1048576 }')"
 
-          if [ "$percentage" -ge 90 ]; then
+          if [ "$percentage" -ge ${toString cfg.memCritical} ]; then
             class='["critical"]'
-          elif [ "$percentage" -ge 80 ]; then
+          elif [ "$percentage" -ge ${toString cfg.memWarning} ]; then
             class='["warning"]'
           else
             class='[]'
@@ -750,9 +796,9 @@ in
               format = "BAT {capacity}";
               #interval = 60; # 1 min
               states = {
-                neutral = 80;
-                warning = 30;
-                critical = 15;
+                neutral = cfg.batteryNeutral;
+                warning = cfg.batteryWarning;
+                critical = cfg.batteryCritical;
               };
             };
 
@@ -768,6 +814,7 @@ in
               tooltip = true;
               return-type = "json";
               interval = 1800; # 30 min
+              signal = weatherRefreshSignal;
             };
 
             "custom/disk" = {
