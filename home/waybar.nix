@@ -16,6 +16,7 @@ let
   pamixer = "${getExe pkgs.pamixer}";
   pavucontrol = "${getExe pkgs.pavucontrol}";
   pactl = "${getExe' pkgs.pulseaudio "pactl"}";
+  setsid = "${getExe' pkgs.util-linux "setsid"}";
   hyprctl = "${
     if config.wayland.windowManager.hyprland.package != null then
       config.wayland.windowManager.hyprland.package
@@ -56,6 +57,17 @@ in
       default = 75;
       description = "Weather tooltip: sunshine chance (%) above this is highlighted yellow.";
     };
+
+    todoLists = mkOption {
+      type = listOf str;
+      default = [ config.home.mine.todoman.defaultList ];
+      description = ''
+        Which todoman lists the todo tile, and its on-click view, show.
+        Defaults to the configured todoman default list. Set to an
+        empty list to show every list. Set to a custom list of names to
+        show a specific subset.
+      '';
+    };
   };
 
   config =
@@ -93,7 +105,6 @@ in
           "8" = "VIII";
           "9" = "IX";
           "10" = "X";
-          urgent = "";
           special = "";
           default = "{name}";
         };
@@ -106,7 +117,7 @@ in
       '';
 
       todoScript = pkgs.writeShellScriptBin "todo-status" ''
-        ${getExe config.programs.todoman.package} --porcelain list | ${getExe pkgs.jq} -c '
+        ${getExe config.programs.todoman.package} --porcelain list ${lib.concatMapStringsSep " " lib.escapeShellArg cfg.todoLists} | ${getExe pkgs.jq} -c '
           def priority_marker:
             if .priority == 0 then
               ""
@@ -325,7 +336,7 @@ in
             | ${getExe' pkgs.util-linux "column"} -t -s $'\t' \
             | awk 'NR==1 { print "<b>" $0 "</b>"; next } { print "<span weight=\"normal\">" $0 "</span>" }')"
 
-        ${getExe pkgs.jq} -n -c --arg text "DISK ''${freeGB}GB" --arg tooltip "$tooltip" --argjson class "$class" \
+        ${getExe pkgs.jq} -n -c --arg text "DISK ''${freeGB}" --arg tooltip "$tooltip" --argjson class "$class" \
           '{text: $text, class: $class, tooltip: $tooltip}'
       '';
 
@@ -412,40 +423,78 @@ in
       cpuScript = pkgs.writeShellScriptBin "cpu-status" ''
         set -euo pipefail
 
-        mapfile -t before < <(grep '^cpu' /proc/stat)
-        sleep 0.3
-        mapfile -t after < <(grep '^cpu' /proc/stat)
+        emit() {
+          mapfile -t before < <(grep '^cpu' /proc/stat)
+          sleep 0.3
+          mapfile -t after < <(grep '^cpu' /proc/stat)
 
-        rows=("CORE\tUSAGE")
-        avgUsage=0
-        for i in "''${!before[@]}"; do
-          read -r label u1 n1 s1 i1 io1 irq1 sirq1 st1 _ <<< "''${before[$i]}"
-          read -r _     u2 n2 s2 i2 io2 irq2 sirq2 st2 _ <<< "''${after[$i]}"
+          rows=("CORE\tUSAGE")
+          avgUsage=0
+          for i in "''${!before[@]}"; do
+            read -r label u1 n1 s1 i1 io1 irq1 sirq1 st1 _ <<< "''${before[$i]}"
+            read -r _     u2 n2 s2 i2 io2 irq2 sirq2 st2 _ <<< "''${after[$i]}"
 
-          total1=$((u1 + n1 + s1 + i1 + io1 + irq1 + sirq1 + st1))
-          total2=$((u2 + n2 + s2 + i2 + io2 + irq2 + sirq2 + st2))
-          idle1=$((i1 + io1))
-          idle2=$((i2 + io2))
-          totald=$((total2 - total1))
-          idled=$((idle2 - idle1))
+            total1=$((u1 + n1 + s1 + i1 + io1 + irq1 + sirq1 + st1))
+            total2=$((u2 + n2 + s2 + i2 + io2 + irq2 + sirq2 + st2))
+            idle1=$((i1 + io1))
+            idle2=$((i2 + io2))
+            totald=$((total2 - total1))
+            idled=$((idle2 - idle1))
 
-          usage=0
-          [ "$totald" -gt 0 ] && usage=$(( (100 * (totald - idled)) / totald ))
+            usage=0
+            [ "$totald" -gt 0 ] && usage=$(( (100 * (totald - idled)) / totald ))
 
-          name="$label"
-          if [ "$label" = "cpu" ]; then
-            name="avg"
-            avgUsage="$usage"
-          fi
-          rows+=("$name\t''${usage}%")
+            name="$label"
+            if [ "$label" = "cpu" ]; then
+              name="avg"
+              avgUsage="$usage"
+            fi
+            rows+=("$name\t''${usage}%")
+          done
+
+          tooltip="$(printf '%b\n' "''${rows[@]}" \
+            | ${getExe' pkgs.util-linux "column"} -t -s $'\t' -R 2 \
+            | awk 'NR==1 { print "<b>" $0 "</b>"; next } { print "<span weight=\"normal\">" $0 "</span>" }')"
+
+          ${getExe pkgs.jq} -n -c --arg text "CPU ''${avgUsage}" --arg tooltip "$tooltip" \
+            '{text: $text, tooltip: $tooltip}'
+        }
+
+        while true; do
+          emit
+          sleep 0.7
         done
+      '';
 
-        tooltip="$(printf '%b\n' "''${rows[@]}" \
-          | ${getExe' pkgs.util-linux "column"} -t -s $'\t' -R 2 \
-          | awk 'NR==1 { print "<b>" $0 "</b>"; next } { print "<span weight=\"normal\">" $0 "</span>" }')"
+      memScript = pkgs.writeShellScriptBin "mem-status" ''
+        set -euo pipefail
 
-        ${getExe pkgs.jq} -n -c --arg text "CPU ''${avgUsage}%" --arg tooltip "$tooltip" \
-          '{text: $text, tooltip: $tooltip}'
+        emit() {
+          totalKb="$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)"
+          availKb="$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo)"
+          usedKb=$((totalKb - availKb))
+          percentage=$((usedKb * 100 / totalKb))
+          totalGb="$(awk -v kb="$totalKb" 'BEGIN { printf "%.1f", kb / 1048576 }')"
+          usedGb="$(awk -v kb="$usedKb" 'BEGIN { printf "%.1f", kb / 1048576 }')"
+
+          if [ "$percentage" -ge 90 ]; then
+            class='["critical"]'
+          elif [ "$percentage" -ge 80 ]; then
+            class='["warning"]'
+          else
+            class='[]'
+          fi
+
+          tooltip=" ''${usedGb}GB/''${totalGb}GB"
+
+          ${getExe pkgs.jq} -n -c --arg text "MEM ''${percentage}" --arg tooltip "$tooltip" --argjson class "$class" \
+            '{text: $text, class: $class, tooltip: $tooltip}'
+        }
+
+        while true; do
+          emit
+          sleep 1
+        done
       '';
 
       volumeScript = pkgs.writeShellScriptBin "volume-status" ''
@@ -457,46 +506,63 @@ in
         sinkMuted() {
           ${pactl} get-sink-mute "$1" | awk '{print $2}'
         }
-
-        defaultSink="$(${pactl} get-default-sink)"
-        vol="$(sinkVol "$defaultSink")"
-        muted="$(sinkMuted "$defaultSink")"
-
-        if [ "$muted" = "yes" ]; then
-          text="VOL MUTE"
-        else
-          text="VOL ''${vol}%"
-        fi
-
-        if [ "$muted" != "yes" ] && [ "''${vol:-0}" -gt 100 ]; then
-          class='[]'
-        else
-          class='["normal"]'
-        fi
-
-        rows=("SINK\tVOLUME\tMUTED")
-        activeLine=0
-        i=0
-        while IFS=$'\t' read -r idx name _; do
-          i=$((i + 1))
-          v="$(sinkVol "$name")"
-          m="$(sinkMuted "$name")"
-          if [ "$name" = "$defaultSink" ]; then
-            activeLine=$((i + 1))
+        truncate() {
+          local s="$1" max="$2"
+          if [ "''${#s}" -gt "$max" ]; then
+            printf '%s' "''${s:0:$((max - 1))}."
+          else
+            printf '%s' "$s"
           fi
-          rows+=("$name\t''${v}%\t$m")
-        done < <(${pactl} list short sinks)
+        }
 
-        tooltip="$(printf '%b\n' "''${rows[@]}" \
-          | ${getExe' pkgs.util-linux "column"} -t -s $'\t' \
-          | awk -v active="$activeLine" '
-              NR==1      { print "<b>" $0 "</b>"; next }
-              NR==active { print "<span weight=\"normal\"><u>" $0 "</u></span>"; next }
-              { print "<span weight=\"normal\">" $0 "</span>" }
-            ')"
+        emit() {
+          defaultSink="$(${pactl} get-default-sink)"
+          vol="$(sinkVol "$defaultSink")"
+          muted="$(sinkMuted "$defaultSink")"
 
-        ${getExe pkgs.jq} -n -c --arg text "$text" --arg tooltip "$tooltip" --argjson class "$class" \
-          '{text: $text, class: $class, tooltip: $tooltip}'
+          if [ "$muted" = "yes" ]; then
+            text="VOL MUTE"
+          else
+            text="VOL ''${vol}%"
+          fi
+
+          if [ "$muted" != "yes" ] && [ "''${vol:-0}" -gt 100 ]; then
+            class='[]'
+          else
+            class='["normal"]'
+          fi
+
+          rows=("SINK\tVOLUME\tMUTED")
+          activeLine=0
+          i=0
+          while IFS=$'\t' read -r idx name _; do
+            i=$((i + 1))
+            v="$(sinkVol "$name")"
+            m="$(sinkMuted "$name")"
+            if [ "$name" = "$defaultSink" ]; then
+              activeLine=$((i + 1))
+            fi
+            rows+=("$(truncate "$name" 30)\t''${v}%\t$m")
+          done < <(${pactl} list short sinks)
+
+          tooltip="$(printf '%b\n' "''${rows[@]}" \
+            | ${getExe' pkgs.util-linux "column"} -t -s $'\t' \
+            | awk -v active="$activeLine" '
+                NR==1      { print "<b>" $0 "</b>"; next }
+                NR==active { print "<span weight=\"normal\"><u>" $0 "</u></span>"; next }
+                { print "<span weight=\"normal\">" $0 "</span>" }
+              ')"
+
+          ${getExe pkgs.jq} -n -c --arg text "$text" --arg tooltip "$tooltip" --argjson class "$class" \
+            '{text: $text, class: $class, tooltip: $tooltip}'
+        }
+
+        emit
+        ${pactl} subscribe 2>/dev/null | while read -r line; do
+          case "$line" in
+            *"on sink"*|*"on server"*) emit ;;
+          esac
+        done
       '';
 
       micScript = pkgs.writeShellScriptBin "mic-status" ''
@@ -508,48 +574,66 @@ in
         sourceMuted() {
           ${pactl} get-source-mute "$1" | awk '{print $2}'
         }
-
-        defaultSource="$(${pactl} get-default-source)"
-        muted="$(sourceMuted "$defaultSource")"
-
-        if [ "$muted" = "yes" ]; then
-          text=""
-          class='["source-muted"]'
-        else
-          text=""
-          class='[]'
-        fi
-
-        rows=("SOURCE\tVOLUME\tMUTED")
-        activeLine=0
-        i=0
-        while IFS=$'\t' read -r idx name _; do
-          case "$name" in
-            *.monitor) continue ;;
-          esac
-          i=$((i + 1))
-          v="$(sourceVol "$name")"
-          m="$(sourceMuted "$name")"
-          if [ "$name" = "$defaultSource" ]; then
-            activeLine=$((i + 1))
+        truncate() {
+          local s="$1" max="$2"
+          if [ "''${#s}" -gt "$max" ]; then
+            printf '%s' "''${s:0:$((max - 1))}."
+          else
+            printf '%s' "$s"
           fi
-          rows+=("$name\t''${v}%\t$m")
-        done < <(${pactl} list short sources)
+        }
 
-        tooltip="$(printf '%b\n' "''${rows[@]}" \
-          | ${getExe' pkgs.util-linux "column"} -t -s $'\t' \
-          | awk -v active="$activeLine" '
-              NR==1      { print "<b>" $0 "</b>"; next }
-              NR==active { print "<span weight=\"normal\"><u>" $0 "</u></span>"; next }
-              { print "<span weight=\"normal\">" $0 "</span>" }
-            ')"
+        emit() {
+          defaultSource="$(${pactl} get-default-source)"
 
-        ${getExe pkgs.jq} -n -c --arg text "$text" --arg tooltip "$tooltip" --argjson class "$class" \
-          '{text: $text, class: $class, tooltip: $tooltip}'
+          rows=("SOURCE\tVOLUME\tMUTED")
+          activeLine=0
+          i=0
+          anyUnmuted=0
+          while IFS=$'\t' read -r idx name _; do
+            case "$name" in
+              *.monitor) continue ;;
+            esac
+            i=$((i + 1))
+            v="$(sourceVol "$name")"
+            m="$(sourceMuted "$name")"
+            [ "$m" = "no" ] && anyUnmuted=1
+            if [ "$name" = "$defaultSource" ]; then
+              activeLine=$((i + 1))
+            fi
+            rows+=("$(truncate "$name" 30)\t''${v}%\t$m")
+          done < <(${pactl} list short sources)
+
+          if [ "$anyUnmuted" -eq 1 ]; then
+            text=""
+            class='[]'
+          else
+            text=""
+            class='["source-muted"]'
+          fi
+
+          tooltip="$(printf '%b\n' "''${rows[@]}" \
+            | ${getExe' pkgs.util-linux "column"} -t -s $'\t' \
+            | awk -v active="$activeLine" '
+                NR==1      { print "<b>" $0 "</b>"; next }
+                NR==active { print "<span weight=\"normal\"><u>" $0 "</u></span>"; next }
+                { print "<span weight=\"normal\">" $0 "</span>" }
+              ')"
+
+          ${getExe pkgs.jq} -n -c --arg text "$text" --arg tooltip "$tooltip" --argjson class "$class" \
+            '{text: $text, class: $class, tooltip: $tooltip}'
+        }
+
+        emit
+        ${pactl} subscribe 2>/dev/null | while read -r line; do
+          case "$line" in
+            *"on source"*|*"on server"*) emit ;;
+          esac
+        done
       '';
     in
     {
-      home.packages = [ pkgs.playerctl pkgs.wttrbar citySetterScript weatherScript diskScript networkScript cpuScript volumeScript micScript ];
+      home.packages = [ pkgs.playerctl pkgs.wttrbar citySetterScript weatherScript diskScript networkScript cpuScript memScript volumeScript micScript ];
 
       programs.waybar = with config.lib.stylix.colors; {
         enable = mkDefault (
@@ -577,17 +661,17 @@ in
             modules-right = [
               "custom/tomat"
               "custom/cpu"
-              "memory"
+              "custom/mem"
               "custom/disk"
               "custom/network"
               "bluetooth"
+              "battery"
+              "custom/todo"
               "custom/volume"
               "custom/microphone"
               "idle_inhibitor"
-              "battery"
-              "custom/todo"
-              "clock"
               "tray"
+              "clock"
             ];
 
             "wlr/workspaces" = workspaces;
@@ -650,12 +734,20 @@ in
               exec = "${getExe cpuScript}";
               return-type = "json";
               format = "{}";
-              interval = 10; # 10 sec
+              restart-interval = 10; # 10 sec
+              tooltip = true;
+            };
+
+            "custom/mem" = {
+              exec = "${getExe memScript}";
+              return-type = "json";
+              format = "{}";
+              restart-interval = 10; # 10 sec
               tooltip = true;
             };
 
             "battery" = {
-              format = "BAT {capacity}%";
+              format = "BAT {capacity}";
               #interval = 60; # 1 min
               states = {
                 neutral = 80;
@@ -710,7 +802,7 @@ in
               hide-empty-text = true;
               interval = 60; # 1 min
               tooltip = true;
-              on-click = "${getExe config.programs.kitty.package} --hold -e ${getExe config.programs.todoman.package} list";
+              on-click = "${setsid} -f ${getExe config.programs.kitty.package} --hold -e ${getExe config.programs.todoman.package} list ${lib.concatMapStringsSep " " lib.escapeShellArg cfg.todoLists} &";
             };
 
             "hyprland/window" = {
@@ -727,17 +819,6 @@ in
               format-en = "english";
             };
 
-            memory = {
-              format = "MEM {percentage}%";
-              interval = 30; # 30 sec
-              tooltip = true;
-              tooltip-format = " {used:0.1f}GB/{total:0.1f}GB";
-              states = {
-                warning = 80;
-                critical = 90;
-              };
-            };
-
             "custom/network" = {
               exec = "${getExe networkScript}";
               return-type = "json";
@@ -750,9 +831,9 @@ in
               exec = "${getExe volumeScript}";
               return-type = "json";
               format = "{}";
-              interval = 5; # 5 sec
+              restart-interval = 5; # 5 sec
               tooltip = true;
-              on-click = "${pavucontrol} -t 3";
+              on-click = "${setsid} -f ${pavucontrol} -t 3 &";
               on-click-middle = "${pamixer} -t";
               on-scroll-down = "${pamixer} -d 5";
               on-scroll-up = "${pamixer} -i 5";
@@ -763,9 +844,9 @@ in
               exec = "${getExe micScript}";
               return-type = "json";
               format = "{}";
-              interval = 5; # 5 sec
+              restart-interval = 5; # 5 sec
               tooltip = true;
-              on-click = "${pavucontrol} -t 4";
+              on-click = "${setsid} -f ${pavucontrol} -t 4 &";
               on-click-middle = "${pamixer} --default-source -t";
               on-scroll-down = "${pamixer} --default-source -d 5";
               on-scroll-up = "${pamixer} --default-source -i 5";
@@ -843,11 +924,16 @@ in
               color: #${base00-hex};
           }
 
+          #workspaces button.urgent {
+              background: @red_1;
+              color: #${base00-hex};
+          }
+
           /* resource-stat cluster: neutral gray chips, plain-text labels.
              Color only signals something worth noticing - see the
              module-specific override rules below. */
           #custom-cpu,
-          #memory,
+          #custom-mem,
           #custom-disk,
           #custom-network,
           #bluetooth,
@@ -863,9 +949,9 @@ in
           }
 
           #custom-cpu     { background: #${base01-hex}; color: @theme_text_color; }
-          #memory         { background: #${base01-hex}; color: @theme_text_color; }
-          #memory.warning  { background: @yellow_1; color: #${base00-hex}; }
-          #memory.critical { background: @red_1;    color: #${base00-hex}; }
+          #custom-mem     { background: #${base01-hex}; color: @theme_text_color; }
+          #custom-mem.warning  { background: @yellow_1; color: #${base00-hex}; }
+          #custom-mem.critical { background: @red_1;    color: #${base00-hex}; }
           #custom-disk    { background: #${base01-hex}; color: @theme_text_color; }
           #custom-network { background: #${base01-hex}; color: @theme_text_color; }
           #bluetooth      { background: #${base01-hex}; color: @theme_text_color; }

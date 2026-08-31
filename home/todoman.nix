@@ -36,6 +36,15 @@ with lib;
         "/run/agenix/caldav-password"
       ];
     };
+
+    defaultList = mkOption {
+      type = types.str;
+      default = "default";
+      description = ''
+        Name of the todoman list used as the default target list for
+        todoman's own `default_list` config.
+      '';
+    };
   };
 
   config =
@@ -56,6 +65,9 @@ with lib;
         extraConfig = ''
           date_format = "%d.%m.%Y"
           time_format = "%H:%M"
+        ''
+        + lib.optionalString (cfg.defaultList != "") ''
+          default_list = "${cfg.defaultList}"
         '';
       };
 
