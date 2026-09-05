@@ -113,6 +113,15 @@
       url = "github:StevenBlack/hosts";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    ipdenyZonesV4 = {
+      url = "https://www.ipdeny.com/ipblocks/data/countries/all-zones.tar.gz";
+      flake = false;
+    };
+    ipdenyZonesV6 = {
+      url = "https://www.ipdeny.com/ipv6/ipaddresses/blocks/ipv6-all-zones.tar.gz";
+      flake = false;
+    };
   };
 
   outputs =

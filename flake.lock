@@ -667,6 +667,32 @@
         "type": "github"
       }
     },
+    "ipdenyZonesV4": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788603028,
+        "narHash": "sha256-HFeHqAAGp82de8FuFc4jGpwMtAjrqWyQpsLiFOWZ8b8=",
+        "type": "tarball",
+        "url": "https://www.ipdeny.com/ipblocks/data/countries/all-zones.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://www.ipdeny.com/ipblocks/data/countries/all-zones.tar.gz"
+      }
+    },
+    "ipdenyZonesV6": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788603717,
+        "narHash": "sha256-ckqbK/NjolQWEcvSMnI6j4V7GHjohDmzHfwtLDOciLA=",
+        "type": "tarball",
+        "url": "https://www.ipdeny.com/ipv6/ipaddresses/blocks/ipv6-all-zones.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://www.ipdeny.com/ipv6/ipaddresses/blocks/ipv6-all-zones.tar.gz"
+      }
+    },
     "lanzaboote": {
       "inputs": {
         "crane": "crane",
@@ -1072,6 +1098,8 @@
         "frostx": "frostx",
         "home-manager": "home-manager_2",
         "impermanence": "impermanence",
+        "ipdenyZonesV4": "ipdenyZonesV4",
+        "ipdenyZonesV6": "ipdenyZonesV6",
         "lanzaboote": "lanzaboote",
         "mailserver": "mailserver",
         "microvm": "microvm",
