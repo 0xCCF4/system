@@ -65,6 +65,8 @@ in
             inherit (inputs) zrb;
             inherit (inputs.self) users;
             inherit (inputs) self;
+            inherit (inputs) ipdenyZonesV4;
+            inherit (inputs) ipdenyZonesV6;
           };
 
           nodes = attrsets.mapAttrs
