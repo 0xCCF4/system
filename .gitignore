@@ -21,3 +21,5 @@ home/.*
 home/!.gitignore
 users/.*
 users/!.gitignore
+pki/.*
+!pki/.gitignore

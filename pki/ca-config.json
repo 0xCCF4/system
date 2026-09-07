@@ -1,0 +1,26 @@
+{
+  "_comment": "cfssl signing profiles used directly by the CA (root-only design -- no intermediate). Domain-specific URLs (crl_url/ocsp_url/issuer_urls) are NOT baked in here -- hosts/lux/pki.nix merges those in at build time from mine.info.domain, since that value is private (set in external/private) and doesn't belong in this public file. No client/mTLS profile yet by design: add one as a new sibling under signing.profiles, don't restructure this file.",
+  "signing": {
+    "default": {
+      "expiry": "2190h"
+    },
+    "profiles": {
+      "server": {
+        "usages": [
+          "signing",
+          "key encipherment",
+          "server auth"
+        ],
+        "expiry": "26280h"
+      },
+      "ocsp": {
+        "usages": [
+          "digital signature",
+          "ocsp signing"
+        ],
+        "ocsp_no_check": true,
+        "expiry": "8760h"
+      }
+    }
+  }
+}

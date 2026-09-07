@@ -1,0 +1,3 @@
+# Private key material must never land here
+*-key.pem
+*-key*.pem
