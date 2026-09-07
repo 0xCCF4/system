@@ -1,23 +1,17 @@
 { lib
 , self
 , config
+, noxa
 , ...
 }:
 with lib;
+let
+  siblingModules = removeAttrs (noxa.lib.nixDirectoryToAttr' ./.) [ "container-common" ];
+in
 {
-  imports = [
+  imports = attrValues siblingModules
+  ++ [
     ../../hardware/netcup.nix
-    ./net.nix
-    ./mailserver.nix
-    ./caddy.nix
-    ./radicale.nix
-    ./vaultwarden.nix
-    ./powerdns.nix
-    ./matrix-synapse.nix
-    ./matrix-coturn.nix
-    ./jitsi.nix
-    ./matrix-web.nix
-    ./firewall.nix
   ]
   ++ self.lib.optionalsIfExist [
     ../../external/private/hosts/lux.nix

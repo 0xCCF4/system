@@ -131,6 +131,10 @@ with lib;
           files = cfg.files;
           allowTrash = true;
         };
+        "${cfg.cacheDirectory}" = {
+          hideMounts = true;
+          allowTrash = true;
+        };
       };
 
       systemd.services = lib.mapAttrs'

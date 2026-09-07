@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pki"
+version = "0.1.0"
+description = "cfssl-backed internal PKI client/admin/root CLI"
+requires-python = ">=3.11"
+
+[project.scripts]
+pki = "pki.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pki"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
