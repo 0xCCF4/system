@@ -52,7 +52,7 @@ with lib;
           isReadOnly = false;
         };
 
-        config = { config, ... }: {
+        config = { config, pkgs, ... }: {
           imports = [ (import ./container-common.nix { inherit (hostConfig.system) stateVersion; inherit hostAddress6; }) ];
 
           # jitsi-meet is nixpkgs-flagged insecure because its bundled JS
@@ -89,6 +89,21 @@ with lib;
               localAddress = containerAddr;
               publicAddress = hostConfig.mine.info.public.ipv4;
             };
+          };
+
+          systemd.services.jitsi-videobridge2 = {
+            after = [ "network-addresses-eth0.service" ];
+            wants = [ "network-addresses-eth0.service" ];
+            path = [ pkgs.iproute2 ];
+            serviceConfig.ExecStartPre = pkgs.writeShellScript "jvb-wait-for-eth0" ''
+              for i in $(seq 1 30); do
+                if ip -6 addr show dev eth0 | grep -q "scope global"; then
+                  exit 0
+                fi
+                sleep 1
+              done
+              echo "eth0 has no global IPv6 address after 30s, starting jitsi-videobridge2 anyway"
+            '';
           };
         };
       };
