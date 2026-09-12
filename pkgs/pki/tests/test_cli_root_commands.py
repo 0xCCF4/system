@@ -113,6 +113,15 @@ def _fake_issue_deps(monkeypatch):
             "not_after": "2027-01-01T00:00:00Z",
         },
     )
+    # _issue_and_record always resolves a domain now (to embed AIA/CRL
+    # URLs) -- default this so tests not specifically about that
+    # behavior don't need to care. Tests that do (below) override this
+    # again within their own body.
+    monkeypatch.setattr(cli.nixeval, "domain", lambda **kw: "example.com")
+    config_path = repo.ca_config()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    if not config_path.exists():
+        config_path.write_text(json.dumps({"signing": {"default": {}, "profiles": {"server": {}}}}))
 
 
 def test_issue_skips_nix_eval_when_identity_given(monkeypatch, _fake_issue_deps):
@@ -137,6 +146,52 @@ def test_issue_draws_identity_via_nix_eval_when_omitted(monkeypatch, _fake_issue
     args = cli.build_parser().parse_args(["issue", "x", "--cn", "x.example"])
     assert cli.cmd_issue(args) == 0
     assert len(calls) == 1
+
+
+def test_issue_skips_nix_eval_for_domain_when_given(monkeypatch, _fake_issue_deps):
+    def boom(**kwargs):
+        raise AssertionError("nixeval.domain() must not be called when --domain is given")
+
+    monkeypatch.setattr(cli.nixeval, "domain", boom)
+
+    args = cli.build_parser().parse_args(
+        ["issue", "x", "--cn", "x.example", "--identity", "id.txt", "--domain", "example.com"]
+    )
+    assert cli.cmd_issue(args) == 0
+
+
+def test_issue_draws_domain_via_nix_eval_when_omitted(monkeypatch, _fake_issue_deps):
+    calls = []
+
+    def fake_domain(**kwargs):
+        calls.append(kwargs)
+        return "example.com"
+
+    monkeypatch.setattr(cli.nixeval, "domain", fake_domain)
+
+    args = cli.build_parser().parse_args(["issue", "x", "--cn", "x.example", "--identity", "id.txt"])
+    assert cli.cmd_issue(args) == 0
+    assert len(calls) == 1
+
+
+def test_issue_embeds_aia_and_crldp_urls_in_the_config(monkeypatch, _fake_issue_deps):
+    monkeypatch.setattr(cli.nixeval, "domain", lambda **kw: "example.com")
+
+    captured = {}
+
+    def fake_issue(**kwargs):
+        captured["config_content"] = json.loads(kwargs["config"].read_text())
+        return "KEY-PEM", "CERT-PEM"
+
+    monkeypatch.setattr(root_mod, "issue", fake_issue)
+
+    args = cli.build_parser().parse_args(["issue", "x", "--cn", "x.example", "--identity", "id.txt"])
+    assert cli.cmd_issue(args) == 0
+
+    default = captured["config_content"]["signing"]["default"]
+    assert default["crl_url"] == "https://pki.example.com/crl.pem"
+    assert default["ocsp_url"] == "https://pki.example.com/ocsp"
+    assert default["issuer_urls"] == ["https://pki.example.com/root-ca.pem"]
 
 
 def test_issue_records_ledger_entry(monkeypatch, _fake_issue_deps):
@@ -287,17 +342,27 @@ def test_issue_expire_overrides_profile_expiry(monkeypatch, _fake_issue_deps):
     assert json.loads(config_path.read_text())["signing"]["profiles"]["server"]["expiry"] == "26280h"
 
 
-def test_issue_without_expire_uses_real_config_unmodified(monkeypatch, _fake_issue_deps):
+def test_issue_without_expire_leaves_profile_expiry_unchanged(monkeypatch, _fake_issue_deps):
+    # The config is always a tempfile copy now (URLs are always merged
+    # in, see test_issue_embeds_aia_and_crldp_urls_in_the_config) -- what
+    # must NOT change without --expire is the profile's own expiry.
     monkeypatch.setattr(cli.nixeval, "master_identity", lambda **kw: (Path("id"), "age1..."))
+    config_path = repo.ca_config()
+    config_path.write_text(json.dumps({
+        "signing": {"default": {}, "profiles": {"server": {"expiry": "26280h"}}}
+    }))
 
     captured = {}
-    monkeypatch.setattr(
-        root_mod, "issue", lambda **kwargs: (captured.update(kwargs), ("KEY-PEM", "CERT-PEM"))[1]
-    )
+
+    def fake_issue(**kwargs):
+        captured["config_content"] = json.loads(kwargs["config"].read_text())
+        return "KEY-PEM", "CERT-PEM"
+
+    monkeypatch.setattr(root_mod, "issue", fake_issue)
 
     args = cli.build_parser().parse_args(["issue", "x", "--cn", "x.example", "--identity", "id.txt"])
     assert cli.cmd_issue(args) == 0
-    assert captured["config"] == repo.ca_config()
+    assert captured["config_content"]["signing"]["profiles"]["server"]["expiry"] == "26280h"
 
 
 def test_issue_expire_unknown_profile_raises(monkeypatch, _fake_issue_deps):

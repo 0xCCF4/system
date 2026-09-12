@@ -38,8 +38,7 @@ with lib;
       hetznerSecondaries = (map (ip: "64:ff9b::${ip}") hetznerSecondariesV4) ++ hetznerSecondariesV6;
 
       zoneRecords = with dns.lib.combinators; {
-        # TEMPORARY: lowered from the 24h default for faster debugging turnaround. Remove after 2026-09-03.
-        TTL = 60; # 1 min
+        TTL = 86400; # 24h
         SOA = {
           nameServer = "ns1.${domain}.";
           adminEmail = "security@${domain}";
@@ -48,12 +47,10 @@ with lib;
           # self.lastModified is the flake's last-commit/mtime epoch, so it's
           # deterministic and only ever moves forward.
           serial = self.lastModified / 60;
-          refresh = 600; # 10 min
-          retry = 120; # 2 min
-          expire = 1800; # 30 min
-          # TEMPORARY: lowered from the 10-day default for faster debugging
-          # turnaround. Remove after 2026-09-03.
-          minimum = 60; # 1 min
+          refresh = 86400; # 24h
+          retry = 14400; # 4h
+          expire = 604800; # 7 days
+          minimum = 3600; # 1h
         };
         A = [ config.mine.info.public.ipv4 ];
         AAAA = [ config.mine.info.public.ipv6 ];
@@ -106,6 +103,9 @@ with lib;
       zoneFilePath = builtins.toFile "${domain}.zone" zoneFile;
     in
     {
+      mine.services.geoBlock.exemptPorts.tcp = [ 53 ];
+      mine.services.geoBlock.exemptPorts.udp = [ 53 ];
+
       # PowerDNS edns-cookie-secret must be exactly 32 hex chars (16 bytes);
       # agenix-rekey's built-in "hex" generator produces 48 (24 bytes).
       age.generators.hex32 = { pkgs, ... }: "${pkgs.openssl}/bin/openssl rand -hex 16";

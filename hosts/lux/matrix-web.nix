@@ -59,7 +59,7 @@ with lib;
               auto_https off
             '';
 
-            virtualHosts.${chatDomain}.extraConfig = ''
+            virtualHosts."http://${chatDomain}".extraConfig = ''
               root * ${toString (pkgs.element-web.override {
                 conf = {
                   default_server_config."m.homeserver" = {
@@ -73,8 +73,10 @@ with lib;
               file_server
             '';
 
-            virtualHosts.${adminDomain}.extraConfig = ''
-              root * ${toString pkgs.ketesa}
+            virtualHosts."http://${adminDomain}".extraConfig = ''
+              root * ${toString (pkgs.ketesa.withConfig {
+                restrictBaseUrl = "https://${matrixDomain}";
+              })}
               file_server
             '';
           };

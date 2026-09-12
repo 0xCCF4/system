@@ -821,9 +821,9 @@ in
 
     in
     {
-      home.packages = [ pkgs.playerctl pkgs.wttrbar citySetterScript weatherScript diskScript networkScript cpuScript memScript volumeScript micScript ];
+      home.packages = mkIf config.programs.waybar.enable [ pkgs.playerctl pkgs.wttrbar citySetterScript weatherScript diskScript networkScript cpuScript memScript volumeScript micScript ];
 
-      systemd.user.targets."waybar-publishers" = {
+      systemd.user.targets."waybar-publishers" = mkIf config.programs.waybar.enable {
         Unit = {
           Description = "waybar data publishers";
           PartOf = [ "hyprland-session.target" ];
@@ -831,7 +831,7 @@ in
         Install.WantedBy = [ "hyprland-session.target" ];
       };
 
-      systemd.user.services =
+      systemd.user.services = mkIf config.programs.waybar.enable (
         {
           "waybar-weather" = mkPublisherUnit "weather" weatherPublisher;
           "waybar-disk" = mkPublisherUnit "disk" diskPublisher;
@@ -851,7 +851,8 @@ in
         // {
           waybar.Unit.Wants = [ "waybar-publishers.target" ];
           waybar.Unit.After = [ "waybar-publishers.target" ];
-        };
+        }
+      );
 
       programs.waybar = with config.lib.stylix.colors; {
         enable = mkDefault (

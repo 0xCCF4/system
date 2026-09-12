@@ -42,6 +42,34 @@ with lib;
       '';
     };
 
+    exemptPorts = {
+      tcp = mkOption {
+        type = types.listOf types.port;
+        default = [ ];
+        description = ''
+          Destination TCP ports exempt from geo-blocking.
+        '';
+      };
+
+      udp = mkOption {
+        type = types.listOf types.port;
+        default = [ ];
+        description = ''
+          Destination UDP ports exempt from geo-blocking.
+        '';
+      };
+    };
+
+    externalInterfaces = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = ''
+        Interface names that carry traffic arriving from the public
+        internet. Only packets entering on one of these interfaces are
+        subject to geo-blocking.
+      '';
+    };
+
     zonesV4Url = mkOption {
       type = types.str;
       default = "https://www.ipdeny.com/ipblocks/data/countries/all-zones.tar.gz";
@@ -198,11 +226,25 @@ with lib;
           chain geo-prerouting {
             type filter hook prerouting priority filter; policy accept;
 
+            ${if cfg.externalInterfaces == [ ] then ''
+              # No external interfaces configured -- geo-blocking is a no-op.
+              accept
+            '' else ''
+              iifname != { ${concatStringsSep ", " cfg.externalInterfaces} } accept
+            ''}
+
             meta l4proto { icmp, icmpv6 } accept
 
             ${optionalString cfg.allowOutgoing ''
               # Outgoing open connections (or NAT64 replies) are OK
               ct state established,related accept
+            ''}
+
+            ${optionalString (cfg.exemptPorts.tcp != [ ]) ''
+              tcp dport { ${concatStringsSep ", " (map toString cfg.exemptPorts.tcp)} } accept
+            ''}
+            ${optionalString (cfg.exemptPorts.udp != [ ]) ''
+              udp dport { ${concatStringsSep ", " (map toString cfg.exemptPorts.udp)} } accept
             ''}
 
             # Incoming connection filtered against the geo-block list

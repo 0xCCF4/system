@@ -117,9 +117,5 @@ in
         bindPort = config.boot.initrd.network.ssh.port;
       }
     ];
-
-    # TEMPORARY: matrix stack turned off for now. Set back to true (or drop
-    # this line, the option defaults to true) to fast re-enable.
-    mine.services.matrix.enable = false;
   };
 }
