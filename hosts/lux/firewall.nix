@@ -202,7 +202,12 @@ in
 
         chain fw-accept-dos {
           counter
-          meter outside-traffic { ip6 saddr limit rate 10/second } accept
+          meter outside-traffic { ip6 saddr limit rate 10/second burst 50 packets } accept
+        }
+
+        chain fw-accept-dos-dns {
+          counter
+          meter outside-traffic-dns { ip6 saddr limit rate 10/second burst 200 packets } accept
         }
 
         chain fw-drop {
@@ -220,8 +225,8 @@ in
           # ip6 daddr ${config.containers.mailserver.localAddress6} tcp dport { 25, 465, 993, 80 } jump fw-accept-dos
           ip6 daddr ${config.containers.caddy.localAddress6} tcp dport { 80, 443 } jump fw-accept-dos
           ip6 daddr ${config.containers.caddy.localAddress6} udp dport 443 jump fw-accept-dos
-          ip6 daddr ${config.containers.powerdns.localAddress6} tcp dport 53 jump fw-accept-dos
-          ip6 daddr ${config.containers.powerdns.localAddress6} udp dport 53 jump fw-accept-dos
+          ip6 daddr ${config.containers.powerdns.localAddress6} tcp dport 53 jump fw-accept-dos-dns
+          ip6 daddr ${config.containers.powerdns.localAddress6} udp dport 53 jump fw-accept-dos-dns
           # mtx-co-v4 itself is NAT64-only
           ip6 daddr ${config.containers.mtx-co-v6.localAddress6} tcp dport 3478 jump fw-accept-dos
           ip6 daddr ${config.containers.mtx-co-v6.localAddress6} udp dport 3478 jump fw-accept-dos

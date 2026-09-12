@@ -19,6 +19,8 @@ with lib;
 
   config =
     let
+      hostConfig = config;
+
       jitsiDomain = config.mine.services.matrix.domains.jitsi;
       jvbPort = 10000;
 
@@ -50,8 +52,8 @@ with lib;
           isReadOnly = false;
         };
 
-        config = { ... }: {
-          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
+        config = { config, ... }: {
+          imports = [ (import ./container-common.nix { inherit (hostConfig.system) stateVersion; inherit hostAddress6; }) ];
 
           # jitsi-meet is nixpkgs-flagged insecure because its bundled JS
           # ships an in-call E2EE feature depending on deprecated
@@ -77,12 +79,15 @@ with lib;
             auto_https off
           '';
 
+          services.caddy.virtualHosts."http://${jitsiDomain}".extraConfig =
+            config.services.caddy.virtualHosts.${jitsiDomain}.extraConfig;
+
           # For dual stack support
           services.jitsi-videobridge = {
             openFirewall = false; # already opened above
             nat = {
               localAddress = containerAddr;
-              publicAddress = config.mine.info.public.ipv4;
+              publicAddress = hostConfig.mine.info.public.ipv4;
             };
           };
         };

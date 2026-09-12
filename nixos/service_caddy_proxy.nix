@@ -250,6 +250,16 @@ with lib;
         then "unix//run/anubis/anubis-${routeName}/anubis.sock"
         else route.upstream;
 
+      # All public-facing domain names a given route answers on (its own public
+      # domain plus any per-wireguard-network names) -- used to scope
+      # that route's Anubis instance's REDIRECT_DOMAINS to just the domains
+      # it actually serves.
+      routeDomains = routeName: route:
+        (optional route.public.enable route.public.domain)
+        ++ (mapAttrsToList
+          (network: netCfg: if netCfg.hostname != null then netCfg.hostname else wgDefaultHostname routeName network)
+          (filterAttrs (_: netCfg: netCfg.enable) route.wireguardNetworks));
+
       # When bypassPaths is set, matching requests skip Anubis entirely and go
       # straight to the real upstream (first match wins, same as the
       # respond-then-catch-all-reverse_proxy pattern routeExtraConfig already
@@ -405,6 +415,7 @@ with lib;
               routeName: route: {
                 settings = {
                   TARGET = "http://${route.upstream}";
+                  REDIRECT_DOMAINS = concatStringsSep "," (routeDomains routeName route);
                 } // optionalAttrs (route.anubis.difficulty != null) {
                   DIFFICULTY = route.anubis.difficulty;
                 };
@@ -418,6 +429,7 @@ with lib;
           # its own `anubis.difficulty`.
           services.anubis.defaultOptions.settings.DIFFICULTY =
             mkIf (anubisRoutes != { }) 5;
+
           users.users.caddy.extraGroups =
             mkIf (anubisRoutes != { }) [ "anubis" ];
 

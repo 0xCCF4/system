@@ -35,6 +35,18 @@ def eval_json(attr: str, *, host: str = "lux") -> object:
     return json.loads(result.stdout)
 
 
+def domain(*, host: str = "lux") -> str:
+    """This repo's `mine.info.domain` -- private (set in external/private,
+    not this public repo), so it can't be hardcoded here either. Used to
+    embed the real AIA (crl_url/ocsp_url/issuer_urls) into every cert
+    this tool signs -- see cli.py's `_config_with_pki_urls`.
+    """
+    value = eval_json("mine.info.domain", host=host)
+    if not value:
+        raise ValueError(f"mine.info.domain is unset for host {host!r} -- can't embed AIA/CRL URLs")
+    return value
+
+
 def master_identity(*, host: str = "lux") -> tuple[Path, str]:
     """Return (identity_path, pubkey) for the first entry of
     nixos/secrets.nix's `noxa.secrets.options.masterIdentities`, drawn

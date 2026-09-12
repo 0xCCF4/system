@@ -18,23 +18,11 @@ with lib;
       pkiDir = ../../pki;
       rootCertPath = pkiDir + "/root-ca.pem";
       ocspCertPath = pkiDir + "/ocsp-responder-cert.pem";
-      caConfigPath = pkiDir + "/ca-config.json";
       ledgerPath = ../../external/private/secrets/pki/issued-certs.json;
       crlPath = pkiDir + "/crl.pem";
 
       hasBootstrap =
         builtins.pathExists rootCertPath && builtins.pathExists ocspCertPath;
-
-      caConfig = recursiveUpdate
-        (builtins.fromJSON (builtins.readFile caConfigPath))
-        {
-          signing.default = {
-            crl_url = "https://pki.${domain}/crl.pem";
-            ocsp_url = "https://pki.${domain}/ocsp";
-            issuer_urls = [ "https://pki.${domain}/root-ca.pem" ];
-          };
-        };
-      caConfigFile = pkgs.writeText "pki-ca-config.json" (builtins.toJSON caConfig);
 
       ledgerFile =
         if builtins.pathExists ledgerPath
@@ -53,7 +41,7 @@ with lib;
       };
       ocspKeySecret = config.age.secrets.${ocspKeyIdentifier};
 
-      pkiPackage = self.packages.${pkgs.system}.pki;
+      pkiPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.pki;
 
       certDbData = pkgs.runCommand "pki-certstore" { nativeBuildInputs = [ pkiPackage ]; } ''
         mkdir -p $out
@@ -123,7 +111,7 @@ with lib;
             };
             script = ''
               install -m 0644 ${certDbData}/certstore.db /var/lib/pki/certstore.db
-              install -m 0644 ${certDbData}/db.json /var/lib/pki/db.json
+              ${pkgs.jq}/bin/jq -n '{driver: "sqlite3", data_source: "/var/lib/pki/certstore.db"}' > /var/lib/pki/db.json
               ${pkgs.cfssl}/bin/cfssl ocsprefresh \
                 -ca /etc/pki/root-ca.pem \
                 -responder /etc/pki/ocsp-responder-cert.pem \

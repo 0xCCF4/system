@@ -168,6 +168,12 @@ def _add_signing_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--config", type=Path, default=None, help="defaults to the repo's own pki/ca-config.json"
     )
+    parser.add_argument(
+        "--domain", default=None,
+        help="domain the public pki.<domain> endpoints (OCSP/CRL/root cert) are served on -- "
+        "embedded into the cert's AIA/CRL Distribution Point extensions. Defaults to "
+        "mine.info.domain (drawn live via `nix eval`) if omitted.",
+    )
 
 
 def _resolve_identity(explicit: Path | None) -> Path:
@@ -175,6 +181,27 @@ def _resolve_identity(explicit: Path | None) -> Path:
         return explicit
     identity, _pubkey = nixeval.master_identity()
     return identity
+
+
+def _config_with_pki_urls(config_path: Path, *, domain: str, tmp_dir: Path) -> Path:
+    """Merges the real crl_url/ocsp_url/issuer_urls into signing.default.
+
+    pki/ca-config.json ships without these (mine.info.domain is private,
+    doesn't belong in a public file) -- without this merge, every cert
+    this tool signs would have no AIA/CRL Distribution Point extensions
+    at all (confirmed: the already-issued OCSP responder cert has neither).
+    """
+    config = json.loads(config_path.read_text())
+    config.setdefault("signing", {}).setdefault("default", {}).update(
+        {
+            "crl_url": f"https://pki.{domain}/crl.pem",
+            "ocsp_url": f"https://pki.{domain}/ocsp",
+            "issuer_urls": [f"https://pki.{domain}/root-ca.pem"],
+        }
+    )
+    override_path = tmp_dir / "ca-config-with-urls.json"
+    override_path.write_text(json.dumps(config))
+    return override_path
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -229,9 +256,14 @@ def _issue_and_record(
     ca_key_ciphertext = args.ca_key or repo.ca_key_ciphertext()
     config = args.config or repo.ca_config()
     identity = _resolve_identity(args.identity)
+    domain = args.domain if args.domain is not None else nixeval.domain()
     expire = getattr(args, "expire", None)
 
     with tempfile.TemporaryDirectory() as tmp:
+        # Always merged in -- pki/ca-config.json ships without these
+        # (see _config_with_pki_urls), so every cert needs this to get
+        # working AIA/CRL Distribution Point extensions at all.
+        config = _config_with_pki_urls(config, domain=domain, tmp_dir=Path(tmp))
         if expire is not None:
             config = _config_with_expiry_override(config, profile=profile, expiry=expire, tmp_dir=Path(tmp))
 

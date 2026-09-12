@@ -86,6 +86,7 @@ def test_parses_issue_repo_relative_defaults():
     assert args.config is None
     assert args.expire is None
     assert args.rsa4096 is False
+    assert args.domain is None
 
 
 def test_parses_issue_with_rsa4096():
@@ -119,6 +120,12 @@ def test_parses_issue_ocsp():
     assert args.identity is None
     assert args.ca is None
     assert args.recipients is None
+    assert args.domain is None
+
+
+def test_parses_issue_with_explicit_domain():
+    args = build_parser().parse_args(["issue", "x", "--cn", "x.example", "--domain", "example.com"])
+    assert args.domain == "example.com"
 
 
 def test_parses_issue_ocsp_with_recipients():
