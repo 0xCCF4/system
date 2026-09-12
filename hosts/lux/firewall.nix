@@ -210,6 +210,11 @@ in
           meter outside-traffic-dns { ip6 saddr limit rate 10/second burst 200 packets } accept
         }
 
+        chain fw-accept {
+          counter
+          accept
+        }
+
         chain fw-drop {
           drop
         }
@@ -231,7 +236,7 @@ in
           ip6 daddr ${config.containers.mtx-co-v6.localAddress6} tcp dport 3478 jump fw-accept-dos
           ip6 daddr ${config.containers.mtx-co-v6.localAddress6} udp dport 3478 jump fw-accept-dos
           ip6 daddr ${config.containers.mtx-co-v6.localAddress6} udp dport 49160-50159 jump fw-accept-dos
-          ip6 daddr ${config.containers.jitsi.localAddress6} udp dport 10000 jump fw-accept-dos
+          ip6 daddr ${config.containers.jitsi.localAddress6} udp dport 10000 jump fw-accept
 
           # Essential ICMPv6
           icmpv6 type packet-too-big accept
