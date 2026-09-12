@@ -40,6 +40,11 @@ with lib;
             description = "Additional directories to scan on access. Must be absolute paths.";
           };
         };
+      scanner.excludeDirectories = mkOption {
+        type = listOf str;
+        default = [ "/mnt2" ];
+        description = "Directories to exclude from the on-demand clamdscan scan, as anchored regex patterns.";
+      };
     };
   };
 
@@ -115,6 +120,22 @@ with lib;
       services.clamav.scanner.scanDirectories = [
         "/"
       ];
+
+      systemd.services.clamdscan.serviceConfig.ExecStart = mkIf config.services.clamav.scanner.enable (
+        mkForce (
+          concatStringsSep " " (
+            [
+              "${getExe' config.services.clamav.package "clamdscan"}"
+              "--multiscan"
+              "--fdpass"
+              "--infected"
+              "--allmatch"
+            ]
+            ++ map (dir: "--exclude-dir=^${dir}") cfg.scanner.excludeDirectories
+            ++ config.services.clamav.scanner.scanDirectories
+          )
+        )
+      );
 
       systemd.services.clamav-clamonacc = lib.mkIf cfg.accessScanning.enable {
         description = "ClamAV daemon (clamonacc)";
