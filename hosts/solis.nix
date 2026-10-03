@@ -57,6 +57,7 @@ with lib;
       # TODO: remove, debug initrd networking for tor unlock
       boot.initrd.systemd.storePaths = [
         "${getExe' pkgs.iproute2 "ip"}"
+        "${getExe' pkgs.iputils "ping"}"
         "${getExe' config.boot.initrd.systemd.package "networkctl"}"
         "${getExe' config.boot.initrd.systemd.package "journalctl"}"
       ];
@@ -73,6 +74,7 @@ with lib;
           TTYPath = "/dev/console";
         };
         script = ''
+          set +e
           for i in 1 2 3 4; do
             sleep 20
             echo "===== debug-net round $i ====="
@@ -80,8 +82,12 @@ with lib;
             ${getExe' pkgs.iproute2 "ip"} -br link
             ${getExe' pkgs.iproute2 "ip"} -br addr
             ${getExe' pkgs.iproute2 "ip"} route
+            ${getExe' pkgs.iputils "ping"} -c 3 -W 2 9.9.9.9
             ${getExe' config.boot.initrd.systemd.package "networkctl"} --no-pager list
-            ${getExe' config.boot.initrd.systemd.package "journalctl"} --no-pager -n 15 -u tor -u systemd-networkd
+            ${getExe' config.boot.initrd.systemd.package "networkctl"} --no-pager status ethMonRight
+            for f in /etc/systemd/network/*; do echo "--- $f"; cat "$f"; done
+            ${getExe' config.boot.initrd.systemd.package "journalctl"} --no-pager -n 20 -u systemd-networkd
+            ${getExe' config.boot.initrd.systemd.package "journalctl"} --no-pager -n 5 -u tor
           done
         '';
       };
