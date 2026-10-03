@@ -51,6 +51,15 @@ with lib;
       # Remote unlock luks via ssh+tor
       mine.boot.remoteUnlock = true;
       boot.initrd.network.ssh.port = 4444;
+      # ethMonRight is a usb nic in the monitor behind the usb-c dock
+      # TODO: check actual driver (readlink -f /sys/class/net/ethMonRight/device/driver), drop the others
+      boot.initrd.availableKernelModules = [
+        "usbnet"
+        "r8152"
+        "cdc_ether"
+        "cdc_ncm"
+        "ax88179_178a"
+      ];
       mine.boot.tor.enable = true;
       mine.boot.tor.ports = [
         {
