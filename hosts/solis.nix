@@ -98,6 +98,8 @@ with lib;
         }
       ];
 
+      nix.gc.automatic = false;
+
       # programs.evolution = {
       #   enable = true;
       #   plugins = with pkgs; [
