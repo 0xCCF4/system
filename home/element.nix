@@ -45,6 +45,9 @@ with lib;
       programs.element-desktop = {
         enable = true;
         settings = cfg.settings;
+        package = pkgs.element-desktop.override {
+          commandLineArgs = "--password-store=gnome-libsecret";
+        };
       };
 
       home.mine.persistence.data.directories = [

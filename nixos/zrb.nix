@@ -26,10 +26,24 @@ with lib;
         description = "The server instance to backup to.";
       };
       backupSSH = mkOption {
-        type = nullOr types.str;
+        type = nullOr (either types.str (attrsOf anything));
         default =
-          if (config.mine.zrb.backupNode != null) then "${config.mine.zrb.backupNode}.vlan" else null;
-        description = "The SSH host to connect to for backups.";
+          if (config.mine.zrb.backupNode != null) then {
+            # prefer the LAN when reachable, fall back to wireguard
+            local = rec {
+              priority = -10;
+              host = "${config.mine.zrb.backupNode}.lan";
+              command = "ping -c 1 -W 1 ${host} > /dev/null";
+              # same machine, reuse the known_hosts entry of the wireguard name
+              extraOptions.HostKeyAlias = "${config.mine.zrb.backupNode}.vlan";
+            };
+            wireguard = rec {
+              priority = 0;
+              host = "${config.mine.zrb.backupNode}.vlan";
+              command = "ping -c 1 -W 1 ${host} > /dev/null";
+            };
+          } else null;
+        description = "The SSH host to connect to for backups. Either a hostname or a set of noxa ssh hostname rules.";
       };
       backupOnShutdown = mkOption {
         type = bool;

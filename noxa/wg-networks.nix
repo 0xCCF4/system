@@ -24,6 +24,9 @@
       eternis.deviceAddresses = "10.1.1.2/32"; # home cluster
       eternis.backend = "wg-quick";
       eternis.keepAlive = 30;
+
+      aeris.deviceAddresses = "10.1.1.4/32"; # jump host into home network
+      aeris.keepAlive = 30;
     };
   };
   ##

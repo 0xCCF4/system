@@ -18,6 +18,9 @@ with lib;
 
     mine.admins = [ "mx" ];
 
+    mine.boot.zfs-tpm-unlock = true;
+    mine.zrb.backupNode = null;
+
     # SSH
     services.openssh = {
       enable = true;
