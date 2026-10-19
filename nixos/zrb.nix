@@ -175,6 +175,10 @@ with lib;
                   ${pkgs.kbd}/bin/chvt 8 || true
                   sleep 0.2
 
+                  # /run/wrappers/bin/sudo -u ${dailyService.serviceConfig.User} -n \
+                  #   ${pkgs.coreutils}/bin/env SHELL=${pkgs.bash}/bin/bash \
+                  #   ${dailyService.serviceConfig.ExecStartPre} || true
+
                   /run/wrappers/bin/sudo -u ${dailyService.serviceConfig.User} -n \
                     ${pkgs.coreutils}/bin/env SHELL=${pkgs.bash}/bin/bash \
                     ${dailyService.serviceConfig.ExecStart} --tui || true
@@ -193,6 +197,7 @@ with lib;
             # TimeoutStopSec is the only mechanism that actually bounds ExecStop's runtime.
             TimeoutStopSec = "30min";
 
+            StandardInput = "tty";
             StandardOutput = "tty";
             StandardError = "tty";
             TTYPath = "/dev/tty8";
