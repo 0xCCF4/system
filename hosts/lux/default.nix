@@ -10,10 +10,10 @@ let
 in
 {
   imports = attrValues siblingModules
-  ++ [
+    ++ [
     ../../hardware/netcup.nix
   ]
-  ++ self.lib.optionalsIfExist [
+    ++ self.lib.optionalsIfExist [
     ../../external/private/hosts/lux.nix
   ];
 

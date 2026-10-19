@@ -213,7 +213,7 @@ with lib;
               macaroon_secret_key_path = secretRuntimePath "macaroon-secret-key";
               form_secret_path = secretRuntimePath "form-secret";
 
-              trusted_key_servers = [ { server_name = "matrix.org"; } ];
+              trusted_key_servers = [{ server_name = "matrix.org"; }];
             } // optionalAttrs (!federationEnabled) {
               # Belt-and-suspenders: even with "federation" dropped from the
               # listener's resources above (which stops serving the federation

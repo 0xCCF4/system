@@ -55,6 +55,7 @@ with lib;
       }
     ];
     services.zrb.client.jobs.daily.enable = false; # until we have a full root backup
+    mine.zrb.backupOnShutdown = true;
 
     mine.virtualization.virtmanager = true;
     networking = {
