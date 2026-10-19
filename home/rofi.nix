@@ -14,7 +14,7 @@ with builtins;
         (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
         && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable)
       );
-      extraConfig = {
+      settings = {
         modi = [
           "drun"
           "window"
