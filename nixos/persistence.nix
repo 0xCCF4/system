@@ -109,6 +109,8 @@ with lib;
         "/var/log"
         "/var/lib/nixos"
         "/var/lib/systemd/coredump"
+        # last-run stamps of Persistent=true timers
+        "/var/lib/systemd/timers"
       ]
       ++ lists.optionals (presets.isWorkstation) [
         "/var/lib/bluetooth"
