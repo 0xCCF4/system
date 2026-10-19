@@ -40,6 +40,15 @@ with lib;
           and gets rolled back.
         '';
       };
+      lockFile = mkOption {
+        type = str;
+        default = "/run/lock/nix-maintenance.lock";
+        description = ''
+          Lock file shared with nix-gc so a garbage collection never runs
+          concurrently with an update; whichever starts second blocks until
+          the other is done.
+        '';
+      };
       healthCheckDelaySeconds = mkOption {
         type = int;
         default = 10;
@@ -54,6 +63,9 @@ with lib;
   config =
     let
       cfg = config.mine.autoUpdate;
+
+      lockFile = escapeShellArg cfg.lockFile;
+      flock = "${pkgs.util-linux}/bin/flock";
 
       autoUpdateScript = pkgs.writeShellApplication {
         name = "auto-update";
@@ -138,12 +150,15 @@ with lib;
         stopIfChanged = false;
         serviceConfig = {
           Type = "oneshot";
-          ExecStart = getExe autoUpdateScript;
+          ExecStart = "${flock} ${lockFile} ${getExe autoUpdateScript}";
           TimeoutStartSec = "infinity";
           TimeoutStopSec = "infinity";
           PrivateTmp = true;
         };
       };
+
+      systemd.services.nix-gc.script = mkIf config.nix.gc.automatic (mkForce
+        "exec ${flock} ${lockFile} ${config.nix.package.out}/bin/nix-collect-garbage ${config.nix.gc.options}");
 
       systemd.timers.auto-update = {
         description = "Timer for auto-update";
