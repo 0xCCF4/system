@@ -86,6 +86,7 @@ with builtins;
           pciutils # PCI device management
           usbutils # USB device management
           sshfs # SSH remote fs mount
+          mosh # roaming ssh replacement
           socat # udp netcat
           tty-clock # tty clock
           tor # toe
@@ -174,6 +175,7 @@ with builtins;
           libreoffice
           xournalpp
           drawio
+          signal-desktop
         ];
 
       home.mine.persistence.cache.directories =
