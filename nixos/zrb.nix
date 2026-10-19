@@ -33,14 +33,14 @@ with lib;
             local = rec {
               priority = -10;
               host = "${config.mine.zrb.backupNode}.lan";
-              command = "${config.security.wrapperDir}/ping -c 1 -W 1 ${host} > /dev/null";
+              command = "ping -c 1 -W 1 ${host} > /dev/null";
               # same machine, reuse the known_hosts entry of the wireguard name
               extraOptions.HostKeyAlias = "${config.mine.zrb.backupNode}.vlan";
             };
             wireguard = rec {
               priority = 0;
               host = "${config.mine.zrb.backupNode}.vlan";
-              command = "${config.security.wrapperDir}/ping -c 1 -W 1 ${host} > /dev/null";
+              command = "ping -c 1 -W 1 ${host} > /dev/null";
             };
           } else null;
         description = "The SSH host to connect to for backups. Either a hostname or a set of noxa ssh hostname rules.";
@@ -135,7 +135,12 @@ with lib;
         zrb-primary.to.hostname = config.mine.zrb.backupSSH;
       };
 
+      systemd.services."zrb-send-daily".environment = { SHELL = "${pkgs.bash}/bin/bash"; };
+      systemd.services."zrb-send-hourly".environment = { SHELL = "${pkgs.bash}/bin/bash"; };
+      systemd.services."zrb-send-weekly".environment = { SHELL = "${pkgs.bash}/bin/bash"; };
+
       systemd.services."zrb-backup-on-shutdown" = mkIf config.mine.zrb.backupOnShutdown {
+        environment = { SHELL = "${pkgs.bash}/bin/bash"; };
         description = "Shutdown hook ZRB backup";
 
         wantedBy = [ "multi-user.target" ];
@@ -170,7 +175,9 @@ with lib;
                   ${pkgs.kbd}/bin/chvt 8 || true
                   sleep 0.2
 
-                  /run/wrappers/bin/sudo -u ${dailyService.serviceConfig.User} -n ${dailyService.serviceConfig.ExecStart} --tui || true
+                  /run/wrappers/bin/sudo -u ${dailyService.serviceConfig.User} -n \
+                    ${pkgs.coreutils}/bin/env SHELL=${pkgs.bash}/bin/bash \
+                    ${dailyService.serviceConfig.ExecStart} --tui || true
 
                   sleep 1
                   exit 0
