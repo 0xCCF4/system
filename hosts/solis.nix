@@ -17,6 +17,19 @@ with lib;
     let
       ifaceExternal = "ethMonRight";
       ifaceInternal = "ethDocking";
+
+      usbreset = getExe' pkgs.usbutils "usbreset";
+      usbResetDevices = [
+        "SAKURA-X"
+        "PicoScope 3000 Series PC Oscilloscope"
+      ];
+      reset-lab-usb = pkgs.writeShellApplication {
+        name = "reset-lab-usb";
+        text = ''
+          /run/wrappers/bin/sudo ${usbreset} "SAKURA-X"
+          /run/wrappers/bin/sudo ${usbreset} "PicoScope 3000 Series PC Oscilloscope"
+        '';
+      };
     in
     {
       networking.networkmanager.unmanaged = [ "interface-name:${ifaceExternal}" ];
@@ -71,6 +84,7 @@ with lib;
 
           home.packages = with pkgs; [
             picoscope
+            reset-lab-usb
           ];
         };
       };
@@ -85,16 +99,12 @@ with lib;
       security.sudo.extraRules = [
         {
           users = [ "mx" ];
-          commands = [
-            {
-              command = ''${getExe' pkgs.usbutils "usbreset"} "SAKURA-X"'';
+          commands = map
+            (device: {
+              command = ''${usbreset} "${device}"'';
               options = [ "NOPASSWD" ];
-            }
-            {
-              command = ''${getExe' pkgs.usbutils "usbreset"} "PicoScope 3000 Series PC Oscilloscope"'';
-              options = [ "NOPASSWD" ];
-            }
-          ];
+            })
+            usbResetDevices;
         }
       ];
 

@@ -90,6 +90,7 @@ with lib;
             "from a"
             "from b"
           ];
+          conflictResolution = "remote wins";
         };
       };
 
