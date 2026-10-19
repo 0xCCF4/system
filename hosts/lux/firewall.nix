@@ -60,6 +60,11 @@ in
   # separately by the standard networking.firewall module, which
   # handles the `input` chain.
   config = {
+    # Shrink the kernel's ephemeral port range so it no longer overlaps the
+    # coturn UDP relay range
+    boot.kernel.sysctl."net.ipv4.ip_local_port_range" =
+      "32768 ${toString (lib.head coturnRelayPorts - 1)}";
+
     # Answer ND IPv6 packets
     services.ndppd.enable = true;
     services.ndppd.proxies.wan.rules = lib.genAttrs

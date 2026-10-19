@@ -14,6 +14,7 @@ with lib;
       matrixDomain = config.mine.services.matrix.domains.homeserver;
       chatDomain = config.mine.services.matrix.domains.chat;
       adminDomain = config.mine.services.matrix.domains.admin;
+      jitsiDomain = config.mine.services.matrix.domains.jitsi;
 
       hostAddress6 = luxAddr6For "fc00::/64" "mtx-web-veth-host";
       containerAddr = config.containers.mtx-web.localAddress6;
@@ -68,6 +69,7 @@ with lib;
                   };
                   disable_custom_urls = true;
                   disable_guests = true;
+                  jitsi.preferred_domain = jitsiDomain;
                 };
               })}
               file_server

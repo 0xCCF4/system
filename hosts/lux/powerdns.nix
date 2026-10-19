@@ -53,7 +53,7 @@ with lib;
           minimum = 3600; # 1h
         };
         A = [ config.mine.info.public.ipv4 ];
-        AAAA = [ config.mine.info.public.ipv6 ];
+        AAAA = [ config.containers.caddy.localAddress6 ];
         TXT = [ "v=spf1 mx include:_spf.strato.com -all" ];
         subdomains = {
           mail = {

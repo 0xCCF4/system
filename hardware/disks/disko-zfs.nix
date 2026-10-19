@@ -19,6 +19,15 @@ with lib;
         type = listOf str;
         description = "List of ZFS datasets to mount during initrd.";
       };
+      mine.boot.zfs-tpm-unlock = mkOption {
+        type = bool;
+        default = false;
+        description = ''
+          Unlock the LUKS credstore via the TPM2. The TPM key is an additional
+          key slot (enrolled manually, see the end of this file), the passphrase
+          keeps working as fallback.
+        '';
+      };
     };
 
   config =
@@ -30,9 +39,13 @@ with lib;
 
       services.zfs.autoScrub.enable = mkDefault true;
 
+      # TPM2 userspace, for enrolling the key slot (systemd-cryptenroll)
+      security.tpm2.enable = mkIf cfg.zfs-tpm-unlock true;
+
       boot.initrd = {
         # This would be a nightmare without systemd initrd
         systemd.enable = true;
+        systemd.tpm2.enable = mkIf cfg.zfs-tpm-unlock true;
 
         # Disable crypt import timeout - so we have enough time to enter our passphrase
         systemd.settings.Manager = {
@@ -106,7 +119,7 @@ with lib;
           # the TPM2 enters a state where the LUKS volume can no longer be
           # decrypted. That way if we accidentally boot an untrustworthy
           # OS somehow, they can't decrypt the LUKS volume.
-          #crypttabExtraOpts = [ "tpm2-measure-pcr=yes" "tpm2-device=auto" ];
+          crypttabExtraOpts = mkIf cfg.zfs-tpm-unlock [ "tpm2-measure-pcr=yes" "tpm2-device=auto" ];
         };
         # Adding an fstab is the easiest way to add file systems whose
         # purpose is solely in the initrd and aren't a part of '/sysroot'.
@@ -243,3 +256,9 @@ with lib;
 # nixos-install --flake .?submodules=1#lux
 # umount -R /mnt
 # zpool export pool
+
+# Enroll the TPM2 as additional key slot (mine.boot.zfs-tpm-unlock = true, run once; works from the live USB too, PCR 0/2/7 are the same there)
+# PCR 15 must still be zero, i.e. the key only unseals before 'tpm2-measure-pcr=yes' extended it on unlock
+# systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+2+7+15:sha256=0000000000000000000000000000000000000000000000000000000000000000 /dev/zvol/pool/credstore
+# Firmware updates change PCR 0/2, re-enroll afterwards:
+# systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto --tpm2-pcrs=... /dev/zvol/pool/credstore
