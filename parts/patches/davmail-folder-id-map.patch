@@ -1,0 +1,73 @@
+--- a/src/java/davmail/exchange/ews/EwsExchangeSession.java
++++ b/src/java/davmail/exchange/ews/EwsExchangeSession.java
+@@ -3051,6 +3051,10 @@
+     protected static final String USERS_ROOT = "/users/";
+ 
+     protected FolderId getFolderIdIfExists(String folderPath) throws IOException {
++        FolderId mappedFolderId = getMappedFolderId(folderPath);
++        if (mappedFolderId != null) {
++            return mappedFolderId;
++        }
+         String lowerCaseFolderPath = folderPath.toLowerCase();
+         if (lowerCaseFolderPath.equals(currentMailboxPath)) {
+             return getSubFolderIdIfExists(null, "");
+@@ -3073,6 +3077,59 @@
+         }
+     }
+ 
++    /**
++     * Look up folderPath in davmail.folderIds, a ';' separated list of
++     * path=EWS folder id entries, e.g.
++     * /users/shared@company.com/calendar/Team=AAMkAD...
++     * Reaches folders shared with the user one by one (as OWA does) without
++     * access to their parent folders, which the path lookup below needs.
++     *
++     * @param folderPath folder path
++     * @return mapped folder id or null
++     */
++    protected FolderId getMappedFolderId(String folderPath) {
++        String folderIds = Settings.getProperty("davmail.folderIds");
++        if (folderIds == null || folderIds.isEmpty()) {
++            return null;
++        }
++        String path = stripTrailingSlashes(folderPath);
++        for (String entry : folderIds.split(";")) {
++            int equalsIndex = entry.indexOf('=');
++            if (equalsIndex <= 0) {
++                continue;
++            }
++            String mappedPath = stripTrailingSlashes(entry.substring(0, equalsIndex).trim());
++            if (!mappedPath.equalsIgnoreCase(path)) {
++                continue;
++            }
++            String id = entry.substring(equalsIndex + 1).trim();
++            // the owning mailbox, for getCalendarEmail
++            String mailbox = null;
++            if (mappedPath.startsWith(USERS_ROOT)) {
++                int slashIndex = mappedPath.indexOf('/', USERS_ROOT.length());
++                mailbox = slashIndex >= 0 ? mappedPath.substring(USERS_ROOT.length(), slashIndex) : mappedPath.substring(USERS_ROOT.length());
++            }
++            return new FolderId("t:FolderId", id, null, mailbox) {
++                // a FolderId element has no Mailbox child, the id alone identifies the folder
++                @Override
++                public void write(java.io.Writer writer) throws IOException {
++                    writer.write("<t:FolderId Id=\"");
++                    writer.write(value);
++                    writer.write("\"/>");
++                }
++            };
++        }
++        return null;
++    }
++
++    private static String stripTrailingSlashes(String path) {
++        String result = path;
++        while (result.length() > 1 && result.endsWith("/")) {
++            result = result.substring(0, result.length() - 1);
++        }
++        return result;
++    }
++
+     protected FolderId getSubFolderIdIfExists(String mailbox, String folderPath) throws IOException {
+         String[] folderNames;
+         FolderId currentFolderId;
