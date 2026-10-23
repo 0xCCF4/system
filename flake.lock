@@ -1312,11 +1312,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792664088,
-        "narHash": "sha256-cCDFgxQecOj5b0VzB5GXt2bUt1foVG1s8KjAkQpaDwM=",
+        "lastModified": 1792745831,
+        "narHash": "sha256-1PuZ41vl5426vFTBHER4m1grl0/PcR9YPuEmZc5hQJQ=",
         "owner": "0xCCF4",
         "repo": "vota",
-        "rev": "6885ca473d63ea4efc007844734e0faac31e6bed",
+        "rev": "80759532775467fa5fd89e14dfb5f0c67a338c90",
         "type": "github"
       },
       "original": {
