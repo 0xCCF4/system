@@ -231,6 +231,9 @@ in
           # mailserver -> internet (outbound SMTP, unbound recursion, ACME)
           iifname == "ve-mailserver" oifname == "wan" accept
 
+          # powerdns -> secondaries (NOTIFY), including the NAT64 ones
+          iifname == "ve-powerdns" oifname == "wan" ip6 daddr { ${lib.concatStringsSep ", " config.mine.services.powerdns.secondaries} } udp dport 53 accept
+
           # vaultwarden -> mailserver (submission)
           iifname == "ve-vaultwarden" oifname == "ve-mailserver" tcp dport 465 accept
 
