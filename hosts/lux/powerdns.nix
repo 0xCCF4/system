@@ -310,7 +310,7 @@ with lib;
             ''}"
             "+${pkgs.writeShellScript "pdns-tsig-key-import" ''
               ${pkgs.pdns}/bin/pdnsutil tsigkey import ${tsigKeyName} hmac-sha256 "$(cat /run/secrets/powerdns-tsig-key)"
-              ${pkgs.pdns}/bin/pdnsutil tsigkey activate ${domain} ${tsigKeyName} primary
+              ${pkgs.pdns}/bin/pdnsutil metadata set ${domain} TSIG-ALLOW-AXFR ${tsigKeyName}
             ''}"
           ];
 
