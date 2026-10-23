@@ -16,6 +16,21 @@ with lib;
     description = "Subdomains that should be included as mail domains.";
   };
 
+  options.mine.services.powerdns.secondaries = mkOption {
+    type = types.listOf types.str;
+    readOnly = true;
+    default =
+      let
+        v4 = [ "198.51.100.1" "198.51.100.2" "198.51.100.3" ];
+        v6 = [ "2001:db8:53::1" "2001:db8:53::2" "2001:db8:53::3" ];
+      in
+      (map (ip: "64:ff9b::${ip}") v4) ++ v6;
+    description = ''
+      IPv6 addresses of the Secondary secondaries (the IPv4 ones via NAT64),
+      allowed to AXFR and NOTIFYed. hosts/lux/firewall.nix lets the NOTIFYs out.
+    '';
+  };
+
   options.mine.services.powerdns.dkimSelector = mkOption {
     type = types.str;
     description = "DKIM selector of dkimPublicKey. Set by hosts/lux/mailserver.nix.";
@@ -54,9 +69,7 @@ with lib;
       tsigKeySecret = config.age.secrets.${tsigKeySecretIdentifier};
       tsigKeyName = "${domain}.${config.mine.info.public.ipv4}";
 
-      secondarySecondariesV4 = [ "198.51.100.1" "198.51.100.2" "198.51.100.3" ];
-      secondarySecondariesV6 = [ "2001:db8:53::1" "2001:db8:53::2" "2001:db8:53::3" ];
-      secondarySecondaries = (map (ip: "64:ff9b::${ip}") secondarySecondariesV4) ++ secondarySecondariesV6;
+      secondarySecondaries = config.mine.services.powerdns.secondaries;
 
       MX = [
         {
@@ -90,11 +103,9 @@ with lib;
         SOA = {
           nameServer = "ns1.${domain}.";
           adminEmail = "security@${domain}";
-          # Must increase (RFC 1982) whenever the zone changes, or secondaries
-          # ignore our NOTIFYs and never re-pull via AXFR.
-          # self.lastModified is the flake's last-commit/mtime epoch, so it's
-          # deterministic and only ever moves forward.
-          serial = self.lastModified / 60;
+          # Placeholder, the real serial is filled in at pdns start by
+          # pdns-zone-serial (see below).
+          serial = 0;
           refresh = 86400; # 24h
           retry = 14400; # 4h
           expire = 604800; # 7 days
@@ -230,11 +241,10 @@ with lib;
 
           environment.systemPackages = [ pkgs.pdns ];
 
-          environment.etc."powerdns/zones/${domain}.zone".source = zoneFilePath;
           environment.etc."powerdns/named.conf".text = ''
             zone "${domain}" {
               type master;
-              file "/etc/powerdns/zones/${domain}.zone";
+              file "/run/pdns/zones/${domain}.zone";
             };
           '';
 
@@ -253,12 +263,32 @@ with lib;
 
               include-dir=/run/pdns/secrets
 
+              primary=yes
               allow-axfr-ips=${concatStringsSep "," secondarySecondaries}
               also-notify=${concatStringsSep "," secondarySecondaries}
             '';
           };
 
           systemd.services.pdns.serviceConfig.ExecStartPre = [
+            "+${pkgs.writeShellScript "pdns-zone-serial" ''
+              set -eu
+              state=/var/lib/powerdns/zone-serial-${domain}
+              hash=$(${pkgs.coreutils}/bin/sha256sum ${zoneFilePath} | ${pkgs.coreutils}/bin/cut -d' ' -f1)
+              oldHash= oldSerial=0
+              [ -f "$state" ] && read -r oldHash oldSerial < "$state"
+              serial=$oldSerial
+              if [ "$hash" != "$oldHash" ]; then
+                serial=$(( oldSerial + 1 ))
+                echo "$hash $serial" > "$state.tmp"
+                mv "$state.tmp" "$state"
+              fi
+              mkdir -p /run/pdns/zones
+              ${pkgs.gnused}/bin/sed -E \
+                's/^(${escapeRegex domain}\. IN SOA [^(]*\()0 /\1'"$serial"' /' \
+                ${zoneFilePath} > /run/pdns/zones/${domain}.zone
+              ${pkgs.gnugrep}/bin/grep -q "(''${serial} " /run/pdns/zones/${domain}.zone
+              chmod 0644 /run/pdns/zones/${domain}.zone
+            ''}"
             "+${pkgs.writeShellScript "pdns-init-dnssec-db" ''
               mkdir -p /run/pdns/secrets
               # SQLite needs write access to the *directory* (to create
