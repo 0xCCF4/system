@@ -425,6 +425,27 @@
     "flake-parts_5": {
       "inputs": {
         "nixpkgs-lib": [
+          "vota",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1790898470,
+        "narHash": "sha256-zTwuwezD0w3hpga6a6P8emidzAZFyWqlNeRBlpWOOl8=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "024633cd702b10285db5cb19b40ad48d2399ba60",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-parts_6": {
+      "inputs": {
+        "nixpkgs-lib": [
           "zrb",
           "nixpkgs"
         ]
@@ -914,11 +935,11 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1792094642,
-        "narHash": "sha256-zp8ToDMnqZcu4o4IH9pdwXFXGp7yLm/M0dEnNWnyd7I=",
+        "lastModified": 1792502884,
+        "narHash": "sha256-IoNisKcGbUjdd45qCqywGMCYmZ5EnkxezvLII0FWwNA=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "fe13242281a67641c0102cdb1087f0ebe586c7df",
+        "rev": "02c087f3fe673c9e317f206a627cb6b910336dbe",
         "type": "github"
       },
       "original": {
@@ -1054,6 +1075,7 @@
         "noxa": "noxa",
         "stylix": "stylix",
         "timetrax": "timetrax",
+        "vota": "vota",
         "zrb": "zrb"
       }
     },
@@ -1282,9 +1304,30 @@
         "type": "github"
       }
     },
-    "zrb": {
+    "vota": {
       "inputs": {
         "flake-parts": "flake-parts_5",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792664088,
+        "narHash": "sha256-cCDFgxQecOj5b0VzB5GXt2bUt1foVG1s8KjAkQpaDwM=",
+        "owner": "0xCCF4",
+        "repo": "vota",
+        "rev": "6885ca473d63ea4efc007844734e0faac31e6bed",
+        "type": "github"
+      },
+      "original": {
+        "owner": "0xCCF4",
+        "repo": "vota",
+        "type": "github"
+      }
+    },
+    "zrb": {
+      "inputs": {
+        "flake-parts": "flake-parts_6",
         "nixpkgs": [
           "nixpkgs"
         ]

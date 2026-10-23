@@ -97,6 +97,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Vota
+    vota = {
+      url = "github:0xCCF4/vota";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # zrb
     zrb = {
       url = "github:0xCCF4/zrb";

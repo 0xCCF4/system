@@ -6,6 +6,8 @@
 }:
 with lib;
 {
+  imports = [ ../nixos/caddy_hide_server.nix ];
+
   config = {
     system.stateVersion = hostConfig.system.stateVersion;
     networking.hostName = "vm-${vmName}";

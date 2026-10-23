@@ -1,6 +1,9 @@
-{ stateVersion, hostAddress6 }:
+{ stateVersion, timeZone, hostAddress6 }:
 { pkgs, lib, ... }: {
+  imports = [ ../../nixos/caddy_hide_server.nix ];
+
   system.stateVersion = stateVersion;
+  time.timeZone = timeZone;
   networking.firewall.enable = true;
   environment.systemPackages = [ pkgs.kitty ];
 

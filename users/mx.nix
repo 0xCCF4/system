@@ -36,6 +36,16 @@
             }.path
           ];
         };
+
+        home.mine.vota = mkIf osConfig.mine.presets.isWorkstation {
+          url = "https://${inputs.self.nixosConfigurations.lux.config.mine.services.caddyProxy.routes.vota.public.domain}/";
+          tokenFile = osConfig.age.secrets.${
+          inputs.noxa.lib.secrets.computeIdentifier {
+            module = "vota";
+            ident = "mx-admin-token";
+          }
+          }.path;
+        };
       };
   os =
     { pkgs
@@ -50,14 +60,30 @@
         ];
         mine.virtualization.virtUsers = [ "mx" ];
 
-        noxa.secrets.def = mkIf (config.mine.presets.isWorkstation || config.networking.hostName == "lux") [
-          {
-            ident = "mx-todolist-caldav-password";
-            module = "caldav";
-            global = true;
-            generator.script = "alnum";
-            owner = "mx";
-          }
-        ];
+        noxa.secrets.def =
+          optionals (config.mine.presets.isWorkstation || config.networking.hostName == "lux") [
+            {
+              ident = "mx-todolist-caldav-password";
+              module = "caldav";
+              global = true;
+              generator.script = "alnum";
+              owner = "mx";
+            }
+          ]
+          # Shared with lux, where hosts/lux/vota.nix hands it to the server
+          # as an Admin Token file.
+          ++ optionals (config.mine.presets.isWorkstation || config.networking.hostName == "lux") [
+            {
+              ident = "mx-admin-token";
+              module = "vota";
+              global = true;
+              generator.script = "vota-admin-token";
+              owner = "mx";
+            }
+          ];
+
+        # Vota's Admin Token format: `vta_` + 43 base64url characters.
+        age.generators.vota-admin-token = { pkgs, ... }:
+          "printf 'vta_%s' \"$(${pkgs.openssl}/bin/openssl rand 32 | ${pkgs.coreutils}/bin/basenc --base64url | ${pkgs.coreutils}/bin/tr -d '=\\n')\"";
       };
 }

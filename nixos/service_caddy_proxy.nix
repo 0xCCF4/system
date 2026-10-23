@@ -189,6 +189,18 @@ with lib;
                 '';
                 example = [ "/api/*" "/identity/*" ];
               };
+              onlyPaths = mkOption {
+                type = types.listOf types.str;
+                default = [ ];
+                description = ''
+                  The inverse of `bypassPaths`: when non-empty, only requests
+                  matching these Caddy path patterns (plus Anubis's own
+                  `/.within.website/*` challenge endpoints and assets) go
+                  through Anubis; every other request goes straight to
+                  `upstream`. Mutually exclusive with `bypassPaths`.
+                '';
+                example = [ "/b/*" ];
+              };
             };
 
             matrixWellKnownClient = {
@@ -264,8 +276,19 @@ with lib;
       # straight to the real upstream (first match wins, same as the
       # respond-then-catch-all-reverse_proxy pattern routeExtraConfig already
       # relies on below); everything else still goes through Anubis.
+      #
+      # onlyPaths is the inverse: matching requests (plus Anubis's own
+      # /.within.website/* challenge pages, assets and pass-challenge API,
+      # without which no challenge could ever be solved) go through Anubis;
+      # everything else goes straight to the real upstream.
       reverseProxyBlock = routeName: route:
-        if route.anubis.enable && route.anubis.bypassPaths != [ ]
+        if route.anubis.enable && route.anubis.onlyPaths != [ ]
+        then ''
+          @anubis_only path /.within.website/* ${concatStringsSep " " route.anubis.onlyPaths}
+          reverse_proxy @anubis_only ${routeUpstream routeName route}
+          reverse_proxy ${route.upstream}
+        ''
+        else if route.anubis.enable && route.anubis.bypassPaths != [ ]
         then ''
           @anubis_bypass path ${concatStringsSep " " route.anubis.bypassPaths}
           reverse_proxy @anubis_bypass ${route.upstream}
@@ -383,6 +406,12 @@ with lib;
                 mine.services.caddyProxy.securityTxt.contact, or mine.info.domain (from which the
                 global default is derived).
               '';
+            })
+            cfg.routes)
+          ++ (mapAttrsToList
+            (routeName: route: {
+              assertion = route.anubis.bypassPaths == [ ] || route.anubis.onlyPaths == [ ];
+              message = "mine.services.caddyProxy.routes.${routeName}: anubis.bypassPaths and anubis.onlyPaths are mutually exclusive.";
             })
             cfg.routes)
           ++ (mapAttrsToList

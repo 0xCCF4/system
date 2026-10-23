@@ -10,6 +10,27 @@
 }:
 with lib;
 {
+  options.mine.services.powerdns.mailSubdomains = mkOption {
+    type = types.listOf types.str;
+    default = [];
+    description = "Subdomains that should be included as mail domains.";
+  };
+
+  options.mine.services.powerdns.dkimSelector = mkOption {
+    type = types.str;
+    description = "DKIM selector of dkimPublicKey. Set by hosts/lux/mailserver.nix.";
+  };
+
+  options.mine.services.powerdns.dkimPublicKey = mkOption {
+    type = types.nullOr types.str;
+    default = null;
+    description = ''
+      Base64 DKIM public key (selector dkimSelector) published for the apex and
+      every mail subdomain. Set by hosts/lux/mailserver.nix; null until its
+      agenix secret was generated.
+    '';
+  };
+
   config =
     let
       domain = self.lib.requireOption "mine.info.domain" config.mine.info.domain;
@@ -37,6 +58,33 @@ with lib;
       hetznerSecondariesV6 = [ "2a01:4f8:0:a101::a:1" "2a01:4f8:0:1::5ddc:2" "2001:67c:192c::add:a3" ];
       hetznerSecondaries = (map (ip: "64:ff9b::${ip}") hetznerSecondariesV4) ++ hetznerSecondariesV6;
 
+      MX = [
+        {
+          preference = 10;
+          exchange = "mail.${domain}.";
+        } # self-hosted, primary
+        {
+          preference = 20;
+          exchange = "smtpin.rzone.de.";
+        } # STRATO, fallback
+      ];
+
+      # Mail relayed through STRATO (see the SPF include) is DKIM-signed with
+      # STRATO's selectors, so point them at the keys STRATO publishes. With
+      # an aligned DKIM pass, DMARC passes even when SPF breaks on forwarding.
+      stratoDkimSelectors = [ "strato-dkim-0002" "strato-dkim-0003" ];
+      stratoDkim = listToAttrs (map
+        (selector: nameValuePair "${selector}._domainkey" {
+          CNAME = [ "${selector}._domainkey.strato.de." ];
+        })
+        stratoDkimSelectors);
+
+      dkimPublicKey = config.mine.services.powerdns.dkimPublicKey;
+      DKIM = optional (dkimPublicKey != null) {
+        selector = config.mine.services.powerdns.dkimSelector;
+        p = dkimPublicKey;
+      };
+
       zoneRecords = with dns.lib.combinators; {
         TTL = 86400; # 24h
         SOA = {
@@ -55,7 +103,13 @@ with lib;
         A = [ config.mine.info.public.ipv4 ];
         AAAA = [ config.containers.caddy.localAddress6 ];
         TXT = [ "v=spf1 mx include:_spf.strato.com -all" ];
-        subdomains = {
+        # Every subdomain is a mail domain too, with the same MX as the apex.
+        subdomains = mapAttrs (_: records:
+          records // {
+            inherit MX DKIM;
+            TXT = [ "v=spf1 include:${domain} -all" ];
+          }
+        ) ({
           mail = {
             AAAA = [ config.containers.mailserver.localAddress6 ];
             A = [ config.mine.info.public.ipv4 ];
@@ -72,6 +126,10 @@ with lib;
             A = [ config.mine.info.public.ipv4 ];
             AAAA = [ config.containers.caddy.localAddress6 ];
           };
+          poll = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.caddy.localAddress6 ];
+          };
         } // {
           ${removeSuffix ".${domain}" config.mine.services.matrix.domains.turn} = {
             A = [ config.mine.info.public.ipv4 ];
@@ -85,16 +143,20 @@ with lib;
               AAAA = [ config.containers.caddy.localAddress6 ];
             })
             (removeAttrs config.mine.services.matrix.domains [ "turn" ])
-        );
-        MX = [
+        )) // {
+          autoconfig = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.caddy.localAddress6 ];
+          };
+        } // stratoDkim;
+        inherit MX DKIM;
+        # Monitor-only for now: receivers report but don't act. Subdomains
+        # without their own _dmarc record fall back to this one.
+        DMARC = [
           {
-            preference = 10;
-            exchange = "mail.${domain}.";
-          } # self-hosted, primary
-          {
-            preference = 20;
-            exchange = "smtpin.rzone.de.";
-          } # STRATO, fallback
+            p = "none";
+            rua = "mailto:postmaster+dmarc@${domain}";
+          }
         ];
         NS = [ "ns1.${domain}." "ns1.first-ns.de." "robotns2.second-ns.de." "robotns3.second-ns.com." ];
       };
@@ -105,6 +167,9 @@ with lib;
     {
       mine.services.geoBlock.exemptPorts.tcp = [ 53 ];
       mine.services.geoBlock.exemptPorts.udp = [ 53 ];
+
+      mine.services.powerdns.mailSubdomains = map (sub: "${sub}.${domain}")
+        (attrNames (removeAttrs zoneRecords.subdomains ([ "autoconfig" ] ++ attrNames stratoDkim)));
 
       # PowerDNS edns-cookie-secret must be exactly 32 hex chars (16 bytes);
       # agenix-rekey's built-in "hex" generator produces 48 (24 bytes).
@@ -158,7 +223,7 @@ with lib;
         };
 
         config = { pkgs, ... }: {
-          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit (config.time) timeZone; inherit hostAddress6; }) ];
 
           networking.firewall.allowedTCPPorts = [ 53 ];
           networking.firewall.allowedUDPPorts = [ 53 ];

@@ -35,6 +35,16 @@ with lib;
             default = config.mine.dns.wireguard.domain;
             description = "The top-level domain to use for dns entries for this interface.";
           };
+          dns.extraNames = mkOption {
+            type = listOf str;
+            default = [ ];
+            example = [ "mail.example.com" ];
+            description = ''
+              Additional hostnames the peers on this network resolve to this
+              host's address on it, e.g. to reach a public service name over
+              the tunnel only.
+            '';
+          };
         };
       });
     };
@@ -71,7 +81,9 @@ with lib;
               mapAttrsToList
                 (peer: addresses: {
                   "${peer}${networkConfig.dns.domain}" = mkIf networkConfig.dns.enable addresses;
-                })
+                } // genAttrs
+                  noxaConfig.nodes.${peer}.configuration.noxa.wireguard.interfaces.${networkName}.dns.extraNames
+                  (_: addresses))
                 peers
           )
           peerAddresses
