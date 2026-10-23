@@ -8,10 +8,6 @@
 }:
 with lib;
 {
-  imports = [
-    adblock.nixosModule
-  ];
-
   options.mine.dns =
     with types;
     with noxa.lib.net.types;
@@ -44,6 +40,19 @@ with lib;
           "[::60]:54"
         ];
       };
+      blocklist = {
+        enable = mkOption {
+          type = bool;
+          default = true;
+          description = "Block Steven Black's hosts list in dnscrypt-proxy.";
+        };
+        fakenews = mkEnableOption "the fakenews extension" // { default = true; };
+        gambling = mkEnableOption "the gambling extension" // { default = true; };
+        porn = mkEnableOption "the porn extension" // { default = true; };
+        social = mkEnableOption "the social extension" // {
+          default = !(config.mine.presets.isWorkstation or false);
+        };
+      };
       upstreamResolvers = mkOption {
         type = listOf str;
         readOnly = true;
@@ -67,14 +76,6 @@ with lib;
   config = mkIf config.mine.dns.enable {
     networking = {
       networkmanager.dns = "systemd-resolved";
-      stevenBlackHosts = {
-        enable = mkDefault true;
-
-        blockFakenews = mkDefault true;
-        blockPorn = mkDefault true;
-        blockSocial = mkDefault (if (config.mine.presets.isWorkstation or false) then false else true);
-        blockGambling = mkDefault true;
-      };
     };
     services.resolved = {
       enable = mkDefault true;
@@ -94,6 +95,17 @@ with lib;
     services.dnscrypt-proxy =
       let
         ipv6 = true;
+        # Not via /etc/hosts (the upstream nixosModule): its ~150k names end
+        # up in every shell's hostname completion.
+        blocklist = config.mine.dns.blocklist;
+        extensions = filter (ext: blocklist.${ext}) [ "fakenews" "gambling" "porn" "social" ];
+        hostsFile = "${adblock}/"
+          + optionalString (extensions != [ ]) "alternates/${concatStringsSep "-" extensions}/"
+          + "hosts";
+        # `=name` is exact match
+        blockedNames = pkgs.runCommand "dnscrypt-proxy-blocked-names" { } ''
+          ${pkgs.gawk}/bin/awk '$1 == "0.0.0.0" && $2 != "0.0.0.0" { print "=" $2 }' ${hostsFile} > $out
+        '';
       in
       {
         enable = mkDefault true;
@@ -116,6 +128,7 @@ with lib;
             [ ]
             ++ (lists.optional (provider == "quad9") "quad9-dnscrypt-ip4-filter-pri")
             ++ (lists.optional (provider == "quad9" && ipv6) "quad9-dnscrypt-ip6-filter-pri");
+          blocked_names = mkIf blocklist.enable { blocked_names_file = blockedNames; };
           cloaking_rules = pkgs.writeTextFile {
             name = "dnscrypt-proxy-cloaking-rules";
             text = builtins.concatStringsSep "\n" (
