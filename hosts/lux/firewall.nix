@@ -46,6 +46,19 @@ let
   );
 
   coturnRelayPorts = lib.range 49160 50159;
+
+  # Only MX traffic is public, submission/IMAP (465/993) are cloud-admin only
+  # (relayed on the host, see hosts/lux/mailserver.nix).
+  mailserverPorts = [ 25 ];
+  mailserverBib = map
+    (port: {
+      protocol = "TCP";
+      "ipv4 address" = "${config.mine.info.public.ipv4}#${toString port}";
+      "ipv6 address" = "${config.containers.mailserver.localAddress6}#${toString port}";
+    })
+    mailserverPorts;
+
+  joolEphemeralPorts = "61001-65535";
   coturnRelayBib = map
     (port: {
       protocol = "UDP";
@@ -125,7 +138,7 @@ in
           "ipv4 address" = "${config.mine.info.public.ipv4}#10000";
           "ipv6 address" = "${config.containers.jitsi.localAddress6}#10000";
         }
-      ] ++ coturnRelayBib;
+      ] ++ coturnRelayBib ++ mailserverBib;
       pool4 = [
         {
           protocol = "TCP";
@@ -172,7 +185,20 @@ in
           prefix = "${config.mine.info.public.ipv4}/32";
           "port range" = "10000";
         }
-      ];
+      ] ++ map
+        (port: {
+          protocol = "TCP";
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = toString port;
+        })
+        mailserverPorts
+      ++ map
+        (protocol: {
+          inherit protocol;
+          prefix = "${config.mine.info.public.ipv4}/32";
+          "port range" = joolEphemeralPorts;
+        })
+        [ "TCP" "UDP" ];
     };
 
     networking.nftables.enable = true;
@@ -198,6 +224,15 @@ in
 
           # caddy -> internet (ACME, its own dnscrypt-proxy upstream, etc.)
           iifname == "ve-caddy" oifname == "wan" accept
+
+          # caddy -> mailserver (HTTP-01 challenges arriving over IPv4)
+          iifname == "ve-caddy" oifname == "ve-mailserver" tcp dport 80 accept
+
+          # mailserver -> internet (outbound SMTP, unbound recursion, ACME)
+          iifname == "ve-mailserver" oifname == "wan" accept
+
+          # vaultwarden -> mailserver (submission)
+          iifname == "ve-vaultwarden" oifname == "ve-mailserver" tcp dport 465 accept
 
           # allow wireguard network communication, todo: allow all wireguard interfaces to talk to eachother
           iifname == "cloud-admin" oifname == "cloud-admin" accept
@@ -232,7 +267,7 @@ in
           # only ipv6 is expected inbound here; NAT64-translated ipv4 exits via jool on a different path
           meta nfproto ipv4 jump fw-drop
 
-          # ip6 daddr ${config.containers.mailserver.localAddress6} tcp dport { 25, 465, 993, 80 } jump fw-accept-dos
+          ip6 daddr ${config.containers.mailserver.localAddress6} tcp dport { 25, 80 } jump fw-accept-dos
           ip6 daddr ${config.containers.caddy.localAddress6} tcp dport { 80, 443 } jump fw-accept-dos
           ip6 daddr ${config.containers.caddy.localAddress6} udp dport 443 jump fw-accept-dos
           ip6 daddr ${config.containers.powerdns.localAddress6} tcp dport 53 jump fw-accept-dos-dns

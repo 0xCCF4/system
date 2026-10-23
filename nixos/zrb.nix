@@ -51,6 +51,16 @@ with lib;
         description = "Whether to run a backup on shutdown.";
       };
     };
+
+    services.zrb.server = mkOption {
+      type = attrsOf (submodule {
+        options.clients = mkOption {
+          type = attrsOf (submodule {
+            config.zfsReceiveOpts = mkDefault [ "-u" "-o" "canmount=noauto" "-o" "readonly=on" ];
+          });
+        };
+      });
+    };
   };
 
   config =

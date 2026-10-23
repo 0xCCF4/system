@@ -10,6 +10,27 @@
 }:
 with lib;
 {
+  options.mine.services.powerdns.mailSubdomains = mkOption {
+    type = types.listOf types.str;
+    default = [];
+    description = "Subdomains that should be included as mail domains.";
+  };
+
+  options.mine.services.powerdns.dkimSelector = mkOption {
+    type = types.str;
+    description = "DKIM selector of dkimPublicKey. Set by hosts/lux/mailserver.nix.";
+  };
+
+  options.mine.services.powerdns.dkimPublicKey = mkOption {
+    type = types.nullOr types.str;
+    default = null;
+    description = ''
+      Base64 DKIM public key (selector dkimSelector) published for the apex and
+      every mail subdomain. Set by hosts/lux/mailserver.nix; null until its
+      agenix secret was generated.
+    '';
+  };
+
   config =
     let
       domain = self.lib.requireOption "mine.info.domain" config.mine.info.domain;
@@ -37,6 +58,33 @@ with lib;
       secondarySecondariesV6 = [ "2001:db8:53::1" "2001:db8:53::2" "2001:db8:53::3" ];
       secondarySecondaries = (map (ip: "64:ff9b::${ip}") secondarySecondariesV4) ++ secondarySecondariesV6;
 
+      MX = [
+        {
+          preference = 10;
+          exchange = "mail.${domain}.";
+        } # self-hosted, primary
+        {
+          preference = 20;
+          exchange = "mx.example.com.";
+        } # MAILBACKUP, fallback
+      ];
+
+      # Mail relayed through MAILBACKUP (see the SPF include) is DKIM-signed with
+      # MAILBACKUP's selectors, so point them at the keys MAILBACKUP publishes. With
+      # an aligned DKIM pass, DMARC passes even when SPF breaks on forwarding.
+      mailbackupDkimSelectors = [ "mailbackup-dkim-0002" "mailbackup-dkim-0003" ];
+      mailbackupDkim = listToAttrs (map
+        (selector: nameValuePair "${selector}._domainkey" {
+          CNAME = [ "${selector}._domainkey.example.com." ];
+        })
+        mailbackupDkimSelectors);
+
+      dkimPublicKey = config.mine.services.powerdns.dkimPublicKey;
+      DKIM = optional (dkimPublicKey != null) {
+        selector = config.mine.services.powerdns.dkimSelector;
+        p = dkimPublicKey;
+      };
+
       zoneRecords = with dns.lib.combinators; {
         TTL = 86400; # 24h
         SOA = {
@@ -55,7 +103,13 @@ with lib;
         A = [ config.mine.info.public.ipv4 ];
         AAAA = [ config.containers.caddy.localAddress6 ];
         TXT = [ "v=spf1 mx include:_spf.example.com -all" ];
-        subdomains = {
+        # Every subdomain is a mail domain too, with the same MX as the apex.
+        subdomains = mapAttrs (_: records:
+          records // {
+            inherit MX DKIM;
+            TXT = [ "v=spf1 include:${domain} -all" ];
+          }
+        ) ({
           mail = {
             AAAA = [ config.containers.mailserver.localAddress6 ];
             A = [ config.mine.info.public.ipv4 ];
@@ -72,6 +126,10 @@ with lib;
             A = [ config.mine.info.public.ipv4 ];
             AAAA = [ config.containers.caddy.localAddress6 ];
           };
+          poll = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.caddy.localAddress6 ];
+          };
         } // {
           ${removeSuffix ".${domain}" config.mine.services.matrix.domains.turn} = {
             A = [ config.mine.info.public.ipv4 ];
@@ -85,16 +143,20 @@ with lib;
               AAAA = [ config.containers.caddy.localAddress6 ];
             })
             (removeAttrs config.mine.services.matrix.domains [ "turn" ])
-        );
-        MX = [
+        )) // {
+          autoconfig = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.caddy.localAddress6 ];
+          };
+        } // mailbackupDkim;
+        inherit MX DKIM;
+        # Monitor-only for now: receivers report but don't act. Subdomains
+        # without their own _dmarc record fall back to this one.
+        DMARC = [
           {
-            preference = 10;
-            exchange = "mail.${domain}.";
-          } # self-hosted, primary
-          {
-            preference = 20;
-            exchange = "mx.example.com.";
-          } # MAILBACKUP, fallback
+            p = "none";
+            rua = "mailto:postmaster+dmarc@${domain}";
+          }
         ];
         NS = [ "ns1.${domain}." "ns1.example.net." "ns2.example.net." "ns3.example.net." ];
       };
@@ -105,6 +167,9 @@ with lib;
     {
       mine.services.geoBlock.exemptPorts.tcp = [ 53 ];
       mine.services.geoBlock.exemptPorts.udp = [ 53 ];
+
+      mine.services.powerdns.mailSubdomains = map (sub: "${sub}.${domain}")
+        (attrNames (removeAttrs zoneRecords.subdomains ([ "autoconfig" ] ++ attrNames mailbackupDkim)));
 
       # PowerDNS edns-cookie-secret must be exactly 32 hex chars (16 bytes);
       # agenix-rekey's built-in "hex" generator produces 48 (24 bytes).
@@ -158,7 +223,7 @@ with lib;
         };
 
         config = { pkgs, ... }: {
-          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit (config.time) timeZone; inherit hostAddress6; }) ];
 
           networking.firewall.allowedTCPPorts = [ 53 ];
           networking.firewall.allowedUDPPorts = [ 53 ];

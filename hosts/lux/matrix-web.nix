@@ -50,7 +50,7 @@ with lib;
         # Nix-store-derived content, nothing user-generated to keep.
 
         config = { pkgs, ... }: {
-          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit (config.time) timeZone; inherit hostAddress6; }) ];
 
           networking.firewall.allowedTCPPorts = [ 80 ];
 

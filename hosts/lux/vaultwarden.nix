@@ -21,6 +21,13 @@ with lib;
         hosts = [ "lux" ];
       };
       adminTokenSecret = config.age.secrets.${adminTokenIdentifier};
+
+      smtpPasswordIdentifier = noxa.lib.secrets.computeIdentifier {
+        module = "mailserver";
+        ident = "vaultwarden-password";
+        hosts = [ "lux" ];
+      };
+      smtpPasswordSecret = config.age.secrets.${smtpPasswordIdentifier};
       caddyLocalAddress6 = config.containers.caddy.localAddress6;
     in
     {
@@ -74,8 +81,14 @@ with lib;
           isReadOnly = true;
         };
 
+        bindMounts.smtpPassword = {
+          hostPath = smtpPasswordSecret.path;
+          mountPoint = "/run/secrets/vaultwarden-smtp-password";
+          isReadOnly = true;
+        };
+
         config = { pkgs, ... }: {
-          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit hostAddress6; }) ];
+          imports = [ (import ./container-common.nix { inherit (config.system) stateVersion; inherit (config.time) timeZone; inherit hostAddress6; }) ];
 
           networking.firewall.allowedTCPPorts = [ 8222 ];
 
@@ -96,12 +109,19 @@ with lib;
               # to caddy's exact address instead of relying on "local".
               IP_HEADER = "X-Forwarded-For";
               IP_HEADER_TRUSTED_PROXIES = caddyLocalAddress6;
+
+              SMTP_HOST = "mail.${domain}";
+              SMTP_PORT = 465;
+              SMTP_SECURITY = "force_tls";
+              SMTP_FROM = "info@vault.${domain}";
+              SMTP_FROM_NAME = "Vaultwarden";
+              SMTP_USERNAME = "info@vault.${domain}";
             };
           };
 
-          # The agenix secret is just the raw generated value (see
-          # hosts/lux/powerdns.nix's api-key for the same pattern), so wrap it
-          # into a proper `ADMIN_TOKEN=...` EnvironmentFile at start. Written to
+          # The agenix secrets are just the raw generated values (see
+          # hosts/lux/powerdns.nix's api-key for the same pattern), so wrap them
+          # into a proper `ADMIN_TOKEN=...`/`SMTP_PASSWORD=...` EnvironmentFile at start. Written to
           # RuntimeDirectory (tmpfs) rather than the persistent
           # /var/lib/vaultwarden bind mount, so the plaintext token never lands
           # in the host's on-disk backup.
@@ -116,11 +136,12 @@ with lib;
           # own ExecStartPre (which creates this very file) ever runs.
           systemd.services.vaultwarden.serviceConfig = {
             RuntimeDirectory = "vaultwarden";
-            EnvironmentFile = [ "-/run/vaultwarden/admin-token.env" ];
+            EnvironmentFile = [ "-/run/vaultwarden/secrets.env" ];
             ExecStartPre = mkBefore [
-              "+${pkgs.writeShellScript "vaultwarden-admin-token" ''
-                install -m 0600 -o root -g root /dev/null /run/vaultwarden/admin-token.env
-                echo "ADMIN_TOKEN=$(cat /run/secrets/vaultwarden-admin-token)" > /run/vaultwarden/admin-token.env
+              "+${pkgs.writeShellScript "vaultwarden-secrets" ''
+                install -m 0600 -o root -g root /dev/null /run/vaultwarden/secrets.env
+                echo "ADMIN_TOKEN=$(cat /run/secrets/vaultwarden-admin-token)" > /run/vaultwarden/secrets.env
+                echo "SMTP_PASSWORD=$(cat /run/secrets/vaultwarden-smtp-password)" >> /run/vaultwarden/secrets.env
               ''}"
             ];
           };

@@ -62,6 +62,7 @@ in
             inherit (inputs) mailserver;
             inherit (inputs) timetrax;
             inherit (inputs) frostx;
+            inherit (inputs) vota;
             inherit (inputs) zrb;
             inherit (inputs.self) users;
             inherit (inputs) self;

@@ -8,6 +8,7 @@
     // {
       timetrax = inputs.timetrax.packages.${system}.default;
       frostx = inputs.frostx.packages.${system}.default;
+      vota = inputs.vota.packages.${system}.default;
       zrb = inputs.zrb.packages.${system}.default;
 
       waybar = prev.waybar.overrideAttrs (old: {
@@ -16,6 +17,13 @@
           ./patches/waybar-battery-no-charging-tint.patch
         ];
       });
+
+      todoman = prev.todoman.overrideAttrs {
+        sphinxBuilders = "singlehtml man";
+        preInstallSphinx = ''
+          rm -rf .sphinx/man/man/_static/
+        '';
+      };
 
       # See the assertions in nixos/hyprland.nix for why this is safe only
       # as long as Flatpak/Linyaps are never installed on this system.

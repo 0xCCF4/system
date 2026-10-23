@@ -37,8 +37,8 @@ with builtins;
         [
           bbenoist.nix
           mhutchie.git-graph
-          github.copilot
-          github.copilot-chat
+          #github.copilot
+          #github.copilot-chat
           #ms-python.python
           # rust-lang.rust-analyzer
           # arrterian.nix-env-selector
@@ -52,24 +52,6 @@ with builtins;
           rust-lang.rust-analyzer
         ]
         ++ (pkgs.vscode-utils.extensionsFromVscodeMarketplace [
-          {
-            name = "lean4";
-            publisher = "leanprover";
-            version = "0.0.221";
-            sha256 = "sha256-OoDM9PuhQBRln41OHdVbI8EcXaqIQPArnqgFt+63aJg=";
-          }
-          {
-            name = "even-better-toml";
-            publisher = "tamasfe";
-            version = "0.21.2";
-            sha256 = "IbjWavQoXu4x4hpEkvkhqzbf/NhZpn8RFdKTAnRlCAg=";
-          }
-          {
-            name = "dioxus";
-            publisher = "DioxusLabs";
-            version = "0.6.0";
-            sha256 = "sha256-UYMJf0F8YjH1s7szIdTDG7t31/xjryD3wxogQM4ywOU=";
-          }
         ]);
       mutableExtensionsDir = mkDefault true;
 

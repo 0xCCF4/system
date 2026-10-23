@@ -53,7 +53,7 @@ with lib;
         };
 
         config = { config, pkgs, ... }: {
-          imports = [ (import ./container-common.nix { inherit (hostConfig.system) stateVersion; inherit hostAddress6; }) ];
+          imports = [ (import ./container-common.nix { inherit (hostConfig.system) stateVersion; inherit (hostConfig.time) timeZone; inherit hostAddress6; }) ];
 
           # jitsi-meet is nixpkgs-flagged insecure because its bundled JS
           # ships an in-call E2EE feature depending on deprecated
