@@ -18,6 +18,13 @@
         ];
       });
 
+      # davmail.folderIds, see home/davmail.nix
+      davmail = prev.davmail.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [
+          ./patches/davmail-folder-id-map.patch
+        ];
+      });
+
       todoman = prev.todoman.overrideAttrs {
         sphinxBuilders = "singlehtml man";
         preInstallSphinx = ''
