@@ -46,7 +46,11 @@ with lib;
     mine.boot.remoteUnlock = true;
     mine.boot.tor.enable = true;
 
-    mine.zrb.backupNode = null;
+    # back up to ourselves: pool -> tank, over ssh to localhost
+    mine.zrb.backupNode = "eternis";
+    mine.zrb.backupSSH = "localhost";
+    services.zrb.client.user = "zrbclient";
+    services.zrb.client.group = "zrbclient";
     services.zrb.server.primary.enable = true;
 
     #mine.vm.networks = {
