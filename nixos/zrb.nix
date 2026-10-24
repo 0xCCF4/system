@@ -50,6 +50,18 @@ with lib;
         default = false;
         description = "Whether to run a backup on shutdown.";
       };
+      retry = {
+        enable = mkOption {
+          type = bool;
+          default = true;
+          description = "Whether to retry a failed send job until it succeeds.";
+        };
+        interval = mkOption {
+          type = str;
+          default = "30min";
+          description = "Time between retries of a failed send job.";
+        };
+      };
     };
 
     services.zrb.server = mkOption {
@@ -65,7 +77,8 @@ with lib;
 
   config =
     let
-      zrbUsers =
+      # unique: client and server may run as the same user on a node backing up to itself
+      zrbUsers = unique (
         (optionals (config.services.zrb.client.enable && config.services.zrb.client.createUser) [
           config.services.zrb.client.user
         ])
@@ -75,9 +88,10 @@ with lib;
               instanceName: data: optionals (data.enable && data.createUser) [ data.user ]
             )
             config.services.zrb.server
-        ));
+        ))
+      );
     in
-    {
+    mkMerge [{
       services.zrb.client = {
         enable = mkIf (config.mine.zrb.backupNode != null) (mkDefault true);
         sourceName = mkDefault noxaHost;
@@ -146,8 +160,6 @@ with lib;
       };
 
       systemd.services."zrb-send-daily".environment = { SHELL = "${pkgs.bash}/bin/bash"; };
-      systemd.services."zrb-send-hourly".environment = { SHELL = "${pkgs.bash}/bin/bash"; };
-      systemd.services."zrb-send-weekly".environment = { SHELL = "${pkgs.bash}/bin/bash"; };
 
       systemd.services."zrb-backup-on-shutdown" = mkIf config.mine.zrb.backupOnShutdown {
         environment = { SHELL = "${pkgs.bash}/bin/bash"; };
@@ -225,5 +237,30 @@ with lib;
           "poweroff.target"
         ];
       };
-    };
+    }
+      {
+        systemd.services = mkIf (config.services.zrb.client.enable && config.mine.zrb.retry.enable) (mkMerge (mapAttrsToList
+          (name: job:
+            let
+              unit = "zrb-send-${name}";
+              send = config.systemd.services.${unit};
+            in
+            {
+              ${unit} = {
+                onFailure = [ "${unit}-retry.service" ];
+                conflicts = [ "${unit}-retry.service" ];
+              };
+              "${unit}-retry" = {
+                description = "Retry of zrb send job '${name}'";
+                after = [ "network-online.target" ];
+                wants = [ "network-online.target" ];
+                inherit (send) environment;
+                serviceConfig = filterAttrs (n: _: elem n [ "Type" "User" "ExecStart" "WatchdogSec" ]) send.serviceConfig // {
+                  Restart = "on-failure";
+                  RestartSec = config.mine.zrb.retry.interval;
+                };
+              };
+            })
+          config.services.zrb.client.jobs));
+      }];
 }
