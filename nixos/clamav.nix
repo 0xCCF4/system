@@ -115,6 +115,22 @@ with lib;
       };
 
       services.clamav.updater.enable = true;
+
+      systemd.services.clamav-daemon.wants = mkForce [ "clamav-freshclam-init.service" ];
+      systemd.services.clamav-daemon.after = [ "clamav-freshclam-init.service" ];
+
+      systemd.services.clamav-freshclam-init = {
+        description = "ClamAV initial database download";
+        before = [ "clamav-daemon.service" ];
+        requires = [ "network-online.target" ];
+        after = [ "network-online.target" ];
+        unitConfig.ConditionPathExistsGlob = "!${config.services.clamav.daemon.settings.DatabaseDirectory}/daily.c[lv]d";
+
+        serviceConfig = {
+          inherit (config.systemd.services.clamav-freshclam.serviceConfig)
+            Type ExecStart SuccessExitStatus StateDirectory User Group PrivateTmp PrivateDevices Slice;
+        };
+      };
       services.clamav.scanner.enable = true;
 
       services.clamav.scanner.scanDirectories = [
@@ -137,27 +153,21 @@ with lib;
         )
       );
 
-      systemd.services.clamav-clamonacc = lib.mkIf cfg.accessScanning.enable {
-        description = "ClamAV daemon (clamonacc)";
-        after = [
-          "clamav-freshclam.service"
-          "clamav-daemon.service"
-        ];
-        requires = [
-          "clamav-daemon.service"
-        ];
-        wantedBy = [ "multi-user.target" ];
-        restartTriggers = [ "/etc/clamav/clamd.conf" ];
+      services.clamav.clamonacc.enable = cfg.accessScanning.enable;
 
+      systemd.services.clamav-clamonacc = mkIf cfg.accessScanning.enable {
         serviceConfig = {
-          Type = "simple";
-          ExecStartPre = "${getExe' pkgs.coreutils "sleep"} 30";
-          ExecStart = "${getExe' pkgs.systemd "systemd-cat"} --identifier=av-scan ${getExe' pkgs.clamav "clamonacc"} --allmatch -F --fdpass";
+          # clamd takes a while to load its database after a (re)start; keep
+          # pinging it for up to 2 minutes instead of failing on the first try
+          ExecStart = mkForce "${getExe' config.services.clamav.package "clamonacc"} -F --fdpass --allmatch --wait --ping 60:2";
           ExecReload = "${getExe' pkgs.coreutils "kill"} -USR2 \$MAINPID";
+          SyslogIdentifier = "av-scan";
           PrivateTmp = "yes";
           PrivateDevices = "yes";
           PrivateNetwork = "yes";
           Restart = "on-failure";
+          # stay clear of the default start limit (5 starts in 10s)
+          RestartSec = "10s";
         };
       };
 

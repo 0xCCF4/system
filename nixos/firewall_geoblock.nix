@@ -281,10 +281,13 @@ with lib;
         after = [ "nftables.service" "local-fs.target" ];
         wants = [ "nftables.service" ];
         wantedBy = [ "multi-user.target" ];
+        partOf = [ "nftables.service" ];
+        unitConfig.ReloadPropagatedFrom = [ "nftables.service" ];
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
           ExecStart = getExe updateSetScript;
+          ExecReload = getExe updateSetScript;
         };
       };
     };
