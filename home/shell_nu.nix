@@ -22,6 +22,7 @@ with builtins;
 
     programs.nushell = {
       enable = mkDefault true;
+      loadSessionVariables = true;
     };
   };
 }

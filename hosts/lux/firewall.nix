@@ -243,14 +243,28 @@ in
           drop
         }
 
+        set outside-traffic {
+          type ipv6_addr
+          size 65535
+          flags dynamic, timeout
+          timeout 1m
+        }
+
+        set outside-traffic-dns {
+          type ipv6_addr
+          size 65535
+          flags dynamic, timeout
+          timeout 1m
+        }
+
         chain fw-accept-dos {
-          counter
-          meter outside-traffic { ip6 saddr limit rate 10/second burst 50 packets } accept
+          counter # /64 prefix
+          update @outside-traffic { ip6 saddr and ffff:ffff:ffff:ffff:: limit rate 10/second burst 50 packets } accept
         }
 
         chain fw-accept-dos-dns {
-          counter
-          meter outside-traffic-dns { ip6 saddr limit rate 10/second burst 200 packets } accept
+          counter # /64 prefix
+          update @outside-traffic-dns { ip6 saddr and ffff:ffff:ffff:ffff:: limit rate 10/second burst 200 packets } accept
         }
 
         chain fw-accept {
