@@ -98,6 +98,26 @@ with lib;
         p = dkimPublicKey;
       };
 
+      # MTA-STS (RFC 8461): senders only deliver over verified TLS to the
+      # listed MXs. One policy for every mail domain, they all share MX; the
+      # DNS id must change with the policy, so it is derived from it.
+      mtaStsPolicy = ''
+        version: STSv1
+        mode: enforce
+        ${concatMapStrings (mx: "mx: ${removeSuffix "." mx.exchange}\n") MX}max_age: 604800
+      '';
+      mtaStsId = substring 0 20 (builtins.hashString "sha256" mtaStsPolicy);
+      # Per mail domain: the policy pointer, the policy host (served by
+      # caddy, see below) and where TLS-RPT (RFC 8460) failure reports go.
+      mtaStsRecords = {
+        _mta-sts.TXT = [ "v=STSv1; id=${mtaStsId}" ];
+        mta-sts = {
+          A = [ config.mine.info.public.ipv4 ];
+          AAAA = [ config.containers.caddy.localAddress6 ];
+        };
+        "_smtp._tls".TXT = [ "v=TLSRPTv1; rua=mailto:postmaster+tlsrpt@${domain}" ];
+      };
+
       zoneRecords = with dns.lib.combinators; {
         TTL = 86400; # 24h
         SOA = {
@@ -119,6 +139,7 @@ with lib;
           records // {
             inherit MX DKIM;
             TXT = [ "v=spf1 include:${domain} -all" ];
+            subdomains = (records.subdomains or { }) // mtaStsRecords;
           }
         ) ({
           mail = {
@@ -159,13 +180,13 @@ with lib;
             A = [ config.mine.info.public.ipv4 ];
             AAAA = [ config.containers.caddy.localAddress6 ];
           };
-        } // stratoDkim;
+        } // stratoDkim // mtaStsRecords;
         inherit MX DKIM;
-        # Monitor-only for now: receivers report but don't act. Subdomains
-        # without their own _dmarc record fall back to this one.
+        # Receivers reject mail failing both aligned SPF and aligned DKIM.
+        # Subdomains without their own _dmarc record fall back to this one.
         DMARC = [
           {
-            p = "none";
+            p = "reject";
             rua = "mailto:postmaster+dmarc@${domain}";
           }
         ];
@@ -180,7 +201,18 @@ with lib;
       mine.services.geoBlock.exemptPorts.udp = [ 53 ];
 
       mine.services.powerdns.mailSubdomains = map (sub: "${sub}.${domain}")
-        (attrNames (removeAttrs zoneRecords.subdomains ([ "autoconfig" ] ++ attrNames stratoDkim)));
+        (attrNames (removeAttrs zoneRecords.subdomains ([ "autoconfig" ] ++ attrNames stratoDkim ++ attrNames mtaStsRecords)));
+
+      containers.caddy.config.services.caddy.virtualHosts = listToAttrs (map
+        (mailDomain: nameValuePair "mta-sts.${mailDomain}" {
+          extraConfig = ''
+            header /.well-known/mta-sts.txt Content-Type "text/plain; charset=utf-8"
+            respond /.well-known/mta-sts.txt <<MTA_STS
+            ${mtaStsPolicy}MTA_STS 200
+            respond 404
+          '';
+        })
+        ([ domain ] ++ config.mine.services.powerdns.mailSubdomains));
 
       # PowerDNS edns-cookie-secret must be exactly 32 hex chars (16 bytes);
       # agenix-rekey's built-in "hex" generator produces 48 (24 bytes).

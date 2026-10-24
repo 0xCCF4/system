@@ -37,7 +37,7 @@ with lib;
       # e.g. `example-dkim` for example.org, the `s=` of every signature.
       dkimSelector = "${head (splitString "." domain)}-dkim";
 
-      stateDirs = [ "state" "acme" "redis" "nixos" ];
+      stateDirs = [ "state" "acme" "redis" "nixos" "clamav" ];
 
       # The zone apex plus every subdomain in it (hosts/lux/powerdns.nix),
       # mail.<domain> included.
@@ -116,7 +116,12 @@ with lib;
         if pathExists dkimPublicKeyFile then removeSuffix "\n" (readFile dkimPublicKeyFile) else null;
 
       # nspawn refuses to start if a bind mount's source is missing.
-      systemd.tmpfiles.rules = map (dir: "d /persist/data/mailserver/${dir} 0750 root root -") stateDirs;
+      systemd.tmpfiles.rules = map
+        (dir:
+          if dir == "state"
+          then "d /persist/data/mailserver/${dir} 0755 root root -"
+          else "d /persist/data/mailserver/${dir} - - - -")
+        stateDirs;
 
       mine.services.geoBlock.exemptPorts.tcp = [ 25 ];
 
@@ -147,7 +152,7 @@ with lib;
           requires = [ "mail-proxy-${name}.socket" ];
           after = [ "mail-proxy-${name}.socket" ];
           serviceConfig = {
-            ExecStart = "${config.systemd.package}/lib/systemd/systemd-socket-proxyd [${localAddress6}]:${toString port}";
+            ExecStart = "${config.systemd.package}/lib/systemd/systemd-socket-proxyd ${localAddress6}:${toString port}";
             DynamicUser = true;
             PrivateTmp = true;
           };
@@ -187,6 +192,11 @@ with lib;
             mountPoint = "/var/lib/nixos";
             isReadOnly = false;
           };
+          clamav = {
+            hostPath = "/persist/data/mailserver/clamav";
+            mountPoint = "/var/lib/clamav";
+            isReadOnly = false;
+          };
         } // listToAttrs (map
           (name: nameValuePair "${name}Password" {
             hostPath = config.age.secrets.${passwordIdentifier name}.path;
@@ -211,8 +221,10 @@ with lib;
           networking.firewall.allowedTCPPorts = [ 80 ];
 
           networking.nameservers = mkForce [ "::1" ];
+          networking.resolvconf.extraOptions = [ "trust-ad" ];
           services.unbound = {
             enable = true;
+            resolveLocalQueries = false;
             settings.server = {
               interface = [ "::1" ];
               access-control = [ "::1/128 allow" ];
@@ -240,11 +252,54 @@ with lib;
           systemd.services.rspamd.serviceConfig.LoadCredential =
             [ "dkim.key:/run/secrets/mailserver-dkim-key" ];
 
+          # IPv4 senders arrive through Jool as 64:ff9b::<v4>. Hand rspamd the
+          # embedded IPv4 address before any check runs, so SPF, RBLs and
+          # greylisting see the real sender instead of the NAT64 address.
+          services.rspamd.localLuaRules = pkgs.writeText "rspamd.local.lua" ''
+            local rspamd_ip = require "rspamd_ip"
+            local lua_util = require "lua_util"
+
+            rspamd_config:register_symbol({
+              name = 'NAT64_UNMAPPED',
+              type = 'prefilter',
+              priority = lua_util.symbols_priorities.top + 1,
+              flags = 'empty,nostat',
+              callback = function(task)
+                local ip = task:get_from_ip()
+                if not (ip and ip:is_valid() and ip:get_version() == 6) then return end
+                if tostring(ip:apply_mask(96)) ~= '64:ff9b::' then return end
+                local o = ip:to_table()
+                task:set_from_ip(rspamd_ip.from_string(
+                  string.format('%d.%d.%d.%d', o[13], o[14], o[15], o[16])))
+              end,
+            })
+          '';
+
+          # clamd exits without a signature database, and freshclam can't fetch
+          # one before the host gives eth0 a carrier; keep both retrying.
+          systemd.services.clamav-freshclam.serviceConfig = {
+            Restart = "on-failure";
+            RestartSec = "1min";
+          };
+          systemd.services.clamav-daemon.serviceConfig = {
+            Restart = "on-failure";
+            RestartSec = "1min";
+            # clamav-daemon.socket lives in /run/clamav; without this every
+            # clamd stop deletes the socket file while the socket unit listens on
+            RuntimeDirectoryPreserve = "yes";
+          };
+          # SNM makes rspamd require clamd, so a missing database would take
+          # spam filtering down with it; rspamd copes with clamd being away.
+          systemd.services.rspamd.requires = mkForce [ "redis-rspamd.service" ];
+          systemd.services.rspamd.wants = [ "clamav-daemon.service" ];
+
           mailserver = {
             enable = true;
             stateVersion = 5;
             inherit fqdn;
             domains = mailDomains;
+
+            virusScanning = true;
 
             x509.useACMEHost = fqdn;
 
@@ -261,7 +316,7 @@ with lib;
             accounts = {
               "postmaster@${domain}" = {
                 passwordFile = passwordMountPoint "postmaster";
-                aliases = [ "@${domain}" ] ++ map (d: "postmaster@${d}") mailSubdomains;
+                aliases = [ "@${domain}" ] ++ map (d: "@${d}") mailSubdomains;
               };
               "info@vault.${domain}" = {
                 passwordFile = passwordMountPoint "vaultwarden";

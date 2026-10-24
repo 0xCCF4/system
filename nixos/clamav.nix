@@ -116,6 +116,9 @@ with lib;
 
       services.clamav.updater.enable = true;
 
+      # clamav-daemon.socket lives in /run/clamav; without this every clamd
+      # stop deletes the socket file while the socket unit listens on
+      systemd.services.clamav-daemon.serviceConfig.RuntimeDirectoryPreserve = "yes";
       systemd.services.clamav-daemon.wants = mkForce [ "clamav-freshclam-init.service" ];
       systemd.services.clamav-daemon.after = [ "clamav-freshclam-init.service" ];
 
