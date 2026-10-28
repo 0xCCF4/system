@@ -70,6 +70,7 @@ with lib;
                   disable_custom_urls = true;
                   disable_guests = true;
                   jitsi.preferred_domain = jitsiDomain;
+                  element_call.disable = true;
                 };
               })}
               file_server

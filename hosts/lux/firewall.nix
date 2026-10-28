@@ -1,5 +1,6 @@
 { config
 , lib
+, noxa
 , luxPublicNetwork6
 , ...
 }:
@@ -18,7 +19,7 @@ let
   caddyWireguardForwardRules = lib.concatStringsSep "\n  " (
     lib.concatMap
       (network: [
-        ''iifname == "${network}" oifname == "ve-caddy" accept''
+        ''iifname == "${network}" oifname == "ve-caddy" meta nfproto ipv6 accept''
       ])
       caddyWireguardNetworks
   );
@@ -48,24 +49,34 @@ let
   coturnRelayPorts = lib.range 49160 50159;
 
   # Only MX traffic is public, submission/IMAP (465/993) are cloud-admin only
-  # (relayed on the host, see hosts/lux/mailserver.nix).
+  # (via the container's ULA, see hosts/lux/mailserver.nix).
   mailserverPorts = [ 25 ];
-  mailserverBib = map
-    (port: {
-      protocol = "TCP";
-      "ipv4 address" = "${config.mine.info.public.ipv4}#${toString port}";
-      "ipv6 address" = "${config.containers.mailserver.localAddress6}#${toString port}";
-    })
-    mailserverPorts;
 
-  joolEphemeralPorts = "61001-65535";
-  coturnRelayBib = map
-    (port: {
-      protocol = "UDP";
-      "ipv4 address" = "${config.mine.info.public.ipv4}#${toString port}";
-      "ipv6 address" = "${config.containers.mtx-co-v4.localAddress6}#${toString port}";
-    })
-    coturnRelayPorts;
+  # public IPv4 ports, translated by the NAT64 to the containers (nixos/nat64.nix)
+  forward = protocol: container: port: {
+    inherit protocol port;
+    address = config.containers.${container}.localAddress6;
+  };
+  portForwards = [
+    (forward "TCP" "powerdns" 53)
+    (forward "UDP" "powerdns" 53)
+    (forward "TCP" "caddy" 80)
+    (forward "TCP" "caddy" 443)
+    (forward "UDP" "caddy" 443)
+    (forward "TCP" "mtx-co-v4" 3478)
+    (forward "UDP" "mtx-co-v4" 3478)
+    (forward "UDP" "jitsi" 10000)
+  ]
+  ++ map (forward "UDP" "mtx-co-v4") coturnRelayPorts
+  ++ map (forward "TCP" "mailserver") mailserverPorts;
+
+  # each container sends only from its own addresses, IPv6 only
+  containerSourceRules = lib.concatStringsSep "\n" (lib.mapAttrsToList
+    (name: container: ''
+      iifname "ve-${name}" meta nfproto ipv4 drop
+      iifname "ve-${name}" ip6 saddr != { ${lib.concatStringsSep ", " ([ container.localAddress6 ] ++ lib.optional (config.mine.guestUla.addresses ? ${name}) config.mine.guestUla.addresses.${name} ++ [ "fe80::/10" ])} } drop
+    '')
+    config.containers);
 in
 {
   # NOTE: this only defines the `forward` hook for container/proxy traffic.
@@ -74,7 +85,7 @@ in
   # handles the `input` chain.
   config = {
     # Shrink the kernel's ephemeral port range so it no longer overlaps the
-    # coturn UDP relay range
+    # coturn UDP relay range (forwarded to the NAT64)
     boot.kernel.sysctl."net.ipv4.ip_local_port_range" =
       "32768 ${toString (lib.head coturnRelayPorts - 1)}";
 
@@ -95,113 +106,45 @@ in
         allowedTCPPorts = [ 53 ];
       });
 
-    networking.jool.enable = true;
-    networking.jool.nat64.default = {
-      bib = [
-        {
-          protocol = "TCP";
-          "ipv4 address" = "${config.mine.info.public.ipv4}#53";
-          "ipv6 address" = "${config.containers.powerdns.localAddress6}#53";
+    # IPv4 reaches the containers only through the NAT64, in its own network namespace, so
+    # the translated traffic passes the forward chain below (as IPv6 from 64:ff9b::/96)
+    mine.nat64 = {
+      enable = true;
+      # mailserver resolves to 64:ff9b::/96 (its own DNS64), coturn and the videobridge
+      # send to their IPv4 peers first (ICE, relayed data); the others reach IPv4
+      # through explicit rules below, if at all
+      clients = [ "ve-mailserver" "ve-mtx-co-v4" "ve-jitsi" ];
+      publicIpv4 = config.mine.info.public.ipv4;
+      inherit portForwards;
+    };
+
+    # wan is the internet itself: private sources and lux's own prefix are spoofed there
+    mine.martianGuard = {
+      publicUplink = true;
+      extraSources = [ luxPublicNetwork6 ];
+    };
+
+    networking.nftables.tables.lux-containers = {
+      family = "inet";
+      content = ''
+        chain prerouting {
+          type filter hook prerouting priority mangle; policy accept;
+          ${containerSourceRules}
         }
-        {
-          protocol = "UDP";
-          "ipv4 address" = "${config.mine.info.public.ipv4}#53";
-          "ipv6 address" = "${config.containers.powerdns.localAddress6}#53";
-        }
-        {
-          protocol = "TCP";
-          "ipv4 address" = "${config.mine.info.public.ipv4}#80";
-          "ipv6 address" = "${config.containers.caddy.localAddress6}#80";
-        }
-        {
-          protocol = "TCP";
-          "ipv4 address" = "${config.mine.info.public.ipv4}#443";
-          "ipv6 address" = "${config.containers.caddy.localAddress6}#443";
-        }
-        {
-          protocol = "UDP";
-          "ipv4 address" = "${config.mine.info.public.ipv4}#443";
-          "ipv6 address" = "${config.containers.caddy.localAddress6}#443";
-        }
-        {
-          protocol = "TCP";
-          "ipv4 address" = "${config.mine.info.public.ipv4}#3478";
-          "ipv6 address" = "${config.containers.mtx-co-v4.localAddress6}#3478";
-        }
-        {
-          protocol = "UDP";
-          "ipv4 address" = "${config.mine.info.public.ipv4}#3478";
-          "ipv6 address" = "${config.containers.mtx-co-v4.localAddress6}#3478";
-        }
-        {
-          protocol = "UDP";
-          "ipv4 address" = "${config.mine.info.public.ipv4}#10000";
-          "ipv6 address" = "${config.containers.jitsi.localAddress6}#10000";
-        }
-      ] ++ coturnRelayBib ++ mailserverBib;
-      pool4 = [
-        {
-          protocol = "TCP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = "53";
-        }
-        {
-          protocol = "UDP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = "53";
-        }
-        {
-          protocol = "TCP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = "80";
-        }
-        {
-          protocol = "TCP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = "443";
-        }
-        {
-          protocol = "UDP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = "443";
-        }
-        {
-          protocol = "TCP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = "3478";
-        }
-        {
-          protocol = "UDP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = "3478";
-        }
-        {
-          protocol = "UDP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = "49160-50159";
-        }
-        {
-          protocol = "UDP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = "10000";
-        }
-      ] ++ map
-        (port: {
-          protocol = "TCP";
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = toString port;
-        })
-        mailserverPorts
-      ++ map
-        (protocol: {
-          inherit protocol;
-          prefix = "${config.mine.info.public.ipv4}/32";
-          "port range" = joolEphemeralPorts;
-        })
-        [ "TCP" "UDP" ];
+      '';
     };
 
     networking.nftables.enable = true;
+
+    # SSH (and mosh) only over WireGuard from the fleet ULA prefix (lux.vlan), nothing
+    # public; the initrd's SSH for the LUKS unlock (port 4444, before this firewall, and
+    # Tor) stays reachable
+    services.openssh.openFirewall = false;
+    programs.mosh.openFirewall = false;
+    networking.firewall.extraInputRules = ''
+      iifname "cloud-admin" ip6 saddr ${noxa.ula.prefix} tcp dport { ${lib.concatMapStringsSep ", " toString config.services.openssh.ports} } accept
+      iifname "cloud-admin" ip6 saddr ${noxa.ula.prefix} udp dport 60000-61000 accept
+    '';
 
     networking.nftables.tables.lux-forward-traffic = {
       family = "inet";
@@ -213,10 +156,14 @@ in
           ct state invalid drop
           ct state established,related accept
 
-          # Traffic coming from the public internet -> filtered per-service below
-          iifname == "wan" jump fw-outside-traffic
+          # the NAT64 (nixos/nat64.nix), before the IPv4 drop of fw-outside-traffic
+          ${config.mine.nat64.forwardRules}
 
-          # wireguard -> caddy
+          # Traffic coming from the public internet (IPv4 translated by the NAT64) ->
+          # filtered per-service below
+          iifname { "wan", "${config.mine.nat64.interface}" } jump fw-outside-traffic
+
+          # wireguard -> caddy, containers are only reachable over IPv6 (their ULA)
           ${caddyWireguardForwardRules}
 
           # caddy -> backend containers (reverse-proxy upstreams)
@@ -232,12 +179,18 @@ in
           iifname == "ve-mailserver" oifname == "wan" accept
 
           # powerdns -> secondaries (NOTIFY), including the NAT64 ones
-          iifname == "ve-powerdns" oifname == "wan" ip6 daddr { ${lib.concatStringsSep ", " config.mine.services.powerdns.secondaries} } udp dport 53 accept
+          iifname == "ve-powerdns" oifname { "wan", "${config.mine.nat64.interface}" } ip6 daddr { ${lib.concatStringsSep ", " config.mine.services.powerdns.secondaries} } udp dport 53 accept
+
+          # wireguard -> mailserver (submission/IMAP via its ULA)
+          iifname == "cloud-admin" oifname == "ve-mailserver" ip6 daddr ${config.mine.guestUla.addresses.mailserver} tcp dport { 465, 993 } accept
+
+          # synapse -> internet (push gateways, URL previews)
+          iifname == "ve-mtx-syn" oifname == "wan" tcp dport { 80, 443 } accept
 
           # vaultwarden -> mailserver (submission)
           iifname == "ve-vaultwarden" oifname == "ve-mailserver" tcp dport 465 accept
 
-          # allow wireguard network communication, todo: allow all wireguard interfaces to talk to eachother
+          # allow wireguard network communication (IPv4 and IPv6), todo: allow all wireguard interfaces to talk to eachother
           iifname == "cloud-admin" oifname == "cloud-admin" accept
 
           drop
@@ -257,13 +210,18 @@ in
           timeout 1m
         }
 
+        # per /64, IPv4 (NAT64, 64:ff9b::<IPv4>) per /24
         chain fw-accept-dos {
-          counter # /64 prefix
+          counter
+          ip6 saddr ${config.mine.nat64.prefix} update @outside-traffic { ip6 saddr and ffff:ffff:ffff:ffff:ffff:ffff:ffff:ff00 limit rate 10/second burst 50 packets } accept
+          ip6 saddr ${config.mine.nat64.prefix} return
           update @outside-traffic { ip6 saddr and ffff:ffff:ffff:ffff:: limit rate 10/second burst 50 packets } accept
         }
 
         chain fw-accept-dos-dns {
-          counter # /64 prefix
+          counter
+          ip6 saddr ${config.mine.nat64.prefix} update @outside-traffic-dns { ip6 saddr and ffff:ffff:ffff:ffff:ffff:ffff:ffff:ff00 limit rate 10/second burst 200 packets } accept
+          ip6 saddr ${config.mine.nat64.prefix} return
           update @outside-traffic-dns { ip6 saddr and ffff:ffff:ffff:ffff:: limit rate 10/second burst 200 packets } accept
         }
 
@@ -281,7 +239,7 @@ in
           # traffic not bound for us, sus...
           ip6 daddr != ${luxPublicNetwork6} jump fw-drop
 
-          # only ipv6 is expected inbound here; NAT64-translated ipv4 exits via jool on a different path
+          # only IPv6 is expected here, IPv4 arrives translated by the NAT64
           meta nfproto ipv4 jump fw-drop
 
           ip6 daddr ${config.containers.mailserver.localAddress6} tcp dport { 25, 80 } jump fw-accept-dos
@@ -290,6 +248,9 @@ in
           ip6 daddr ${config.containers.powerdns.localAddress6} tcp dport 53 jump fw-accept-dos-dns
           ip6 daddr ${config.containers.powerdns.localAddress6} udp dport 53 jump fw-accept-dos-dns
           # mtx-co-v4 itself is NAT64-only
+          ip6 daddr ${config.containers.mtx-co-v4.localAddress6} tcp dport 3478 jump fw-accept-dos
+          ip6 daddr ${config.containers.mtx-co-v4.localAddress6} udp dport 3478 jump fw-accept-dos
+          ip6 daddr ${config.containers.mtx-co-v4.localAddress6} udp dport 49160-50159 jump fw-accept-dos
           ip6 daddr ${config.containers.mtx-co-v6.localAddress6} tcp dport 3478 jump fw-accept-dos
           ip6 daddr ${config.containers.mtx-co-v6.localAddress6} udp dport 3478 jump fw-accept-dos
           ip6 daddr ${config.containers.mtx-co-v6.localAddress6} udp dport 49160-50159 jump fw-accept-dos

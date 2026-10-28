@@ -1,11 +1,7 @@
-{ inputs
-, self
-, lib
-, ...
-}:
+{ lib, ... }:
 with lib;
 {
-  imports = self.lib.optionalsIfExist [
+  imports = filter builtins.pathExists [
     ../external/private/noxa
   ];
 }

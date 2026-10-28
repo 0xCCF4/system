@@ -42,6 +42,16 @@ with lib;
       '';
     };
 
+    exemptWireguard = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Exempt the listen ports of this host's WireGuard interfaces (wg-quick,
+        networking.wireguard, networkd), so roaming peers connect from anywhere; the
+        services behind WireGuard are reached through it.
+      '';
+    };
+
     exemptPorts = {
       tcp = mkOption {
         type = types.listOf types.port;
@@ -60,9 +70,27 @@ with lib;
       };
     };
 
+    exemptSources = {
+      ipv4 = mkOption {
+        type = types.listOf types.str;
+        default = [ "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" "169.254.0.0/16" "100.64.0.0/10" ];
+        description = ''
+          IPv4 sources exempt from geo-blocking, by default the local networks (in no
+          country's list, e.g. the LAN behind an external interface).
+        '';
+      };
+
+      ipv6 = mkOption {
+        type = types.listOf types.str;
+        default = [ "fe80::/10" "fc00::/7" ];
+        description = "IPv6 sources exempt from geo-blocking, by default link-local and ULA.";
+      };
+    };
+
     externalInterfaces = mkOption {
       type = types.listOf types.str;
-      default = [ ];
+      default = config.mine.wanInterfaces;
+      defaultText = literalExpression "config.mine.wanInterfaces";
       description = ''
         Interface names that carry traffic arriving from the public
         internet. Only packets entering on one of these interfaces are
@@ -96,7 +124,7 @@ with lib;
       default = "/var/lib/geoblock";
       description = ''
         Where downloaded country zone files are cached between updates.
-        Used to (re-)populate the `geo-list` set immediately at boot,
+        Used to (re-)populate the `geo-list4`/`geo-list6` sets immediately at boot,
         before the network is up, from the last successfully fetched data.
       '';
     };
@@ -113,14 +141,26 @@ with lib;
 
       conflicts = filter (c: elem c cfg.exclude) cfg.include;
 
+      wireguardPorts = filter isInt (
+        mapAttrsToList (_: interface: interface.listenPort or null) config.networking.wg-quick.interfaces
+        ++ mapAttrsToList (_: interface: interface.listenPort or null) config.networking.wireguard.interfaces
+        ++ mapAttrsToList (_: netdev: netdev.wireguardConfig.ListenPort or null) config.systemd.network.netdevs
+      );
+      exemptUdp = unique (cfg.exemptPorts.udp ++ optionals cfg.exemptWireguard wireguardPorts);
+
       # `exclude` takes priority over `include`
       effectiveInclude = filter (c: !(elem c cfg.exclude)) cfg.include;
 
       activeCountries = if mode == "include" then effectiveInclude else cfg.exclude;
 
-      dropRule =
-        if mode == "include" then "ip6 saddr != @geo-list drop"
-        else "ip6 saddr @geo-list drop";
+      dropRules =
+        if mode == "include" then ''
+          ip saddr != @geo-list4 drop
+          ip6 saddr != @geo-list6 drop
+        '' else ''
+          ip saddr @geo-list4 drop
+          ip6 saddr @geo-list6 drop
+        '';
 
       countryCodesShell = concatStringsSep " "
         (map (c: "'" + (replaceStrings [ "'" ] [ "'\\''" ] c) + "'") activeCountries);
@@ -156,7 +196,7 @@ with lib;
             rm -rf "${cfg.cacheDirectory}/$zone.old"
           done
 
-          echo "[geoblock-fetch] done, refreshing geo-list set"
+          echo "[geoblock-fetch] done, refreshing the geo-list sets"
           systemctl restart geoblock-update-set.service
         '';
       };
@@ -169,29 +209,31 @@ with lib;
           V6_DIR=${escapeShellArg cfg.cacheDirectory}/v6
 
           if [ ! -d "$V4_DIR" ] || [ ! -d "$V6_DIR" ]; then
-            echo "[geoblock-update-set] no cached zone data yet - leaving geo-list set untouched" >&2
+            echo "[geoblock-update-set] no cached zone data yet - leaving the geo-list sets untouched" >&2
             exit 0
           fi
 
-          ELEMENTS="$(mktemp -t geoblock-elements.XXXXXXXXXX)"
+          ELEMENTS4="$(mktemp -t geoblock-elements4.XXXXXXXXXX)"
+          ELEMENTS6="$(mktemp -t geoblock-elements6.XXXXXXXXXX)"
           RULES="$(mktemp -t geoblock-rules.XXXXXXXXXX)"
-          trap 'rm -f "$ELEMENTS" "$RULES"' EXIT
+          trap 'rm -f "$ELEMENTS4" "$ELEMENTS6" "$RULES"' EXIT
 
           COUNTRIES=(${countryCodesShell})
           for cc in "''${COUNTRIES[@]}"; do
-            # NAT64 64:ff9b::/96 needs IPv4 rewrite
-            awk -F/ '{printf "64:ff9b::%s/%d,\n", $1, 96+$2}' "$V4_DIR/$cc.zone" >> "$ELEMENTS"
-            awk '{printf "%s,\n", $1}' "$V6_DIR/$cc.zone" >> "$ELEMENTS"
+            awk '{printf "%s,\n", $1}' "$V4_DIR/$cc.zone" >> "$ELEMENTS4"
+            awk '{printf "%s,\n", $1}' "$V6_DIR/$cc.zone" >> "$ELEMENTS6"
           done
-          sed -i '$ s/,$//' "$ELEMENTS"
+          sed -i '$ s/,$//' "$ELEMENTS4" "$ELEMENTS6"
 
           {
-            echo "flush set inet geo-block geo-list"
-            echo "add element inet geo-block geo-list { $(cat "$ELEMENTS") }"
+            echo "flush set inet geo-block geo-list4"
+            echo "add element inet geo-block geo-list4 { $(cat "$ELEMENTS4") }"
+            echo "flush set inet geo-block geo-list6"
+            echo "add element inet geo-block geo-list6 { $(cat "$ELEMENTS6") }"
           } > "$RULES"
 
           nft -f "$RULES"
-          echo "[geoblock-update-set] geo-list set refreshed"
+          echo "[geoblock-update-set] geo-list sets refreshed"
         '';
       };
     in
@@ -217,7 +259,13 @@ with lib;
       networking.nftables.tables.geo-block = mkIf (mode != null) {
         family = "inet";
         content = ''
-          set geo-list {
+          set geo-list4 {
+            type ipv4_addr
+            flags interval
+            auto-merge
+          }
+
+          set geo-list6 {
             type ipv6_addr
             flags interval
             auto-merge
@@ -243,12 +291,19 @@ with lib;
             ${optionalString (cfg.exemptPorts.tcp != [ ]) ''
               tcp dport { ${concatStringsSep ", " (map toString cfg.exemptPorts.tcp)} } accept
             ''}
-            ${optionalString (cfg.exemptPorts.udp != [ ]) ''
-              udp dport { ${concatStringsSep ", " (map toString cfg.exemptPorts.udp)} } accept
+            ${optionalString (exemptUdp != [ ]) ''
+              udp dport { ${concatStringsSep ", " (map toString exemptUdp)} } accept
             ''}
 
-            # Incoming connection filtered against the geo-block list
-            ${dropRule}
+            ${optionalString (cfg.exemptSources.ipv4 != [ ]) ''
+              ip saddr { ${concatStringsSep ", " cfg.exemptSources.ipv4} } accept
+            ''}
+            ${optionalString (cfg.exemptSources.ipv6 != [ ]) ''
+              ip6 saddr { ${concatStringsSep ", " cfg.exemptSources.ipv6} } accept
+            ''}
+
+            # Incoming connection filtered against the geo-block lists
+            ${dropRules}
           }
         '';
       };

@@ -1,6 +1,6 @@
 { lib
 , config
-, noxaConfig
+, self
 , noxa
 , ...
 }:
@@ -45,6 +45,15 @@ with lib;
               the tunnel only.
             '';
           };
+          dns.extraHosts = mkOption {
+            type = attrsOf (listOf str);
+            default = { };
+            example = { "mail.example.com" = [ "fd12:3456:789a:1::5" ]; };
+            description = ''
+              Additional hostnames the peers on this network resolve to the given
+              addresses, e.g. to a container behind this host.
+            '';
+          };
         };
       });
     };
@@ -60,10 +69,11 @@ with lib;
                 (
                   peer:
                   nameValuePair peer.target (
-                    map (address: (noxa.lib.net.decompose address).addressNoMask)
-                      noxaConfig.nodes."${peer.target}".configuration.noxa.wireguard.interfaces."${
+                    # IPv6 only, IPv4 on the networks is reserved for traffic between peers
+                    map (address: (noxa.lib.net.decompose address).addressNoMask) (filter noxa.lib.net.ip6.check
+                      self.nixosConfigurations."${peer.target}".config.noxa.wireguard.interfaces."${
                   network
-                }".deviceAddresses
+                }".deviceAddresses)
                   )
                 )
                 data.peers
@@ -82,14 +92,26 @@ with lib;
                 (peer: addresses: {
                   "${peer}${networkConfig.dns.domain}" = mkIf networkConfig.dns.enable addresses;
                 } // genAttrs
-                  noxaConfig.nodes.${peer}.configuration.noxa.wireguard.interfaces.${networkName}.dns.extraNames
-                  (_: addresses))
+                  self.nixosConfigurations.${peer}.config.noxa.wireguard.interfaces.${networkName}.dns.extraNames
+                  (_: addresses)
+                // self.nixosConfigurations.${peer}.config.noxa.wireguard.interfaces.${networkName}.dns.extraHosts)
                 peers
           )
           peerAddresses
       );
     in
-    mkIf config.mine.dns.wireguard.enable {
-      mine.dns.hosts = mkMerge dnsEntries;
-    };
+    mkMerge [
+      {
+        # Per-network dns settings of the noxa topology (noxa/wireguard_dns.nix)
+        noxa.wireguard.interfaces = mapAttrs
+          (networkName: network: {
+            dns.enable = mkDefault network.dns.enable;
+            dns.domain = mkIf (network.dns.domain != null) (mkDefault network.dns.domain);
+          })
+          (filterAttrs (networkName: network: network.members ? ${config.networking.hostName}) noxa.wireguard);
+      }
+      (mkIf config.mine.dns.wireguard.enable {
+        mine.dns.hosts = mkMerge dnsEntries;
+      })
+    ];
 }

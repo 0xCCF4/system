@@ -1,9 +1,7 @@
 { zrb
 , pkgs
 , lib
-, noxaHost
 , config
-, nodes
 , ...
 }:
 with lib;
@@ -94,7 +92,7 @@ with lib;
     mkMerge [{
       services.zrb.client = {
         enable = mkIf (config.mine.zrb.backupNode != null) (mkDefault true);
-        sourceName = mkDefault noxaHost;
+        sourceName = mkDefault config.networking.hostName;
 
         remotes.primary = {
           noxa = {

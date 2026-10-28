@@ -70,13 +70,14 @@
 
     # Multi-host configuration framework
     noxa = {
-      url = "github:0xCCF4/noxa";
+      url = "github:0xCCF4/noxa/parts";
       # url = "/home/mx/Documents/noxa";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.home-manager.follows = "home-manager";
       inputs.agenix.follows = "agenix";
       inputs.agenix-rekey.follows = "agenix-rekey";
       inputs.flake-utils.follows = "flake-utils";
+      inputs.flake-parts.follows = "flake-parts";
     };
 
     # Color themes
@@ -119,6 +120,13 @@
       url = "github:StevenBlack/hosts";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Network topology diagrams
+    nix-topology = {
+      url = "github:oddlama/nix-topology";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-parts.follows = "flake-parts";
+    };
   };
 
   outputs =
@@ -132,6 +140,7 @@
       }:
       {
         imports = [
+          inputs.noxa.flakeModules.default
           ./parts
         ];
         systems = [
