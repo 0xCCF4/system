@@ -1,362 +1,393 @@
 { config
 , lib
-, noxa
 , options
-, self
+, noxa
 , ...
 }:
 with lib;
-with noxa.lib.net.types;
 with builtins;
 let
-  enumeratedNetworks = imap1 (networkIndex: name: { inherit name networkIndex; }) (
-    attrNames config.mine.vm.networks
-  );
+  cfg = config.mine.vm;
+  ula = config.mine.guestUla;
+
+  nat64Prefix = config.mine.nat64.prefix;
+  set = items: "{ ${concatMapStringsSep ", " (item: ''"${item}"'') items} }";
+
+  # special members of mine.vm.networks
+  internetMember = "<internet>";
+  hostMember = "<host>";
+  ulaMember = "<ula>";
+  specialMembers = [ internetMember hostMember ulaMember ];
+  guestMembers = network: filter (member: !elem member specialMembers) network.members;
+  sharesNetworkWith = special: name: any
+    (network: elem special network.members && elem name network.members)
+    (attrValues cfg.networks);
+
+  # The NAT64 of the <internet> members (nixos/nat64.nix, in its own network namespace)
+  hasInternet = sharesNetworkWith internetMember;
+  internetTaps = map (name: cfg.guests.${name}.tap) (filter hasInternet (attrNames cfg.guests));
+  nat64 = config.mine.nat64;
+
+  # All chains have policy drop: traffic of other interfaces is accepted (and left to the
+  # host's other tables), every tap only passes what its rules accept
+  taps = set (mapAttrsToList (_: guest: guest.tap) cfg.guests);
+  notFromGuests = ''
+    # not a microVM: not filtered here
+    iifname != ${taps} accept
+  '';
+  notToGuests = ''
+    # not a microVM: not filtered here
+    oifname != ${taps} accept
+  '';
+
+  # Accept everything not from VMs, then, drop all non ULA source traffic
+  # From here, traffic originating from VM is ip6 and has its ULA as origin.
+  preroutingRules = notFromGuests + concatStringsSep "\n" (mapAttrsToList
+    (name: guest: ''
+      # ${name}: IPv6 only, connections only from its own ULA, link-local and multicast
+      # addresses only for ICMPv6 (neighbor discovery, MLD)
+      iifname "${guest.tap}" meta nfproto ipv4 drop
+      iifname "${guest.tap}" ip6 saddr != { ${ula.addresses.${name}}, fe80::/10 } drop
+      iifname "${guest.tap}" meta l4proto != ipv6-icmp ip6 saddr != ${ula.addresses.${name}} drop
+      iifname "${guest.tap}" meta l4proto != ipv6-icmp ip6 daddr { fe80::/10, ff00::/8 } drop
+      iifname "${guest.tap}" accept
+    '')
+    cfg.guests);
+
+  # Accept non VM traffic, allow VM traffic only if <host> in network
+  # Always allow DNS in to host
+  inputRules = notFromGuests + concatStringsSep "\n" (mapAttrsToList
+    (name: guest:
+      if sharesNetworkWith hostMember name then ''
+        # ${name}: access to the host (<host>)
+        iifname "${guest.tap}" accept
+        # policy drop
+      '' else ''
+        # ${name}: no access to the host
+        iifname "${guest.tap}" icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit, packet-too-big, destination-unreachable } accept
+        iifname "${guest.tap}" ip6 daddr ${ula.dnsAddress} meta l4proto { tcp, udp } th dport 53 accept
+        # policy drop
+      '')
+    cfg.guests);
+
+  # taps of the microVMs sharing a network with a microVM
+  networkPeerTaps = name: map (member: cfg.guests.${member}.tap) (remove name (unique (concatMap
+    (network: optionals (elem name network.members) (guestMembers network))
+    (attrValues cfg.networks))));
+
+  # VMs may be/reach only the members of their networks
+  forwardChainRules = ''
+    # not a microVM: not filtered here
+    iifname != ${taps} oifname != ${taps} accept
+  '' + concatStringsSep "\n" (mapAttrsToList
+    (name: guest:
+      let
+        peers = networkPeerTaps name;
+      in
+      optionalString (peers != [ ]) ''
+        # ${name}: its networks
+        iifname "${guest.tap}" oifname ${set peers} accept
+      '' + optionalString (hasInternet name) ''
+        # ${name}: to the internet through the NAT64 (<internet>), and only the replies
+        iifname "${guest.tap}" oifname "${nat64.interface}" accept
+        iifname "${nat64.interface}" oifname "${guest.tap}" ct state established,related accept
+      '' + optionalString (sharesNetworkWith ulaMember name) ''
+        # ${name}: from the other ULA hosts (<ula>), and the replies
+        oifname "${guest.tap}" ip6 saddr ${noxa.ula.prefix} accept
+        iifname "${guest.tap}" ip6 daddr ${noxa.ula.prefix} accept
+      '')
+    cfg.guests);
+
+  # Accept non VM traffic, allow VM traffic only if <host> in network
+  outputRules = notToGuests + concatStringsSep "\n" (mapAttrsToList
+    (name: guest: ''
+      # ${name}: IPv6 only, connections only between the ULAs, link-local and multicast
+      # addresses only for ICMPv6 (neighbor discovery, MLD)
+      oifname "${guest.tap}" meta nfproto ipv4 drop
+    '' + (if sharesNetworkWith hostMember name then ''
+      # ${name}: the host may reach it (<host>)
+      oifname "${guest.tap}" accept
+    '' else ''
+      # ${name}: not reachable from the host
+      # answers to the DNS queries of the microVM
+      oifname "${guest.tap}" meta l4proto != ipv6-icmp ip6 saddr != { ${ula.hostAddress}, ${ula.dnsAddress} } drop
+      oifname "${guest.tap}" meta l4proto != ipv6-icmp ip6 daddr != ${ula.addresses.${name}} drop
+      oifname "${guest.tap}" ip6 saddr ${ula.dnsAddress} meta l4proto { tcp, udp } th sport 53 ct state established accept
+      oifname "${guest.tap}" icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, packet-too-big, destination-unreachable, time-exceeded, parameter-problem } accept
+    ''))
+    cfg.guests);
 in
 {
-  options = with types; {
-    mine.vm.networks = mkOption {
+  options.mine.vm = with types; {
+    guests = mkOption {
       default = { };
       description = ''
-        List of network interfaces to attach to the microVMs.
+        MicroVMs with networking. Every microVM gets its own tap interface on the host
+        (`tap-<name>`), routed by the host: the guest is IPv6 only and gets its address
+        out of the fleet ULA prefix (`mine.guestUla`).
       '';
-      type = attrsOf (
-        submodule (mod: {
-          options = {
-            interface = mkOption {
-              type = str;
-              description = ''
-                Network interface name seen from the host.
-                Uses the network name by default.
-                Each member will create an interface with the <name>number pattern.
-              '';
-              default = last mod._prefix;
-              example = "vm-net";
-            };
-
-            members = mkOption {
-              type = listOf str;
-              description = ''
-                List of microVM names to attach this network to.
-              '';
-              default = [ ];
-              example = [
-                "vm1"
-                "vm2"
-              ];
-            };
-
-            address = mkOption {
-              type = ipNetwork;
-              description = ''
-                Address of the host side of the network and its network range. The host will always be x.y.z.0. if it is part of the subnet.
-              '';
-              default = null;
-              example = "10.33.0.0/24";
-            };
-
-            host = mkOption {
-              type = bool;
-              description = ''
-                Whether to assign the host an IP address on this network. (This will be the .0 address of the subnet.)
-                If set to false, the host will not have an IP on this network and will not be part of the subnet.
-              '';
-              default = true;
-              example = false;
-            };
-
-            nat = mkOption {
-              type = bool;
-              description = ''
-                Whether to enable NAT/Internet access for this network. Uses the `mine.vm.externalInterface` as upstream interface.
-                This requires that the host has an IP address on this network (i.e., `host` is true).
-              '';
-              default = false;
-              example = true;
-            };
-
-            memberAddresses = mkOption {
-              type = attrsOf ip;
-              description = ''
-                Map of microVM name to IP address to assign to that microVM on this network.
-              '';
-              readOnly = true;
-              example = {
-                vm1 = "10.33.0.1";
-                vm2 = "10.33.0.2";
-              };
-            };
-
-            memberMacs = mkOption {
-              type = attrsOf str;
-              description = ''
-                Map of microVM name to MAC address to assign to that microVM on this network.
-              '';
-              readOnly = true;
-              example = {
-                vm1 = "02:7a:01:00:00:01";
-                vm2 = "02:7a:01:00:00:02";
-              };
-            };
-
-            netdevRuleName = mkOption {
-              type = str;
-              description = ''
-                Name of the netdev config rule that created the virtual switch/network.
-                This rule must be processed before the memberRule.
-              '';
-              default = "10-microvm-${last mod._prefix}";
-              example = "10-microvm-vm-net";
-            };
-
-            memberRuleName = mkOption {
-              type = str;
-              description = ''
-                Name of the network config rule that created network interfaces for each virtual machine parts of this network.
-                This rule must be processed after the netdevRule.
-              '';
-              default = "11-microvm-${last mod._prefix}";
-              example = "11-microvm-vm-net";
-            };
-
-            vmInterface = mkOption {
-              type = str;
-              description = ''
-                Name of the network interface inside the microVMs.
-                Defaults to the same name as the host interface name.
-              '';
-              default = mod.config.interface;
-              example = "wan";
-            };
-
-            vmLinkRenameRuleName = mkOption {
-              type = str;
-              description = ''
-                Name of the link config rule created for this network's member interfaces inside the microVMs.
-                Defaults to "10-wan-<interface>".
-              '';
-              default = "10-wan";
-              example = "10-wan";
-            };
+      type = attrsOf (submodule ({ name, ... }: {
+        options = {
+          tap = mkOption {
+            type = str;
+            readOnly = true;
+            default = "tap-${name}";
+            description = "Name of the tap interface on the host.";
           };
 
-          config =
-            let
-              enumeratedMembers = imap1 (memberIndex: name: { inherit name memberIndex; }) mod.config.members;
-              networkIndex =
-                (head (filter (entry: entry.name == last mod._prefix) enumeratedNetworks)).networkIndex;
-            in
-            {
-              memberAddresses = mkMerge (
-                map
-                  (entry: {
-                    "${entry.name}" = noxa.lib.net.assignAddress mod.config.address entry.memberIndex;
-                  })
-                  enumeratedMembers
-              );
+          mac = mkOption {
+            type = str;
+            readOnly = true;
+            # derived from the name only, so it is stable
+            default =
+              let
+                hash = hashString "sha256" "microvm-mac:${name}";
+              in
+              "02:7a:${concatMapStringsSep ":" (i: substring (i * 2) 2 hash) (range 0 3)}";
+            description = "MAC address of the microVM's interface.";
+          };
+        };
+      }));
+    };
 
-              memberMacs = mkMerge (
-                map
-                  (entry: {
-                    "${entry.name}" =
-                      let
-                        spaceZero = x: if x < 16 then "0${toHexString x}" else toHexString x;
-                        mac = "02:7a:${spaceZero networkIndex}:00:00:${spaceZero entry.memberIndex}";
-                      in
-                      #trace "Debug: Assigning MAC address ${mac} to microVM ${entry.name} on network ${mod.config.interface}" mac;
-                      mac;
-                  })
-                  enumeratedMembers
-              );
-            };
-        })
-      );
+    networks = mkOption {
+      default = { };
+      description = ''
+        Groups of microVMs (`mine.vm.guests`) that may reach each other, in both directions.
+        microVMs that share no network are isolated from each other, and nothing else is
+        forwarded to or from them. The special members grant additional access:
+        - `<internet>`: the members may open connections to the internet, through the
+          host's NAT64 in its own network namespace (IPv4 masqueraded to
+          `mine.wanInterfaces`), and a CLAT inside them for IPv4 literals.
+        - `<ula>`: the members and every address of the fleet ULA prefix (`noxa.ula.prefix`),
+          e.g. the WireGuard peers and all other microVMs, may reach each other (subject to
+          the host's forward chain).
+        - `<host>`: the members and the host may reach each other (the host's services
+          subject to its firewall). Without it only the host's DNS resolver for the
+          microVMs is reachable, and the host opens no connections to the members.
+      '';
+      type = attrsOf (submodule {
+        options.members = mkOption {
+          type = listOf str;
+          default = [ ];
+          example = [ "vm1" "vm2" "<internet>" ];
+          description = "The microVMs of this network, and the special members `<internet>`, `<host>` and `<ula>`.";
+        };
+      });
+    };
+
+    guestInterface = mkOption {
+      type = str;
+      default = "uplink";
+      description = "Name of the network interface inside the microVMs.";
+    };
+
+    forwardRules = mkOption {
+      type = lines;
+      readOnly = true;
+      default = concatStringsSep "\n"
+        (mapAttrsToList
+          (name: network:
+            let
+              taps = map (member: cfg.guests.${member}.tap) (guestMembers network);
+            in
+            optionalString (length taps > 1) ''
+              # microVM network ${name}
+              iifname ${set taps} oifname ${set taps} accept
+            '')
+          cfg.networks);
+      description = ''
+        nftables rules allowing the traffic between the microVMs of each network, to be
+        included in the host's forward chain (with a drop policy), next to
+        `mine.nat64.forwardRules`.
+      '';
     };
   };
 
-  config =
-    let
-      cfg = config.mine.vm;
-      microvm = self.lib.evalMissingOption config "microvm" { vms = { }; };
-    in
-    mkIf ((options.microvm or null) != null) (
+  config = mkIf (cfg.guests != { }) ({
+    warnings = map
+      (name: "mine.vm.networks: ${name} has <ula> but not <host>, <ula> implies <host>.")
+      (filter (name: sharesNetworkWith ulaMember name && !sharesNetworkWith hostMember name) (attrNames cfg.guests));
+
+    assertions = [
       {
-        assertions =
-          with noxa.lib.ansi;
-          mkMerge
-
-            (
-              (mapAttrsToList
-                (name: network: [
-                  # member not part of microvm declaration
-                  {
-                    assertion = all (vmName: hasAttr vmName microvm.vms) (network.members);
-                    message = "${bold + fgYellow}MicroVM network configuration error: ${italic}mine.vm.'${fgCyan + name + fgYellow}'.network.members${noItalic} references unknown VM(s): ${fgRed}${
-                    concatStringsSep ", " (filter (vmName: !hasAttr vmName microvm.vms) network.members)
-                  }${fgYellow}. Did you declare them in ${fgGreen}microvm.vms.<name>${fgYellow}? ${
-                    fgCyan + (toJSON network.members) + reset
-                  }";
-                  }
-                  # member address name not part of members declaration
-                  {
-                    assertion = all (vmName: elem vmName network.members) (attrNames network.memberAddresses);
-                    message = "${bold + fgYellow}MicroVM network configuration error: ${italic}mine.vm.'${fgCyan + name + fgYellow}'.network.memberAddresses${noItalic} references unknown VM(s): ${fgRed}${
-                    concatStringsSep ", " (filter (vmName: !hasAttr vmName microvm.vms) network.memberAddresses)
-                  }${fgYellow}. Did you declare them in ${fgGreen}mine.vm.network.<name>.members${fgYellow}?${reset}";
-                  }
-                  # member address not part of subnet
-                  {
-                    assertion = all (address: noxa.lib.net.laysWithinSubnet address network.address) (
-                      attrValues network.memberAddresses
-                    );
-                    message = "${bold + fgYellow}MicroVM network configuration error: ${italic}mine.vm.'${fgCyan + name + fgYellow}'.network.memberAddresses${noItalic} references unknown VM(s): ${fgRed}${
-                    concatStringsSep ", " (filter (vmName: !hasAttr vmName microvm.vms) network.memberAddresses)
-                  }${fgYellow}. Did you declare them in ${fgGreen}microvm.vms.<name>${fgYellow}?${reset}";
-                  }
-                  # rule name check
-                  {
-                    assertion = network.netdevRuleName != network.memberRuleName;
-                    message = "${bold + fgYellow}MicroVM network configuration error: The netdev rule name and member rule name for network ${
-                    fgCyan + network.netdevRuleName + fgYellow
-                  } are identical. They must be different.${reset}";
-                  }
-                  # check max length of interface names
-                  {
-                    assertion = stringLength network.interface <= 15;
-                    message = "${bold + fgYellow}MicroVM network configuration error: The interface name ${
-                    fgCyan + network.interface + fgYellow
-                  } is too long (max 15 characters due to Linux limitations).${reset}";
-                  }
-                  {
-                    assertion = stringLength network.vmInterface <= 15;
-                    message = "${bold + fgYellow}MicroVM network configuration error: The VM interface name ${
-                    fgCyan + network.vmInterface + fgYellow
-                  } is too long (max 15 characters due to Linux limitations).${reset}";
-                  }
-                  {
-                    assertion = length network.members < 255;
-                    message = "You reached the artificial limit of 255 members per network. This limitations is due to the lack of MAC parsing. Feel free to open a pull request.";
-                  }
-                ])
-                cfg.networks)
-              ++ [
-                [
-                  {
-                    assertion = length (attrNames cfg.networks) < 255;
-                    message = "You reached the artificial limit of 255 networks. This limitations is due to the lack of MAC parsing. Feel free to open a pull request.";
-                  }
-                ]
-              ]
-            );
-
-        systemd.network = {
-          enable = true;
-
-          netdevs = mkMerge (
-            (map
-              (network: {
-                "${network.netdevRuleName}" = {
-                  netdevConfig = {
-                    Kind = "bridge";
-                    Name = network.interface;
-                  };
-                };
-              })
-              (attrValues cfg.networks))
-          );
-
-          networks = mkMerge (
-            (map
-              (network: {
-                "${network.netdevRuleName}" = {
-                  matchConfig.Name = "${network.interface}";
-                  addresses = [
-                    {
-                      Address = network.address;
-                    }
-                  ];
-                };
-                "${network.memberRuleName}" = {
-                  matchConfig.Name = "${network.interface}-*";
-                  networkConfig.Bridge = network.interface;
-                };
-              })
-              (attrValues cfg.networks))
-          );
-        };
-
-        networking.nat = mkIf (any (network: network.nat) (attrValues cfg.networks)) {
-          enable = true;
-          internalInterfaces = map (network: network.interface) (
-            filter (network: network.nat) (attrValues cfg.networks)
-          );
-        };
-
+        assertion = all (name: hasAttr name (config.microvm.vms or { })) (attrNames cfg.guests);
+        message = "mine.vm.guests: ${toJSON (filter (name: !hasAttr name (config.microvm.vms or { })) (attrNames cfg.guests))} are not declared in microvm.vms.";
       }
-      // (
-        if ((options.microvm or null) != null) then
-          {
-            microvm.vms = mkMerge (
-              map
-                (
-                  entry:
-                  let
-                    network = entry.value.network;
-                  in
-                  mkMerge (
-                    map
-                      (member: {
-                        "${member.name}".config = {
-                          microvm.interfaces = [
-                            {
-                              type = "tap";
-                              id = "${network.interface}-${toString member.memberIndex}";
-                              mac = network.memberMacs.${member.name};
-                              tap.vhost = true;
-                            }
-                          ];
+      {
+        assertion = all (network: all (member: hasAttr member cfg.guests) (guestMembers network)) (attrValues cfg.networks);
+        message = "mine.vm.networks: every member must be declared in mine.vm.guests (or be one of ${toJSON specialMembers}).";
+      }
+      {
+        assertion = all (guest: stringLength guest.tap <= 15) (attrValues cfg.guests);
+        message = "mine.vm.guests: tap interface names must be at most 15 characters, shorten the microVM names to at most 11.";
+      }
+      {
+        assertion = nat64.wanInterfaces == [ ] -> all (name: !sharesNetworkWith internetMember name) (attrNames cfg.guests);
+        message = "mine.vm.networks: <internet> needs mine.wanInterfaces (or mine.nat64.wanInterfaces).";
+      }
+      {
+        # Jool in the host's namespace translates in prerouting, before the forward chain
+        assertion = attrNames config.networking.jool.nat64 == optional nat64.enable "nat64" && config.networking.jool.siit == { };
+        message = "mine.vm.guests: no other Jool instances than mine.nat64 on a host with microVMs, they would translate the microVMs' traffic before the forward chain filters it.";
+      }
+      {
+        assertion = allUnique (map (guest: guest.mac) (attrValues cfg.guests));
+        message = "mine.vm.guests: two microVMs got the same MAC address, rename one of them.";
+      }
+    ];
 
-                          systemd.network.links."${network.vmLinkRenameRuleName}" = {
-                            matchConfig.PermanentMACAddress = network.memberMacs.${member.name};
-                            linkConfig.Name = network.interface;
-                          };
+    # host side of each tap: next hop of the guest, route to the guest's address
+    systemd.network = {
+      enable = true;
+      networks = mapAttrs'
+        (name: guest: nameValuePair "20-microvm-${name}" {
+          matchConfig.Name = guest.tap;
+          addresses = [
+            { Address = "${ula.hostAddress}/128"; }
+            # the DNS resolver of the microVMs
+            { Address = "${ula.dnsAddress}/128"; }
+          ];
+          routes = [{ Destination = "${ula.addresses.${name}}/128"; }];
+        })
+        cfg.guests;
+    };
 
-                          networking.interfaces."${network.interface}" = {
-                            ipv4.addresses =
-                              let
-                                address = noxa.lib.net.decompose network.memberAddresses.${member.name};
-                              in
-                              [
-                                {
-                                  address = address.addressNoMask;
-                                  prefixLength = address.mask;
-                                }
-                              ];
-                          };
+    boot.kernel.sysctl."net.ipv6.conf.all.forwarding" = mkDefault true;
 
-                          networking.defaultGateway = {
-                            address = (noxa.lib.net.decompose network.address).networkNoMask;
-                            interface = network.interface;
-                          };
-                        };
-                      })
-                      entry.value.membersEnumerated
-                  )
-                )
-                (
-                  self.lib.enumerateAttrs (
-                    mapAttrs
-                      (name: value: {
-                        membersEnumerated = imap1 (memberIndex: name: { inherit name memberIndex; }) value.members;
-                        network = value;
-                      })
-                      cfg.networks
-                  )
-                )
-            );
-          }
-        else
-          { }
-      )
-    );
+    # the NAT64 of the <internet> members
+    mine.nat64 = mkIf (internetTaps != [ ]) {
+      enable = true;
+      clients = internetTaps;
+    };
+
+    # the resolver of the microVMs (DNS64 happens inside them)
+    services.unbound.settings.server = {
+      interface = [ ula.dnsAddress ];
+      access-control = [ "${ula.network} allow" ];
+      # the address is configured on the taps by networkd, possibly after unbound started
+      ip-freebind = true;
+    };
+    networking.firewall.interfaces = mapAttrs'
+      (name: guest: nameValuePair guest.tap {
+        allowedUDPPorts = [ 53 ];
+        allowedTCPPorts = [ 53 ];
+      })
+      cfg.guests;
+
+    networking.nftables.enable = true;
+    networking.nftables.tables.microvm-guests-arp = {
+      family = "arp";
+      content = ''
+        chain input {
+          type filter hook input priority filter; policy accept;
+          iifname ${taps} drop
+        }
+
+        chain output {
+          type filter hook output priority filter; policy accept;
+          oifname ${taps} drop
+        }
+      '';
+    };
+
+    networking.nftables.tables.microvm-guests = {
+      family = "inet";
+      content = ''
+        chain prerouting {
+          type filter hook prerouting priority mangle; policy drop;
+          ${preroutingRules}
+        }
+
+        chain input {
+          type filter hook input priority filter - 1; policy drop;
+          ${inputRules}
+        }
+
+        chain forward {
+          type filter hook forward priority filter - 1; policy drop;
+          ${forwardChainRules}
+        }
+
+        chain output {
+          type filter hook output priority filter - 1; policy drop;
+          ${outputRules}
+        }
+      '';
+    };
+  } // optionalAttrs (options ? microvm) {
+    # (microvm.vms only exists with the microvm host module)
+    microvm.vms = mapAttrs
+      (name: guest: {
+        config = {
+          microvm.interfaces = [
+            {
+              type = "tap";
+              id = guest.tap;
+              inherit (guest) mac;
+              tap.vhost = true;
+            }
+          ];
+
+          systemd.network.links."10-${cfg.guestInterface}" = {
+            matchConfig.PermanentMACAddress = guest.mac;
+            linkConfig.Name = cfg.guestInterface;
+          };
+
+          networking.interfaces.${cfg.guestInterface}.ipv6 = {
+            addresses = [
+              {
+                address = ula.addresses.${name};
+                prefixLength = 128;
+              }
+            ];
+            routes = [
+              {
+                address = ula.hostAddress;
+                prefixLength = 128;
+              }
+            ];
+          };
+          networking.defaultGateway6 = {
+            address = ula.hostAddress;
+            interface = cfg.guestInterface;
+          };
+
+          # IPv6 only with a ULA: every name resolves to its NAT64 address, resolution
+          # itself is forwarded to the host
+          networking.nameservers = mkForce [ "::1" ];
+
+          # 464XLAT with <internet>: the IPv4 of applications (e.g. literal addresses) is
+          # translated to IPv6 inside the VM (CLAT), from its own address (clatd's default
+          # clat-v6-addr=shared), the host's NAT64 translates it back
+          services.clatd = mkIf (hasInternet name) {
+            enable = true;
+            settings = {
+              plat-dev = cfg.guestInterface;
+              plat-prefix = nat64Prefix;
+            };
+          };
+          services.unbound = {
+            enable = true;
+            resolveLocalQueries = false;
+            settings = {
+              server = {
+                interface = [ "::1" ];
+                access-control = [ "::1/128 allow" ];
+                module-config = ''"dns64 iterator"'';
+                dns64-prefix = nat64Prefix;
+                dns64-synthall = true;
+              };
+              forward-zone = [
+                {
+                  name = ".";
+                  forward-addr = [ ula.dnsAddress ];
+                }
+              ];
+            };
+          };
+        };
+      })
+      cfg.guests;
+  });
 }

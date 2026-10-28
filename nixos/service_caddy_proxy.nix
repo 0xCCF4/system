@@ -1,6 +1,7 @@
 { lib
 , config
 , noxa
+, self
 , ...
 }:
 with lib;
@@ -237,6 +238,24 @@ with lib;
         '';
         example = "mailto:security@example.com";
       };
+      expires = mkOption {
+        type = types.str;
+        default =
+          let
+            # flake commit time, YYYYMMDDHHMMSS
+            d = self.lastModifiedDate;
+            part = start: len: substring start len d;
+            monthDay = if part 4 4 == "0229" then "02-28" else "${part 4 2}-${part 6 2}";
+          in
+          "${toString (toInt (part 0 4) + 1)}-${monthDay}T${part 8 2}:${part 10 2}:${part 12 2}Z";
+        defaultText = literalExpression "<flake commit time + 1 year>";
+        description = ''
+          `Expires` field of every route's `.well-known/security.txt` (RFC 9116, required).
+          Defaults to one year after the commit the configuration was built from, so it
+          moves forward with every deployment.
+        '';
+        example = "2027-01-01T00:00:00Z";
+      };
     };
 
   };
@@ -246,11 +265,6 @@ with lib;
       cfg = config.mine.services.caddyProxy;
       routesPublic = filterAttrs (_: route: route.public.enable) cfg.routes;
       anubisRoutes = filterAttrs (_: route: route.anubis.enable) cfg.routes;
-
-      # This host's own address on a wireguard network, mask stripped.
-      wgSelfAddress =
-        network:
-        (noxa.lib.net.decompose (head config.noxa.wireguard.interfaces.${network}.deviceAddresses)).addressNoMask;
 
       wgDefaultHostname =
         routeName: network: "${routeName}${config.noxa.wireguard.interfaces.${network}.dns.domain}";
@@ -312,6 +326,8 @@ with lib;
         + (optionalString route.securityTxt.enable ''
           respond /.well-known/security.txt <<SECURITY_TXT
           Contact: ${securityTxtContact route}
+          Expires: ${cfg.securityTxt.expires}
+
           SECURITY_TXT 200
         '')
         + (optionalString route.hardenHeaders.enable ''
@@ -386,12 +402,24 @@ with lib;
         )
         routesPublic;
 
-      dnsHostsOverrides = mkMerge (map (e: { ${e.hostname} = [ (wgSelfAddress e.network) ]; }) wgEntries);
+      # The caddy container is reachable over WireGuard on its ULA (mine.guestUla),
+      # both this host and the peers resolve the hostnames to it
+      caddyUla = config.mine.guestUla.addresses.caddy or null;
+
+      dnsHostsOverrides = mkMerge (map (e: { ${e.hostname} = [ caddyUla ]; }) wgEntries);
+
+      wgPeerDnsEntries = mkMerge (map (e: { ${e.network}.dns.extraHosts.${e.hostname} = [ caddyUla ]; }) wgEntries);
     in
     mkMerge [
       {
         assertions =
-          (mapAttrsToList
+          [
+            {
+              assertion = wgEntries != [ ] -> caddyUla != null;
+              message = "mine.services.caddyProxy: routes exposed on WireGuard networks require the caddy container in mine.guestUla.containers.";
+            }
+          ]
+          ++ (mapAttrsToList
             (routeName: route: {
               assertion = route.public.enable -> route.public.domain != null;
               message = "mine.services.caddyProxy.routes.${routeName}: public.domain must be set when public.enable is true.";
@@ -422,6 +450,7 @@ with lib;
             cfg.routes);
 
         mine.dns.hosts = dnsHostsOverrides;
+        noxa.wireguard.interfaces = wgPeerDnsEntries;
       }
       # Only touch the caddy container's own config on the host that actually
       # declares routes (lux). Every host imports this module, and cfg.routes

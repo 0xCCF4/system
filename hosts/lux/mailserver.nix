@@ -44,12 +44,6 @@ with lib;
       mailSubdomains = config.mine.services.powerdns.mailSubdomains;
       mailDomains = [ domain ] ++ mailSubdomains;
 
-      # Submission/IMAP are only reachable via cloud-admin: lux's own address
-      # there, proxied into the container (see mail-proxy-* below). Peers
-      # resolve mail.<domain> to it, so the certificate still matches.
-      wgAddress = (noxa.lib.net.decompose (head config.noxa.wireguard.interfaces.cloud-admin.deviceAddresses)).addressNoMask;
-      proxiedPorts = { imaps = 993; submissions = 465; };
-
       autoconfigXml = ''
         <?xml version="1.0" encoding="UTF-8"?>
         <clientConfig version="1.1">
@@ -105,9 +99,10 @@ with lib;
         }
       ];
 
-      age.secrets = listToAttrs (map
-        (name: nameValuePair (passwordIdentifier name) { name = "mailserver-${name}-password"; })
-        passwordAccounts) // {
+      age.secrets = listToAttrs
+        (map
+          (name: nameValuePair (passwordIdentifier name) { name = "mailserver-${name}-password"; })
+          passwordAccounts) // {
         ${dkimKeyIdentifier}.name = "mailserver-dkim-key";
       };
 
@@ -127,7 +122,7 @@ with lib;
 
       containers.caddy.config.services.caddy.virtualHosts = {
         "http://${fqdn}".extraConfig = ''
-          reverse_proxy /.well-known/acme-challenge/* [${localAddress6}]:80
+          reverse_proxy /.well-known/acme-challenge/* [${config.containers.mailserver.localAddress6}]:80
           respond 404
         '';
 
@@ -137,32 +132,12 @@ with lib;
         ${domain}.extraConfig = autoconfigResponse "/.well-known/autoconfig/mail/config-v1.1.xml";
       };
 
-      networking.firewall.interfaces.cloud-admin.allowedTCPPorts = attrValues proxiedPorts;
-      noxa.wireguard.interfaces.cloud-admin.dns.extraNames = [ fqdn ];
-      systemd.sockets = mapAttrs'
-        (name: port: nameValuePair "mail-proxy-${name}" {
-          wantedBy = [ "sockets.target" ];
-          listenStreams = [ "${wgAddress}:${toString port}" ];
-          # cloud-admin may come up after sockets.target
-          socketConfig.FreeBind = true;
-        })
-        proxiedPorts;
-      systemd.services = mapAttrs'
-        (name: port: nameValuePair "mail-proxy-${name}" {
-          requires = [ "mail-proxy-${name}.socket" ];
-          after = [ "mail-proxy-${name}.socket" ];
-          serviceConfig = {
-            ExecStart = "${config.systemd.package}/lib/systemd/systemd-socket-proxyd ${localAddress6}:${toString port}";
-            DynamicUser = true;
-            PrivateTmp = true;
-          };
-        })
-        proxiedPorts // {
-        "container@mailserver".postStart = mkAfter ''
-          systemctl --machine=mailserver start --no-block ${escapeShellArg "acme-order-renew-${fqdn}.service"} \
-            || echo "could not trigger the ACME order in the mailserver container" >&2
-        '';
-      };
+      mine.guestUla.containers = [ "mailserver" ];
+      noxa.wireguard.interfaces.cloud-admin.dns.extraHosts.${fqdn} = [ config.mine.guestUla.addresses.mailserver ];
+      systemd.services."container@mailserver".postStart = mkAfter ''
+        systemctl --machine=mailserver start --no-block ${escapeShellArg "acme-order-renew-${fqdn}.service"} \
+          || echo "could not trigger the ACME order in the mailserver container" >&2
+      '';
 
       containers.mailserver = {
         autoStart = true;
@@ -247,6 +222,11 @@ with lib;
             "${pkgs.gnugrep}/bin/grep -qx 1 /sys/class/net/eth0/carrier";
 
           services.postfix.settings.main.inet_protocols = "ipv6";
+
+          # rspamd's url_redirector requests the URL shorteners found in mails (bit.ly
+          # etc.) to resolve them: per-recipient tracking links would confirm to the
+          # sender that the address is live and the mail arrived.
+          services.rspamd.overrides."url_redirector.conf".text = "enabled = false;";
 
           # The bind-mounted secret is root-only; hand rspamd its own copy.
           systemd.services.rspamd.serviceConfig.LoadCredential =

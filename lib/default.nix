@@ -3,15 +3,10 @@ with lib;
 with builtins;
 let
   binaryWallpapers = import ./binaryWallpapers;
-  ipv6 = import ./ipv6.nix {
-    inherit lib;
-    netLib = inputs.noxa.inputs.nix-net-lib.lib;
-  };
 in
 {
   flake = {
     lib = rec {
-      inherit (ipv6) hashedIpv6Address;
       evalMissingOption =
         config: option: default:
         evalMissingOption' false config option default;

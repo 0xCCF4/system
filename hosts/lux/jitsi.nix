@@ -22,6 +22,7 @@ with lib;
       hostConfig = config;
 
       jitsiDomain = config.mine.services.matrix.domains.jitsi;
+      turnDomain = config.mine.services.matrix.domains.turn;
       jvbPort = 10000;
 
       hostAddress6 = luxAddr6For "fc00::/64" "jitsi-veth-host";
@@ -73,6 +74,14 @@ with lib;
             secureDomain.enable = waitingRoomEnabled;
 
             videobridge.enable = true;
+
+            # merged into upstream's config.js: P2P calls use our coturn instead of 8x8's
+            # STUN server (meet-jit-si-turnrelay.jitsi.net), no Gravatar or other
+            # third-party requests from the browsers
+            config = {
+              p2p.stunServers = [{ urls = "stun:${turnDomain}:3478"; }];
+              disableThirdPartyRequests = true;
+            };
           };
 
           services.caddy.globalConfig = ''

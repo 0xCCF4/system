@@ -37,6 +37,10 @@ with builtins;
       grim
       slurp
       wl-clipboard
+      # session-only monitor layout changes
+      wdisplays
+      wlr-randr
+      wl-mirror
     ];
   };
 

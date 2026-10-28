@@ -72,6 +72,15 @@ with builtins;
           "plaintext" = true;
         };
         "git.addAICoAuthor" = "off";
+        # stylix's comment color (base03) is unreadable on the diff backgrounds
+        "editor.tokenColorCustomizations".comments = config.lib.stylix.colors.withHashtag.base04;
+        # fainter diff backgrounds (alpha suffix), changed characters stand out a bit more than lines
+        "workbench.colorCustomizations" = with config.lib.stylix.colors.withHashtag; {
+          "diffEditor.insertedLineBackground" = "${base0B}14";
+          "diffEditor.removedLineBackground" = "${base08}14";
+          "diffEditor.insertedTextBackground" = "${base0B}33";
+          "diffEditor.removedTextBackground" = "${base08}33";
+        };
       };
     };
   };

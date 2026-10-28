@@ -12,8 +12,6 @@ with lib;
     system.stateVersion = hostConfig.system.stateVersion;
     networking.hostName = "vm-${vmName}";
 
-    networking.enableIPv6 = false;
-
     microvm.hypervisor = mkDefault "qemu";
 
     microvm.shares = [

@@ -201,6 +201,18 @@ with lib;
               url_preview_ip_range_blacklist = urlPreviewIpBlacklist;
               max_upload_size = "50M";
 
+              # push gateways (e.g. matrix.org's for Element) only get the event and room
+              # IDs, the clients fetch the content from this server; the jitter blurs the
+              # timing of the messages
+              push = {
+                include_content = false;
+                jitter_delay = "10s";
+              };
+
+              # profiles (display names, avatars, which accounts exist) only for logged in
+              # users (client API only, federation lookups are separate)
+              require_auth_for_profile_requests = true;
+
               turn_uris = [
                 "turn:${turnDomain}:3478?transport=udp"
                 "turn:${turnDomain}:3478?transport=tcp"

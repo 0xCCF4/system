@@ -14,20 +14,18 @@ let
 
   mkInstallerIso =
     host:
-    (self.noxaConfiguration.extendModules {
+    (self.nixosConfigurations.${host}.extendModules {
       modules = [
         {
-          nodes.${host}.configuration = {
-            imports = [ inputs.nixos-generators.nixosModules.install-iso ];
+          imports = [ inputs.nixos-generators.nixosModules.install-iso ];
 
-            system.stateVersion = mkForce "25.11";
+          system.stateVersion = mkForce "25.11";
 
-            mine.boot.remoteUnlock = mkForce false;
-            mine.boot.tor.enable = mkForce false;
-          };
+          mine.boot.remoteUnlock = mkForce false;
+          mine.boot.tor.enable = mkForce false;
         }
       ];
-    }).config.nodes.${host}.configuration.system.build.isoImage;
+    }).config.system.build.isoImage;
 in
 {
   perSystem = { system, ... }: {
