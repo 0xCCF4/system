@@ -20,6 +20,9 @@ let
   # the IPv4 link, the end of 100.64.0.0/10 (shared address space, unlikely to be in use)
   ipv4Host = "100.127.255.253";
   ipv4 = "100.127.255.254";
+  # pool4 must not intersect the namespace's ephemeral ports (Jool refuses), the namespace
+  # opens no sockets of its own yet, so they shrink to the top 1024 ports
+  ephemeralPorts = { start = 64512; end = 65535; };
 
   forwardedPorts = protocol: unique (map (forward: forward.port) (filter (forward: forward.protocol == protocol) cfg.portForwards));
   # consecutive ports as ranges, e.g. [ 1 2 3 5 ] -> [ "1-3" "5" ]
@@ -152,6 +155,10 @@ in
         message = "mine.nat64.wanInterfaces must be set.";
       }
       {
+        assertion = all (forward: forward.port < ephemeralPorts.start) cfg.portForwards;
+        message = "mine.nat64.portForwards: ports must be below ${toString ephemeralPorts.start} (the NAT64 namespace's ephemeral ports, outside of pool4).";
+      }
+      {
         assertion = attrNames config.networking.jool.nat64 == [ "nat64" ] && config.networking.jool.siit == { };
         message = "mine.nat64: no other Jool instances, in the host's namespace they translate before the forward chain filters.";
       }
@@ -179,7 +186,8 @@ in
         ip -n ${netns} -6 route add default via ${hostLinkLocal} dev ${innerInterface}
         ip netns exec ${netns} sysctl -w net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1 \
           net.ipv4.conf.all.send_redirects=0 net.ipv4.conf.${innerInterface}.send_redirects=0 \
-          net.ipv6.conf.${innerInterface}.accept_ra=0
+          net.ipv6.conf.${innerInterface}.accept_ra=0 \
+          "net.ipv4.ip_local_port_range=${toString ephemeralPorts.start} ${toString ephemeralPorts.end}"
       '' + optionalString (!config.systemd.network.enable) ''
         # the host side (by networkd if enabled)
         sysctl -w net.ipv6.conf.${cfg.interface}.addr_gen_mode=1
@@ -190,6 +198,9 @@ in
       '';
       postStop = "ip netns delete ${netns}";
     };
+
+    # (no DHCP / IPv4LL on the veth)
+    networking.dhcpcd.denyInterfaces = [ cfg.interface ];
 
     systemd.network.networks."20-nat64" = mkIf config.systemd.network.enable {
       matchConfig.Name = cfg.interface;
@@ -214,7 +225,7 @@ in
           (protocol: {
             inherit protocol;
             prefix = "${ipv4}/32";
-            "port range" = "1-65535";
+            "port range" = "1-${toString (ephemeralPorts.start - 1)}";
           }) [ "TCP" "UDP" "ICMP" ];
         bib = map
           (forward: {
