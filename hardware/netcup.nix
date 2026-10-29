@@ -43,7 +43,24 @@ with lib;
   services.qemuGuest.enable = mkDefault true;
   nixpkgs.hostPlatform = mkDefault "x86_64-linux";
 
-  # Networking
+  # Networking, static
+  assertions = [
+    {
+      assertion = config.mine.info.public.ipv4 != null -> config.mine.info.public.ipv4PrefixLength != null && config.mine.info.public.ipv4Gateway != null;
+      message = "hardware/netcup.nix: mine.info.public.ipv4 needs ipv4PrefixLength and ipv4Gateway.";
+    }
+  ];
+  networking.useDHCP = false;
+  networking.interfaces.wan.ipv4.addresses = mkIf (config.mine.info.public.ipv4 != null) [
+    {
+      address = config.mine.info.public.ipv4;
+      prefixLength = config.mine.info.public.ipv4PrefixLength;
+    }
+  ];
+  networking.defaultGateway = mkIf (config.mine.info.public.ipv4 != null) {
+    address = config.mine.info.public.ipv4Gateway;
+    interface = "wan";
+  };
   networking.interfaces.wan.ipv6.addresses = mkIf (config.mine.info.public.ipv6 != null) [
     {
       address = config.mine.info.public.ipv6;

@@ -178,10 +178,6 @@ with lib;
                 address = "10.10.10.1";
                 prefixLength = 24;
               }
-              {
-                address = "130.83.162.129";
-                prefixLength = 29;
-              }
             ];
           };
         };

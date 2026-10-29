@@ -42,7 +42,7 @@ with lib;
                         Explicit hostname for this network. Leave unset to use the
                         auto-derived hostname instead.
                       '';
-                      example = "todos.johmat.de";
+                      example = "todos.example.com";
                     };
                     cert = mkOption {
                       type = types.bool;

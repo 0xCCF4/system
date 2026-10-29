@@ -37,7 +37,25 @@ with noxa.lib.net.types;
       description = ''
         This host's public IPv4 address.
       '';
-      example = "5.252.225.58";
+      example = "192.0.2.10";
+    };
+
+    ipv4PrefixLength = mkOption {
+      type = nullOr (ints.between 0 32);
+      default = null;
+      description = ''
+        The prefix length of this host's public IPv4 network.
+      '';
+      example = 24;
+    };
+
+    ipv4Gateway = mkOption {
+      type = nullOr ip4NoMask;
+      default = null;
+      description = ''
+        The default gateway of this host's public IPv4 network.
+      '';
+      example = "192.0.2.1";
     };
 
     ipv6 = mkOption {
