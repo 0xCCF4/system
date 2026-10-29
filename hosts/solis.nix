@@ -42,7 +42,7 @@ with lib;
       mine.admins = [ "mx" ];
       users.groups.dialout.members = [ "mx" ];
 
-      mine.virtualization.virtualBox = true;
+      #mine.virtualization.virtualBox = true;
       users.groups.virtualbox.members = [ "mx" ];
 
       mine.persistence.enable = true;
