@@ -86,7 +86,17 @@ with lib;
           mkIf persistResolverCache [
             { directory = "/var/cache/private/dnscrypt-proxy"; mode = "0700"; }
           ];
-        systemd.tmpfiles.rules = mkIf persistResolverCache [ "d /var/cache/private 0700 root root -" ];
+        # systemd refuses CacheDirectory= for DynamicUser services unless
+        # /var/cache/private is 0700. Impermanence creates that parent in
+        # persistent storage as 0755 and `chmod --reference`s the live dir
+        # to it on every activation, so a tmpfiles rule gets undone on each
+        # switch. Fix the source (sticks for later activations) and the target.
+        system.activationScripts.dnscryptCachePrivateMode = mkIf persistResolverCache {
+          deps = [ "createPersistentStorageDirs" ];
+          text = ''
+            chmod 0700 ${escapeShellArg "${config.mine.persistence.cacheDirectory}/var/cache/private"} /var/cache/private
+          '';
+        };
       }
     ))
     {
