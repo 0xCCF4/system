@@ -96,9 +96,15 @@ in
                       group = if secret != null then secret.group else "0";
                       mode = if secret != null then secret.mode else "0400";
                     in
+                    # The owner is the host's (e.g. a user only the host knows, for a secret it
+                    # shares with workstations): fall back to root inside the container, where
+                    # such secrets are read by root anyway (e.g. LoadCredential=)
                     ''
                       install -D -o ${escapeShellArg owner} -g ${escapeShellArg group} -m ${mode} \
-                        ${escapeShellArg "/run/credentials/@system/${credentialName bind}"} ${escapeShellArg bind.mountPoint}
+                        ${escapeShellArg "/run/credentials/@system/${credentialName bind}"} ${escapeShellArg bind.mountPoint} \
+                      || { echo "${bind.mountPoint}: ${owner}:${group} unknown in this container, installing as root" >&2
+                           install -D -o 0 -g 0 -m ${mode} \
+                             ${escapeShellArg "/run/credentials/@system/${credentialName bind}"} ${escapeShellArg bind.mountPoint}; }
                     '')
                   secrets;
               };
