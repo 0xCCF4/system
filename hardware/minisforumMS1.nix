@@ -27,7 +27,6 @@ with lib;
 
   # Network configuration in initrd
   boot.initrd.systemd = {
-    enable = true;
     network = {
       enable = true;
       networks."lanLeft" = {

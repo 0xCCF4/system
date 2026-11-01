@@ -26,6 +26,20 @@ with lib;
     mkIf cfg.enable {
       services.displayManager.gdm.enable = mkDefault true;
       services.desktopManager.gnome.enable = mkDefault true;
+      services.avahi.enable = false;
+      services.gnome.gnome-remote-desktop.enable = false;
+      services.gnome.gnome-user-share.enable = false;
+      services.gnome.rygel.enable = false;
+      services.dleyna.enable = false;
+      services.gnome.localsearch.enable = false;
+      services.gnome.tinysparql.enable = false;
+      services.geoclue2.enable = false;
+      services.gnome.gnome-initial-setup.enable = false;
+      services.gnome.gnome-browser-connector.enable = false;
+      services.orca.enable = false; # screen reader, needs speechd
+      services.speechd.enable = false;
+      services.gnome.gnome-online-accounts.enable = false;
+      services.gnome.evolution-data-server.enable = mkForce false;
 
       services.gnome.core-apps.enable = mkOverride 900 false;
       environment.gnome.excludePackages = with pkgs; [

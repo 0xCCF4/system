@@ -40,7 +40,7 @@ with lib;
   hardware.enableRedistributableFirmware = true;
 
   # System configuration
-  services.qemuGuest.enable = mkDefault true;
+  mine.qemuGuestAgent.enable = mkDefault true;
   nixpkgs.hostPlatform = mkDefault "x86_64-linux";
 
   # Networking, static

@@ -41,6 +41,7 @@ with lib;
     "kvm-amd"
     "dm-snapshot"
   ];
+  boot.blacklistedKernelModules = [ "tiny_power_button" ];
   hardware.enableRedistributableFirmware = mkDefault true;
   hardware.cpu.amd.updateMicrocode = mkDefault true;
   hardware.graphics.enable = true;

@@ -65,6 +65,19 @@ in
       '';
     };
 
+    strictReversePath = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Strict reverse path check (uRPF) on `interfaces`: drop (and log) packets whose source
+        the host would not route back out of the interface they came in on. Catches spoofed
+        sources the static lists above can't know (e.g. another site's prefix arriving on the
+        uplink). Only on the untrusted interfaces, the global
+        `networking.firewall.checkReversePath` stays loose for the internal paths (WireGuard,
+        containers, NAT64).
+      '';
+    };
+
     extraSources = mkOption {
       type = listOf str;
       default = [ ];
@@ -87,6 +100,14 @@ in
           # :: only for duplicate address detection and MLD
           iifname ${interfaces} ip6 saddr :: meta l4proto != ipv6-icmp drop
           iifname ${interfaces} ip6 saddr { ${concatStringsSep ", " sources6} } drop
+          ${optionalString cfg.strictReversePath ''
+            # uRPF; DHCPv4 offers/acks reach a client before it has an address or route
+            iifname ${interfaces} udp sport 67 udp dport 68 accept
+            iifname ${interfaces} ip6 saddr != :: fib saddr . iif oif missing limit rate 6/minute burst 5 packets log prefix "martian-guard rpf: " level warn
+            iifname ${interfaces} ip6 saddr != :: fib saddr . iif oif missing drop
+            iifname ${interfaces} meta nfproto ipv4 fib saddr . iif oif missing limit rate 6/minute burst 5 packets log prefix "martian-guard rpf: " level warn
+            iifname ${interfaces} meta nfproto ipv4 fib saddr . iif oif missing drop
+          ''}
         }
       '';
     };

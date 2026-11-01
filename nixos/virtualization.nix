@@ -88,7 +88,32 @@ with builtins;
           pkgs.dnsmasq
         ];
 
-      networking.firewall.trustedInterfaces = mkIf cfg.virtmanager [ "virbr0" ];
+      # libvirt's default NAT network: its VMs only need DNS and DHCP from the host (libvirt's
+      # dnsmasq), not every port (a VM may run untrusted software)
+      networking.firewall.interfaces.virbr0 = mkIf cfg.virtmanager {
+        allowedUDPPorts = [ 53 67 ];
+        allowedTCPPorts = [ 53 ];
+      };
+
+      # ... and libvirt NATs them out of every interface: not into the fleet through the
+      # host's WireGuard tunnels (they would appear as the host's tunnel address)
+      networking.nftables.tables.libvirt-vm-guard = mkIf cfg.virtmanager {
+        family = "inet";
+        content =
+          let
+            tunnels = attrNames config.networking.wireguard.interfaces
+              ++ attrNames config.networking.wg-quick.interfaces;
+          in
+          ''
+            chain forward {
+              type filter hook forward priority filter - 1; policy accept;
+              ${optionalString (tunnels != [ ]) ''
+                iifname "virbr0" oifname { ${concatMapStringsSep ", " (t: ''"${t}"'') tunnels} } limit rate 6/minute burst 5 packets log prefix "libvirt-vm-guard: " level warn
+                iifname "virbr0" oifname { ${concatMapStringsSep ", " (t: ''"${t}"'') tunnels} } drop
+              ''}
+            }
+          '';
+      };
 
       mine.unfree.allowList = mkIf (cfg.virtualBox && cfg.virtualBoxExtensionPack) [
         "virtualbox-extpack"

@@ -62,13 +62,37 @@ with lib;
               enable = mkOption {
                 type = types.bool;
                 default = false;
-                description = "Also serve this route on the host's public interface.";
+                description = ''
+                  Also serve this route on the host's public interface. The flip between a
+                  public and an internal route: the vhosts are bound to the caddy container's
+                  addresses, an internal route (only `wireguardNetworks`) listens on its ULA
+                  alone, which the ULA guard keeps unreachable from the untrusted interfaces,
+                  so a spoofed Host/SNI on the public address can't reach it.
+                '';
               };
               domain = mkOption {
                 type = types.nullOr types.str;
                 default = null;
                 description = "Public domain to serve this route on. Required when public.enable is true.";
               };
+              denyPaths = mkOption {
+                type = types.listOf types.str;
+                default = [ ];
+                example = [ "/_synapse/admin/*" ];
+                description = ''
+                  Caddy path patterns answered with 404 on the public domain (e.g. an admin API
+                  that is only offered on a WireGuard network).
+                '';
+              };
+            };
+
+            extraConfig = mkOption {
+              type = types.lines;
+              default = "";
+              description = ''
+                Extra Caddyfile directives for every vhost of this route, before the
+                route's own reverse proxy (e.g. a path-matched `reverse_proxy` to another upstream).
+              '';
             };
 
             blockCrawlers = {
@@ -154,8 +178,16 @@ with lib;
                   header. Also adds `Strict-Transport-Security` (max-age=15768000, ~6 months), but
                   only on virtualHosts using a real (non self-signed) certificate -- HSTS on a
                   self-signed vhost is actively harmful, so it is never emitted there regardless of
-                  this setting.
+                  this setting. And anti-framing (clickjacking): `Content-Security-Policy:
+                  frame-ancestors` (see `frameAncestors`), plus `X-Frame-Options: DENY` when no
+                  framing is allowed at all; both only if the upstream doesn't send its own.
                 '';
+              };
+              frameAncestors = mkOption {
+                type = types.str;
+                default = "'none'";
+                example = "'self' https://chat.example.com";
+                description = "Who may embed this route in a frame (CSP `frame-ancestors` sources).";
               };
             };
 
@@ -336,6 +368,8 @@ with lib;
             Referrer-Policy "strict-origin-when-cross-origin"
             -Server
             ${optionalString hasRealCert ''Strict-Transport-Security "max-age=15768000"''}
+            ?Content-Security-Policy "frame-ancestors ${route.hardenHeaders.frameAncestors}"
+            ${optionalString (route.hardenHeaders.frameAncestors == "'none'") "?X-Frame-Options DENY"}
           }
         '')
         + (optionalString route.matrixWellKnownClient.enable ''
@@ -348,9 +382,22 @@ with lib;
           header /.well-known/matrix/client Content-Type "application/json"
         '');
 
-      selfSignedVirtualHost = routeName: route: {
+      # the addresses a hostname listens on (see `public.enable`)
+      bindLine = hostname: "bind ${concatMapStringsSep " " (address: "[${address}]") (
+        optional (elem hostname publicDomains) caddyPublicAddress
+        ++ optional (elem hostname wgHostnames) caddyUla
+      )}";
+
+      publicDenyBlock = route: optionalString (route.public.denyPaths != [ ]) ''
+        @public_denied path ${concatStringsSep " " route.public.denyPaths}
+        respond @public_denied 404
+      '';
+
+      selfSignedVirtualHost = hostname: routeName: route: {
         extraConfig = ''
+          ${bindLine hostname}
           ${routeExtraConfig route false}
+          ${route.extraConfig}
           ${reverseProxyBlock routeName route}
           tls internal {
             protocols tls1.3 tls1.3
@@ -362,9 +409,12 @@ with lib;
       # issuer needed -- Caddy handles it by default). Requires the hostname to have a real,
       # publicly-resolvable and reachable A/AAAA record. Pin TLS to 1.3-only.
       certVirtualHost =
-        routeName: route: {
+        hostname: routeName: route: {
           extraConfig = ''
+            ${bindLine hostname}
+            ${optionalString (elem hostname publicDomains) (publicDenyBlock route)}
             ${routeExtraConfig route true}
+            ${route.extraConfig}
             ${reverseProxyBlock routeName route}
             tls {
               protocols tls1.3 tls1.3
@@ -391,20 +441,25 @@ with lib;
         (
           e:
           nameValuePair e.hostname (
-            if e.cert then certVirtualHost e.routeName e.route else selfSignedVirtualHost e.routeName e.route
+            if e.cert then certVirtualHost e.hostname e.routeName e.route else selfSignedVirtualHost e.hostname e.routeName e.route
           )
         )
         wgEntries;
 
       publicEntries = mapAttrsToList
         (
-          routeName: route: nameValuePair route.public.domain (certVirtualHost routeName route)
+          routeName: route: nameValuePair route.public.domain (certVirtualHost route.public.domain routeName route)
         )
         routesPublic;
 
       # The caddy container is reachable over WireGuard on its ULA (mine.guestUla),
       # both this host and the peers resolve the hostnames to it
       caddyUla = config.mine.guestUla.addresses.caddy or null;
+      # ... and from the internet on its public address (directly, or via the NAT64 port forwards)
+      caddyPublicAddress = config.containers.caddy.localAddress6 or null;
+
+      publicDomains = mapAttrsToList (_: route: route.public.domain) routesPublic;
+      wgHostnames = map (e: e.hostname) wgEntries;
 
       dnsHostsOverrides = mkMerge (map (e: { ${e.hostname} = [ caddyUla ]; }) wgEntries);
 
@@ -414,6 +469,10 @@ with lib;
       {
         assertions =
           [
+            {
+              assertion = routesPublic != { } -> caddyPublicAddress != null;
+              message = "mine.services.caddyProxy: public routes require the caddy container's localAddress6 (their bind address).";
+            }
             {
               assertion = wgEntries != [ ] -> caddyUla != null;
               message = "mine.services.caddyProxy: routes exposed on WireGuard networks require the caddy container in mine.guestUla.containers.";
@@ -491,8 +550,11 @@ with lib;
           users.users.caddy.extraGroups =
             mkIf (anubisRoutes != { }) [ "anubis" ];
 
+          # Every other site (no own `bind`) is public: one listener per address and port,
+          # no wildcard listener next to the bound ones (and none answering on the ULA).
           # Conservative-but-firm defaults against slow-loris-style abuse.
           services.caddy.globalConfig = ''
+            ${optionalString (caddyPublicAddress != null) "default_bind [${caddyPublicAddress}]"}
             servers {
               timeouts {
                 read_header 10s

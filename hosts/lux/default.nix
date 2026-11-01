@@ -87,14 +87,10 @@ in
     # SSH
     services.openssh = {
       enable = true;
-      ports = [
-        5555
-        22
-      ];
+      ports = [ 22 ];
       settings = {
         PermitRootLogin = "no";
         PasswordAuthentication = false;
-        GatewayPorts = "yes";
       };
     };
 

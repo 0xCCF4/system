@@ -47,6 +47,15 @@ let
   );
 
   coturnRelayPorts = lib.range 49160 50159;
+  # concurrent TURN allocations per source prefix (a call needs one or two per client)
+  turnFlowsPerSource = 16;
+
+  # DENIC eG's own network (AS8763, announced prefixes per RIPEstat, 2026-10-31); IPv4
+  # arrives through the NAT64 (64:ff9b::<IPv4>): 81.91.160.0/20 = 64:ff9b::515b:a000/116
+  denicNetworks = [
+    "2a02:568::/32"
+    "${lib.removeSuffix "/96" config.mine.nat64.prefix}515b:a000/116"
+  ];
 
   # Only MX traffic is public, submission/IMAP (465/993) are cloud-admin only
   # (via the container's ULA, see hosts/lux/mailserver.nix).
@@ -83,6 +92,10 @@ in
   # Host-exposed services (SSH, the WireGuard listener) are filtered
   # separately by the standard networking.firewall module, which
   # handles the `input` chain.
+  options.mine.firewall.dnsRateLimitExemptDenic = lib.mkEnableOption ''
+    exempting DENIC's network (the .de registry's name server checks, predelegation/NAST,
+    which come in bursts) from the rate limit of the public PowerDNS'';
+
   config = {
     # Shrink the kernel's ephemeral port range so it no longer overlaps the
     # coturn UDP relay range (forwarded to the NAT64)
@@ -141,6 +154,8 @@ in
     # Tor) stays reachable
     services.openssh.openFirewall = false;
     programs.mosh.openFirewall = false;
+    # not just any packet on cloud-admin: the rules above also require a ULA source
+    mine.ssh.trustedInterfaces = lib.mkForce [ ];
     networking.firewall.extraInputRules = ''
       iifname "cloud-admin" ip6 saddr ${noxa.ula.prefix} tcp dport { ${lib.concatMapStringsSep ", " toString config.services.openssh.ports} } accept
       iifname "cloud-admin" ip6 saddr ${noxa.ula.prefix} udp dport 60000-61000 accept
@@ -190,6 +205,10 @@ in
           # vaultwarden -> mailserver (submission)
           iifname == "ve-vaultwarden" oifname == "ve-mailserver" tcp dport 465 accept
 
+          ${lib.optionalString (with config.mine.services.jitsi; restrictRoomCreation && matrixAuth.enable) ''
+            # jitsi (prosody) -> synapse: checks Element's OpenID tokens (who may open rooms)
+            iifname == "ve-jitsi" oifname == "ve-mtx-syn" ip6 daddr ${config.containers.mtx-syn.localAddress6} tcp dport 8008 accept
+          ''}
           # allow wireguard network communication (IPv4 and IPv6), todo: allow all wireguard interfaces to talk to eachother
           iifname == "cloud-admin" oifname == "cloud-admin" accept
 
@@ -210,19 +229,24 @@ in
           timeout 1m
         }
 
-        # per /64, IPv4 (NAT64, 64:ff9b::<IPv4>) per /24
+        # per /56 (an attacker's /48 is only 256 entries, it can't fill the set and lock out
+        # new sources), IPv4 (NAT64, 64:ff9b::<IPv4>) per /24
         chain fw-accept-dos {
           counter
           ip6 saddr ${config.mine.nat64.prefix} update @outside-traffic { ip6 saddr and ffff:ffff:ffff:ffff:ffff:ffff:ffff:ff00 limit rate 10/second burst 50 packets } accept
           ip6 saddr ${config.mine.nat64.prefix} return
-          update @outside-traffic { ip6 saddr and ffff:ffff:ffff:ffff:: limit rate 10/second burst 50 packets } accept
+          update @outside-traffic { ip6 saddr and ffff:ffff:ffff:ff00:: limit rate 10/second burst 50 packets } accept
         }
 
         chain fw-accept-dos-dns {
           counter
+          ${lib.optionalString config.mine.firewall.dnsRateLimitExemptDenic ''
+            # DENIC's (.de registry) name server checks (predelegation/NAST) come in bursts
+            ip6 saddr { ${lib.concatStringsSep ", " denicNetworks} } accept
+          ''}
           ip6 saddr ${config.mine.nat64.prefix} update @outside-traffic-dns { ip6 saddr and ffff:ffff:ffff:ffff:ffff:ffff:ffff:ff00 limit rate 10/second burst 200 packets } accept
           ip6 saddr ${config.mine.nat64.prefix} return
-          update @outside-traffic-dns { ip6 saddr and ffff:ffff:ffff:ffff:: limit rate 10/second burst 200 packets } accept
+          update @outside-traffic-dns { ip6 saddr and ffff:ffff:ffff:ff00:: limit rate 10/second burst 200 packets } accept
         }
 
         chain fw-accept {
@@ -232,6 +256,20 @@ in
 
         chain fw-drop {
           drop
+        }
+
+        # concurrent flows (conntrack entries) per /56, IPv4 (NAT64) per address: CGNAT
+        # users of one /24 would otherwise block each other
+        set turn-sources {
+          type ipv6_addr
+          size 65535
+          flags dynamic
+        }
+
+        chain fw-turn-limit {
+          ip6 saddr ${config.mine.nat64.prefix} add @turn-sources { ip6 saddr ct count over ${toString turnFlowsPerSource} } jump fw-drop
+          ip6 saddr ${config.mine.nat64.prefix} return
+          add @turn-sources { ip6 saddr and ffff:ffff:ffff:ff00:: ct count over ${toString turnFlowsPerSource} } jump fw-drop
         }
 
         # traffic from the public internet -> internal containers
@@ -247,6 +285,8 @@ in
           ip6 daddr ${config.containers.caddy.localAddress6} udp dport 443 jump fw-accept-dos
           ip6 daddr ${config.containers.powerdns.localAddress6} tcp dport 53 jump fw-accept-dos-dns
           ip6 daddr ${config.containers.powerdns.localAddress6} udp dport 53 jump fw-accept-dos-dns
+          # TURN: at most turnFlowsPerSource open allocations (control flows) per source
+          ip6 daddr { ${config.containers.mtx-co-v4.localAddress6}, ${config.containers.mtx-co-v6.localAddress6} } meta l4proto { tcp, udp } th dport 3478 jump fw-turn-limit
           # mtx-co-v4 itself is NAT64-only
           ip6 daddr ${config.containers.mtx-co-v4.localAddress6} tcp dport 3478 jump fw-accept-dos
           ip6 daddr ${config.containers.mtx-co-v4.localAddress6} udp dport 3478 jump fw-accept-dos

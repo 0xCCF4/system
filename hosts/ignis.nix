@@ -61,14 +61,6 @@ with lib;
     networking = {
       firewall = {
         enable = true;
-        interfaces = {
-          virbr0 = {
-            allowedUDPPorts = [
-              53
-              67
-            ];
-          };
-        };
       };
       nat = {
         enable = true;

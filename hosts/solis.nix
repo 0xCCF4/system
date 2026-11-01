@@ -16,7 +16,6 @@ with lib;
   config =
     let
       ifaceExternal = "ethMonRight";
-      ifaceInternal = "ethDocking";
 
       usbreset = getExe' pkgs.usbutils "usbreset";
       usbResetDevices = [
@@ -119,70 +118,5 @@ with lib;
 
       mine.desktop.hyprland.enable = true;
       mine.desktop.gnome.enable = true;
-
-      specialisation."external-dhcp-server".configuration = {
-        services.kea.dhcp4 = {
-          enable = true;
-          settings = {
-            interfaces-config.interfaces = [ ifaceInternal ];
-
-            lease-database = {
-              name = "/var/lib/kea/dhcp4-leases.csv";
-              type = "memfile";
-              persist = true;
-              lfc-interval = 3600; # 1 hour
-            };
-
-            valid-lifetime = 4000; # ~67 min
-            renew-timer = 1000; # ~17 min
-            rebind-timer = 2000; # ~33 min
-
-            subnet4 = [
-              {
-                id = 1;
-                subnet = "10.10.10.0/24";
-                pools = [
-                  {
-                    pool = "10.10.10.16 - 10.10.10.128";
-                  }
-                ];
-
-                option-data = [
-                  {
-                    name = "routers";
-                    data = "10.10.10.1";
-                  }
-                  {
-                    name = "domain-name-servers";
-                    data = "9.9.9.9";
-                  }
-                ];
-              }
-            ];
-          };
-        };
-
-        services.hardware.bolt.enable = true;
-
-        networking.nat = {
-          enable = true;
-          internalInterfaces = [ ifaceInternal ];
-          externalInterface = ifaceExternal;
-        };
-
-        networking.interfaces = {
-          "${ifaceInternal}" = {
-            useDHCP = false;
-            ipv4.addresses = [
-              {
-                address = "10.10.10.1";
-                prefixLength = 24;
-              }
-            ];
-          };
-        };
-
-        networking.firewall.allowedUDPPorts = [ 67 ]; # DHCP
-      };
     };
 }

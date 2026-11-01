@@ -160,12 +160,18 @@ with lib;
             enable = true;
             virtualHosts.":8080" = {
               extraConfig = ''
+                # public by design: OCSP and the CA's public material (root, responder
+                # cert, CRL); nothing else, in particular no management (cfssl serve)
                 handle /ocsp* {
                   reverse_proxy 127.0.0.1:8889
                 }
-                handle {
+                @public_files path /root-ca.pem /ocsp-responder-cert.pem /crl.pem
+                handle @public_files {
                   root * /etc/pki
                   file_server
+                }
+                handle {
+                  respond 404
                 }
               '';
             };

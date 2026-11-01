@@ -6,14 +6,14 @@
 with lib;
 {
   options.mine.printing =
-    let
-      presets = config.mine.presets;
-    in
     with types;
     mkOption {
       type = bool;
-      default = presets.isWorkstation;
-      description = "Enable printing support and install some common drivers for printers I use.";
+      # off for now: back with statically configured printers (no discovery, see below)
+      default = false;
+      description = ''
+        Enable printing support and install some common drivers for printers I use.
+      '';
     };
 
   config =
@@ -26,10 +26,6 @@ with lib;
         pkgs.gutenprint
         pkgs.hplip
       ];
-      services.avahi = {
-        enable = true;
-        nssmdns4 = true;
-        openFirewall = true;
-      };
+      services.printing.browsed.enable = false;
     };
 }
