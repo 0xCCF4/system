@@ -7,6 +7,11 @@ with lib;
 let
   # journald identifies the journals by machine id, derived from the name so it is stable
   machineId = name: substring 0 32 (builtins.hashString "sha256" "microvm-machine-id:${name}");
+  # microvm.machineId is qemu's `-smbios uuid=`
+  # (/etc/machine-id in the microVM is the same without the dashes)
+  machineUuid = name:
+    let id = machineId name; in
+    concatStringsSep "-" [ (substring 0 8 id) (substring 8 4 id) (substring 12 4 id) (substring 16 4 id) (substring 20 12 id) ];
 
   # below /var/log, which is persisted
   journalDir = name: "/var/log/microvm/${name}/journal";
@@ -21,7 +26,7 @@ in
   config = optionalAttrs (options ? microvm) {
     microvm.vms = genAttrs config.mine.microvm.names (name: {
       config = {
-        microvm.machineId = machineId name;
+        microvm.machineId = machineUuid name;
         microvm.shares = [
           {
             proto = "virtiofs";

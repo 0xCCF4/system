@@ -43,8 +43,6 @@ with lib;
       security.tpm2.enable = mkIf cfg.zfs-tpm-unlock true;
 
       boot.initrd = {
-        # This would be a nightmare without systemd initrd
-        systemd.enable = true;
         systemd.tpm2.enable = mkIf cfg.zfs-tpm-unlock true;
 
         # Disable crypt import timeout - so we have enough time to enter our passphrase

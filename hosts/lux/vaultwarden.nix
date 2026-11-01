@@ -1,6 +1,7 @@
 { lib
 , self
 , config
+, pkgs
 , noxa
 , specialArgs
 , luxAddr6For
@@ -43,6 +44,60 @@ with lib;
       # systemd-nspawn's --bind(-ro)= parses its argument as a colon-separated
       # tuple, remove the colons (see hosts/lux/powerdns.nix for precedent).
       age.secrets.${adminTokenIdentifier}.name = "vaultwarden-admin-token";
+
+      # Brute force (passwords, TOTP, admin token): fail2ban on lux, not in the container.
+      # Vaultwarden logs the client's address (IP_HEADER, set by caddy), but everything
+      # reaching the container comes from caddy, a ban there would never apply. Here the
+      # ban drops the client on its way to caddy: an IPv6 /56 (one customer, as the rate
+      # limits in firewall.nix), an IPv4 address alone (NAT64: 64:ff9b::<IPv4>/128; IPv4
+      # neighbours are often unrelated, e.g. behind the same CGNAT or hoster).
+      services.fail2ban.jails.vaultwarden.settings = {
+        enabled = true;
+        # fail2ban's bundled filter.d/vaultwarden.conf (passwords, TOTP, admin token)
+        filter = "vaultwarden";
+        # the container's journal, persisted on the host (nixos/container_journal.nix)
+        backend = ''systemd[journalpath="/var/log/containers/vaultwarden/journal"]'';
+        journalmatch = "_SYSTEMD_UNIT=vaultwarden.service";
+        findtime = "10m";
+        maxretry = 5;
+        bantime = "1h";
+        action = "vaultwarden-network";
+      };
+      environment.etc."fail2ban/action.d/vaultwarden-network.conf".text =
+        let
+          ban = verb: pkgs.writeShellScript "vaultwarden-ban-${verb}" ''
+            network="$(${pkgs.python3}/bin/python3 -c '
+            import ipaddress, sys
+            address = ipaddress.ip_address(sys.argv[1])
+            nat64 = ipaddress.ip_network("${config.mine.nat64.prefix}")
+            if address.version == 4:
+                address = nat64.network_address + int(address)  # as it reaches caddy
+            # IPv4 (through the NAT64): the address alone, IPv6: its /56
+            prefix = 128 if address in nat64 else 56
+            print(ipaddress.ip_network(f"{address}/{prefix}", strict=False))
+            ' "$1")"
+            ${pkgs.nftables}/bin/nft ${verb} element inet vaultwarden-ban banned "{ $network }" || true
+          '';
+        in
+        ''
+          [Definition]
+          actionban = ${ban "add"} <ip>
+          actionunban = ${ban "delete"} <ip>
+        '';
+      networking.nftables.tables.vaultwarden-ban = {
+        family = "inet";
+        content = ''
+          set banned {
+            type ipv6_addr
+            flags interval
+          }
+
+          chain forward {
+            type filter hook forward priority filter - 2; policy accept;
+            iifname { ${concatMapStringsSep ", " (i: ''"${i}"'') (config.mine.wanInterfaces ++ [ config.mine.nat64.interface ])} } ip6 daddr ${caddyLocalAddress6} ip6 saddr @banned drop
+          }
+        '';
+      };
 
       mine.services.caddyProxy.routes.vaultwarden = {
         upstream = "[${config.containers.vaultwarden.localAddress6}]:8222";
@@ -144,28 +199,6 @@ with lib;
                 echo "SMTP_PASSWORD=$(cat /run/secrets/vaultwarden-smtp-password)" >> /run/vaultwarden/secrets.env
               ''}"
             ];
-          };
-
-          # fail2ban runs inside this container (not on the host) so it reads
-          # vaultwarden's own local journal directly -- no need to reach into an
-          # ephemeral container's journal from lux itself, and bans apply to this
-          # container's own netns, which is exactly where the real client IP
-          # (via IP_HEADER above) is visible. Uses fail2ban's own bundled
-          # filter.d/vaultwarden.conf (ships upstream, covers admin-token/TOTP/
-          # password failures) instead of a custom one -- vaultwarden logs to
-          # the journal here (no logpath), so backend=systemd + journalmatch
-          # substitutes for the upstream jail.conf example's file-tailing setup.
-          services.fail2ban = {
-            enable = true;
-            jails.vaultwarden.settings = {
-              enabled = true;
-              filter = "vaultwarden";
-              backend = "systemd";
-              journalmatch = "_SYSTEMD_UNIT=vaultwarden.service";
-              findtime = "10m";
-              maxretry = 5;
-              bantime = "1h";
-            };
           };
         };
       };

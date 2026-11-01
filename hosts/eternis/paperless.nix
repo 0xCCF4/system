@@ -28,9 +28,12 @@ with lib;
 
         services.postgresql.dataDir = "/paperless/database";
         services.postgresql.package = pkgs.postgresql_16;
+        # no trust: the superuser only for root/postgres (superuser_map), everyone else
+        # only as the database user of the same name (paperless)
         services.postgresql.authentication = pkgs.lib.mkOverride 10 ''
-          #type database  DBuser  auth-method
-          local all       all     trust
+          #type database  DBuser    auth-method
+          local all       postgres  peer map=superuser_map
+          local all       all       peer
         '';
         services.postgresql.identMap = ''
           # ArbitraryMapName systemUser DBUser

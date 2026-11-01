@@ -32,10 +32,7 @@ in
     # SSH
     services.openssh = {
       enable = true;
-      ports = [
-        5555
-        22
-      ];
+      ports = [ 22 ];
       settings = {
         PermitRootLogin = "no";
         PasswordAuthentication = false;
@@ -47,6 +44,7 @@ in
     # Remote unlock luks via ssh+tor
     mine.boot.remoteUnlock = true;
     mine.boot.tor.enable = true;
+    mine.boot.remoteUnlockTorOnly = false;
 
     # back up to ourselves: pool -> tank, over ssh to localhost
     mine.zrb.backupNode = "eternis";
@@ -72,12 +70,24 @@ in
     #};
     #};
 
-    services.resolved.enable = false;
-    mine.services.unbound.enable = true;
+    # no resolver on the host: eternis resolves like the other hosts (resolved ->
+    # dnscrypt-proxy, local only), the microVMs through their own resolver microVM (dns.nix);
+    # for a DNS server of the home LAN later: mine.services.unbound.lanInterfaces
+    mine.services.unbound.enable = false;
 
     # peers on cloud-admin reach the microVMs on their ULA through eternis
     mine.guestUla.advertiseOn = [ "cloud-admin" ];
     # networkd only accepts RAs without IPv6 forwarding by default, the microVMs enable it
     systemd.network.networks."10-lan".networkConfig.IPv6AcceptRA = true;
+
+    # headless server on systemd-networkd: no NetworkManager (nor its ModemManager,
+    # wpa_supplicant) from the hardware profile
+    networking.networkmanager.enable = false;
+    # ... and no dhcpcd next to systemd-networkd, which alone configures the LAN (10-lan:
+    # static address, IPv6 by RA) and the microVM taps; dhcpcd also took a DHCP lease on lanLeft
+    networking.useDHCP = false;
+
+    # the home LAN is trusted for SSH and mosh (besides cloud-admin)
+    mine.ssh.trustedInterfaces = [ "lanLeft" ];
   };
 }

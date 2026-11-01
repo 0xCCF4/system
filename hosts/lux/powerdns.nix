@@ -1,6 +1,7 @@
 { lib
 , self
 , config
+, pkgs
 , noxa
 , specialArgs
 , dns
@@ -28,6 +29,19 @@ with lib;
     description = ''
       IPv6 addresses of the Hetzner secondaries (the IPv4 ones via NAT64),
       allowed to AXFR and NOTIFYed. hosts/lux/firewall.nix lets the NOTIFYs out.
+    '';
+  };
+
+  options.mine.services.powerdns.strato = mkOption {
+    type = types.enum [ "standalone" "inboundBackup" "backup" ];
+    default = "standalone";
+    description = ''
+      STRATO's role for the mail domains:
+      - `standalone`: lux alone (MX, SPF, DKIM), nothing at STRATO.
+      - `inboundBackup`: STRATO additionally as fallback MX (smtpin.rzone.de). Mail can then
+        arrive through STRATO's filtering instead of lux' (backup MX bypass).
+      - `backup`: also outbound through STRATO: its servers in the SPF record (this
+        authorises STRATO's whole shared infrastructure) and its DKIM selectors delegated.
     '';
   };
 
@@ -71,26 +85,28 @@ with lib;
 
       hetznerSecondaries = config.mine.services.powerdns.secondaries;
 
+      strato = config.mine.services.powerdns.strato;
+
       MX = [
         {
           preference = 10;
           exchange = "mail.${domain}.";
         } # self-hosted, primary
-        {
-          preference = 20;
-          exchange = "smtpin.rzone.de.";
-        } # STRATO, fallback
-      ];
+      ]
+      ++ optional (strato != "standalone") {
+        preference = 20;
+        exchange = "smtpin.rzone.de.";
+      }; # STRATO, fallback
 
       # Mail relayed through STRATO (see the SPF include) is DKIM-signed with
       # STRATO's selectors, so point them at the keys STRATO publishes. With
       # an aligned DKIM pass, DMARC passes even when SPF breaks on forwarding.
       stratoDkimSelectors = [ "strato-dkim-0002" "strato-dkim-0003" ];
-      stratoDkim = listToAttrs (map
+      stratoDkim = optionalAttrs (strato == "backup") (listToAttrs (map
         (selector: nameValuePair "${selector}._domainkey" {
           CNAME = [ "${selector}._domainkey.strato.de." ];
         })
-        stratoDkimSelectors);
+        stratoDkimSelectors));
 
       dkimPublicKey = config.mine.services.powerdns.dkimPublicKey;
       DKIM = optional (dkimPublicKey != null) {
@@ -133,7 +149,7 @@ with lib;
         };
         A = [ config.mine.info.public.ipv4 ];
         AAAA = [ config.containers.caddy.localAddress6 ];
-        TXT = [ "v=spf1 mx include:_spf.strato.com -all" ];
+        TXT = [ "v=spf1 mx${optionalString (strato == "backup") " include:_spf.strato.com"} -all" ];
         # Every subdomain is a mail domain too, with the same MX as the apex.
         subdomains = mapAttrs (_: records:
           records // {
@@ -187,16 +203,65 @@ with lib;
         DMARC = [
           {
             p = "reject";
+            # subdomains without their own _dmarc record (explicit, the default would be p)
+            sp = "reject";
+            adkim = "strict";
+            aspf = "strict";
             rua = "mailto:postmaster+dmarc@${domain}";
           }
         ];
         NS = [ "ns1.${domain}." "ns1.first-ns.de." "robotns2.second-ns.de." "robotns3.second-ns.com." ];
+        # Only Let's Encrypt may issue certificates (Caddy, the mailserver), no wildcards;
+        # the subdomains inherit it (CAA is looked up up the tree)
+        CAA = [
+          { issuerCritical = false; tag = "issue"; value = "letsencrypt.org"; }
+          { issuerCritical = false; tag = "issuewild"; value = ";"; }
+          { issuerCritical = false; tag = "iodef"; value = "mailto:security@${domain}"; }
+        ];
       };
 
       zoneFile = toString (dns.lib.evalZone domain zoneRecords);
       zoneFilePath = builtins.toFile "${domain}.zone" zoneFile;
     in
     {
+      # DNSSEC: the DS published in .de must match one of the zone's keys, else the zone
+      # is bogus for every validating resolver (or, without DS, simply not secured).
+      # Fails (systemctl --failed) when it doesn't match or isn't published.
+      systemd.services.dnssec-ds-check = {
+        description = "Check that the DS record at the registrar matches the zone's DNSSEC keys";
+        after = [ "container@powerdns.service" "network-online.target" ];
+        wants = [ "network-online.target" ];
+        serviceConfig.Type = "oneshot";
+        path = [ pkgs.dig pkgs.gnugrep pkgs.gnused pkgs.gawk pkgs.coreutils pkgs.nixos-container ];
+        script = ''
+          # "<keytag> <algorithm> <digest type> <digest>", digests uppercase without spaces
+          norm() { awk '{ d = ""; for (i = 4; i <= NF; i++) d = d $i; print $1, $2, $3, toupper(d) }'; }
+          ours="$(nixos-container run powerdns -- pdnsutil export-zone-ds ${domain} \
+            | grep -E "IN[[:space:]]+DS" | sed 's/;.*//' | awk '{ $1 = $2 = $3 = ""; print }' | norm | sort -u)"
+          published="$(dig +short DS ${domain} | norm | sort -u)"
+          if [ -z "$ours" ]; then
+            echo "the zone ${domain} is not signed" >&2; exit 1
+          fi
+          if [ -z "$published" ]; then
+            echo "no DS for ${domain} published at the registrar, publish one of:" >&2
+            echo "$ours" >&2; exit 1
+          fi
+          if ! comm -12 <(echo "$ours") <(echo "$published") | grep -q .; then
+            echo "the DS published for ${domain} matches none of the zone's keys" >&2
+            echo "published: $published" >&2; echo "zone: $ours" >&2; exit 1
+          fi
+          echo "DS for ${domain} matches the zone's keys"
+        '';
+      };
+      systemd.timers.dnssec-ds-check = {
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnCalendar = "daily";
+          OnBootSec = "15min";
+          RandomizedDelaySec = "1h";
+        };
+      };
+
       mine.services.geoBlock.exemptPorts.tcp = [ 53 ];
       mine.services.geoBlock.exemptPorts.udp = [ 53 ];
 
@@ -344,12 +409,16 @@ with lib;
               ${pkgs.pdns}/bin/pdnsutil tsigkey import ${tsigKeyName} hmac-sha256 "$(cat /run/secrets/powerdns-tsig-key)"
               ${pkgs.pdns}/bin/pdnsutil metadata set ${domain} TSIG-ALLOW-AXFR ${tsigKeyName}
             ''}"
+            # DNSSEC: the zone is signed from the first start on (keys in the persisted
+            # dnssec.sqlite3). The DS record has to be published at the registrar (DENIC)
+            # once by hand: `pdnsutil export-zone-ds <domain>` in this container;
+            # dnssec-ds-check on lux reports whether it matches.
+            "+${pkgs.writeShellScript "pdns-secure-zone" ''
+              if ${pkgs.pdns}/bin/pdnsutil show-zone ${domain} 2>&1 | ${pkgs.gnugrep}/bin/grep -q "Zone is not actively secured"; then
+                ${pkgs.pdns}/bin/pdnsutil secure-zone ${domain}
+              fi
+            ''}"
           ];
-
-          # One-time manual step: after first deploy,
-          # `pdnsutil secure-zone <domain>` inside this container to generate DNSSEC
-          # keys and start signing, then publish the resulting DS record at the
-          # registrar. `pdnsutil` ships with the powerdns package.
         };
       };
     };

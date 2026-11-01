@@ -173,8 +173,15 @@ with lib;
           trap 'rm -rf "$WORK"' EXIT
 
           echo "[geoblock-fetch] downloading zone lists"
-          curl -fsSL ${escapeShellArg cfg.zonesV4Url} -o "$WORK/v4.tar.gz"
-          curl -fsSL ${escapeShellArg cfg.zonesV6Url} -o "$WORK/v6.tar.gz"
+          # At boot the Persistent= timer fires right away, often before the local resolver
+          # (dnscrypt-proxy, which first fetches its resolver list) answers: retry every
+          # error, DNS failures included, for up to 5 minutes
+          fetch() {
+            curl -fsSL --retry 20 --retry-delay 15 --retry-all-errors --retry-max-time 300 \
+              "$1" -o "$2"
+          }
+          fetch ${escapeShellArg cfg.zonesV4Url} "$WORK/v4.tar.gz"
+          fetch ${escapeShellArg cfg.zonesV6Url} "$WORK/v6.tar.gz"
 
           mkdir -p "$WORK/v4" "$WORK/v6"
           tar -xzf "$WORK/v4.tar.gz" -C "$WORK/v4"
@@ -313,8 +320,8 @@ with lib;
 
       systemd.services.geoblock-fetch = {
         description = "Download ipdeny country zone lists for geo-blocking";
-        after = [ "network-online.target" ];
-        wants = [ "network-online.target" ];
+        after = [ "network-online.target" "nss-lookup.target" ];
+        wants = [ "network-online.target" "nss-lookup.target" ];
         serviceConfig = {
           Type = "oneshot";
           ExecStart = getExe fetchScript;

@@ -44,6 +44,7 @@ with lib;
 
   config =
     let
+      unknownMac = entry: entry.mac == "00:00:00:00:00:00";
       links = mkMerge (
         map
           (entry: {
@@ -52,10 +53,14 @@ with lib;
               linkConfig.Name = entry.name;
             };
           })
-          config.mine.links
+          (filter (entry: !unknownMac entry) config.mine.links)
       );
     in
     {
+      warnings = map
+        (entry: "mine.links: ${entry.name} has the placeholder MAC 00:00:00:00:00:00, it is not renamed until its real MAC is set.")
+        (filter unknownMac config.mine.links);
+
       systemd.network.links = links;
       boot.initrd.systemd.network.links = links;
     };

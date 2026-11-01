@@ -24,6 +24,15 @@ in
         };
         # (on the host's disk now, per container)
         config.services.journald.settings.Journal.SystemMaxUse = mkDefault "256M";
+        # journald keeps writing until the very end, so the unmount at shutdown always fails
+        # ("Failed unmounting /var/log/journal"); nspawn removes the mount anyway
+        config.systemd.units."var-log-journal.mount" = {
+          overrideStrategy = "asDropin";
+          text = ''
+            [Unit]
+            DefaultDependencies=no
+          '';
+        };
       };
     }));
   };

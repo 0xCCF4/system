@@ -47,7 +47,8 @@ with lib;
         };
         # The module's defaults would override Vota's own, stricter
         # `Referrer-Policy: no-referrer` (Caddy defers the whole header block
-        # because of `-Server`), so set only HSTS and `-Server` below.
+        # because of `-Server`), so set HSTS and `-Server` below, the rest only
+        # as fallback (`?`).
         hardenHeaders.enable = false;
       };
 
@@ -58,6 +59,13 @@ with lib;
               header {
                 Strict-Transport-Security "max-age=31536000"
                 -Server
+                # only where Vota sends none of its own (`?`), so its stricter policies stay:
+                # no MIME sniffing, no framing (clickjacking), no Referer (the /b/ links
+                # carry secret tokens)
+                ?X-Content-Type-Options nosniff
+                ?Content-Security-Policy "frame-ancestors 'none'"
+                ?X-Frame-Options DENY
+                ?Referrer-Policy no-referrer
               }
             '';
             

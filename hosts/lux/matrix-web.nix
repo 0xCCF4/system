@@ -29,13 +29,15 @@ with lib;
           };
           anubis.enable = true;
         };
+        # Synapse admin UI: only over cloud-admin (vhost bound to caddy's ULA). The same
+        # vhost proxies the client and admin API to Synapse, so the UI never needs the
+        # public homeserver domain, whose /_synapse/admin is closed (matrix-synapse.nix).
         ketesa = {
           upstream = "[${containerAddr}]:80";
-          public = {
-            enable = true;
-            domain = adminDomain;
-          };
-          anubis.enable = true;
+          wireguardNetworks.cloud-admin.hostname = adminDomain;
+          extraConfig = ''
+            reverse_proxy /_matrix/* /_synapse/* [${config.containers.mtx-syn.localAddress6}]:8008
+          '';
         };
       };
 
@@ -78,7 +80,7 @@ with lib;
 
             virtualHosts."http://${adminDomain}".extraConfig = ''
               root * ${toString (pkgs.ketesa.withConfig {
-                restrictBaseUrl = "https://${matrixDomain}";
+                restrictBaseUrl = "https://${adminDomain}";
               })}
               file_server
             '';

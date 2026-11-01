@@ -6,7 +6,7 @@
 }:
 with lib;
 {
-  imports = [ ../nixos/caddy_hide_server.nix ];
+  imports = [ ../nixos/caddy_hide_server.nix ../nixos/caddy_admin_socket.nix ];
 
   config = {
     system.stateVersion = hostConfig.system.stateVersion;

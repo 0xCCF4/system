@@ -104,7 +104,6 @@ with lib;
       freeglut
       libjpeg
       libpng
-      libpng12
       libsamplerate
       libmikmod
       libtheora
@@ -199,7 +198,6 @@ with lib;
       libjpeg
       libmikmod
       libogg
-      libpng12
       libpulseaudio
       librsvg
       libsamplerate

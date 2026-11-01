@@ -15,6 +15,11 @@ with lib;
       matrixDomain = config.mine.services.matrix.domains.homeserver;
       turnDomain = config.mine.services.matrix.domains.turn;
       federationEnabled = config.mine.services.matrix.enableFederation;
+      # prosody (jitsi.nix) checks Element's OpenID tokens against Synapse directly
+      jitsiUserinfo = with config.mine.services.jitsi; restrictRoomCreation && matrixAuth.enable;
+      # the OpenID resource serves /_matrix/federation/v1/openid/*: only on the container's
+      # listener for prosody, not public without federation
+      publicDenyPaths = [ "/_synapse/admin/*" ] ++ optional (!federationEnabled) "/_matrix/federation/*";
 
       hostAddress6 = luxAddr6For "fc00::/64" "mtx-syn-veth-host";
       containerAddr = config.containers.mtx-syn.localAddress6;
@@ -79,12 +84,14 @@ with lib;
           public = {
             enable = true;
             domain = domain;
+            # the admin API is only served over cloud-admin (ketesa route, matrix-web.nix)
+            denyPaths = publicDenyPaths;
           };
           matrixWellKnownClient.enable = true;
           matrixWellKnownClient.content = builtins.toJSON {
             "m.homeserver".base_url = "https://${matrixDomain}";
             "im.vector.riot.jitsi".preferredDomain = config.mine.services.matrix.domains.jitsi;
-            "cc.etke.ketesa".restrictBaseUrl = "https://${matrixDomain}";
+            "cc.etke.ketesa".restrictBaseUrl = "https://${config.mine.services.matrix.domains.admin}";
           };
         };
 
@@ -93,6 +100,7 @@ with lib;
           public = {
             enable = true;
             domain = matrixDomain;
+            denyPaths = publicDenyPaths;
           };
         };
       };
@@ -177,7 +185,8 @@ with lib;
                   x_forwarded = true;
                   resources = [
                     {
-                      names = [ "client" ] ++ optional federationEnabled "federation";
+                      names = [ "client" ] ++ optional federationEnabled "federation"
+                        ++ optional (!federationEnabled && jitsiUserinfo) "openid";
                       compress = false;
                     }
                   ];

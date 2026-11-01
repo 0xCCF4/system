@@ -1,6 +1,7 @@
 { config
 , lib
 , options
+, pkgs
 , noxa
 , ...
 }:
@@ -11,6 +12,11 @@ let
   ula = config.mine.guestUla;
 
   nat64Prefix = config.mine.nat64.prefix;
+
+  # The resolver of the microVMs: a microVM (mine.vm.dnsGuest), or the host (ula.dnsAddress)
+  dnsGuest = cfg.dnsGuest;
+  resolverAddress = if dnsGuest == null then ula.dnsAddress else ula.addresses.${dnsGuest};
+  dnsClientTaps = map (name: cfg.guests.${name}.tap) (filter (name: name != dnsGuest) (attrNames cfg.guests));
   set = items: "{ ${concatMapStringsSep ", " (item: ''"${item}"'') items} }";
 
   # special members of mine.vm.networks
@@ -65,7 +71,7 @@ let
       '' else ''
         # ${name}: no access to the host
         iifname "${guest.tap}" icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit, packet-too-big, destination-unreachable } accept
-        iifname "${guest.tap}" ip6 daddr ${ula.dnsAddress} meta l4proto { tcp, udp } th dport 53 accept
+        ${optionalString (dnsGuest == null) ''iifname "${guest.tap}" ip6 daddr ${ula.dnsAddress} meta l4proto { tcp, udp } th dport 53 accept''}
         # policy drop
       '')
     cfg.guests);
@@ -91,6 +97,10 @@ let
         # ${name}: to the internet through the NAT64 (<internet>), and only the replies
         iifname "${guest.tap}" oifname "${nat64.interface}" accept
         iifname "${nat64.interface}" oifname "${guest.tap}" ct state established,related accept
+      '' + optionalString (dnsGuest != null && name != dnsGuest) ''
+        # ${name}: DNS to the resolver microVM (mine.vm.dnsGuest), and its answers
+        iifname "${guest.tap}" oifname "${cfg.guests.${dnsGuest}.tap}" ip6 daddr ${resolverAddress} meta l4proto { tcp, udp } th dport 53 accept
+        iifname "${cfg.guests.${dnsGuest}.tap}" oifname "${guest.tap}" ip6 saddr ${resolverAddress} meta l4proto { tcp, udp } th sport 53 ct state established accept
       '' + optionalString (sharesNetworkWith ulaMember name) ''
         # ${name}: from the other ULA hosts (<ula>), and the replies
         oifname "${guest.tap}" ip6 saddr ${noxa.ula.prefix} accept
@@ -110,9 +120,9 @@ let
     '' else ''
       # ${name}: not reachable from the host
       # answers to the DNS queries of the microVM
-      oifname "${guest.tap}" meta l4proto != ipv6-icmp ip6 saddr != { ${ula.hostAddress}, ${ula.dnsAddress} } drop
+      oifname "${guest.tap}" meta l4proto != ipv6-icmp ip6 saddr != { ${ula.hostAddress}${optionalString (dnsGuest == null) ", ${ula.dnsAddress}"} } drop
       oifname "${guest.tap}" meta l4proto != ipv6-icmp ip6 daddr != ${ula.addresses.${name}} drop
-      oifname "${guest.tap}" ip6 saddr ${ula.dnsAddress} meta l4proto { tcp, udp } th sport 53 ct state established accept
+      ${optionalString (dnsGuest == null) ''oifname "${guest.tap}" ip6 saddr ${ula.dnsAddress} meta l4proto { tcp, udp } th sport 53 ct state established accept''}
       oifname "${guest.tap}" icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, packet-too-big, destination-unreachable, time-exceeded, parameter-problem } accept
     ''))
     cfg.guests);
@@ -176,6 +186,19 @@ in
       });
     };
 
+    dnsGuest = mkOption {
+      type = nullOr str;
+      default = null;
+      example = "dns";
+      description = ''
+        The microVM (of `guests`, with `<internet>`) that resolves names for the other
+        microVMs, on its ULA, port 53 (only reachable from them). Without it, the host runs
+        the resolver on `mine.guestUla.dnsAddress` (unbound, forwarding to its dnscrypt-proxy).
+        The microVM configures its upstream itself, its unbound gets the other microVMs'
+        network as allowed clients.
+      '';
+    };
+
     guestInterface = mkOption {
       type = str;
       default = "uplink";
@@ -195,11 +218,16 @@ in
               # microVM network ${name}
               iifname ${set taps} oifname ${set taps} accept
             '')
-          cfg.networks);
+          cfg.networks)
+      + optionalString (dnsGuest != null && dnsClientTaps != [ ]) ''
+
+        # DNS of the microVMs to their resolver microVM (mine.vm.dnsGuest)
+        iifname ${set dnsClientTaps} oifname "${cfg.guests.${dnsGuest}.tap}" ip6 daddr ${resolverAddress} meta l4proto { tcp, udp } th dport 53 accept
+      '';
       description = ''
-        nftables rules allowing the traffic between the microVMs of each network, to be
-        included in the host's forward chain (with a drop policy), next to
-        `mine.nat64.forwardRules`.
+        nftables rules allowing the traffic between the microVMs of each network, and their
+        DNS to the resolver microVM (`dnsGuest`), to be included in the host's forward chain
+        (with a drop policy), next to `mine.nat64.forwardRules`.
       '';
     };
   };
@@ -232,6 +260,10 @@ in
         message = "mine.vm.guests: no other Jool instances than mine.nat64 on a host with microVMs, they would translate the microVMs' traffic before the forward chain filters it.";
       }
       {
+        assertion = dnsGuest != null -> (hasAttr dnsGuest cfg.guests && hasInternet dnsGuest);
+        message = "mine.vm.dnsGuest: ${toString dnsGuest} must be one of mine.vm.guests and a member of a network with <internet> (its upstream).";
+      }
+      {
         assertion = allUnique (map (guest: guest.mac) (attrValues cfg.guests));
         message = "mine.vm.guests: two microVMs got the same MAC address, rename one of them.";
       }
@@ -245,15 +277,26 @@ in
           matchConfig.Name = guest.tap;
           addresses = [
             { Address = "${ula.hostAddress}/128"; }
-            # the DNS resolver of the microVMs
-            { Address = "${ula.dnsAddress}/128"; }
-          ];
+          ]
+          # the DNS resolver of the microVMs, unless a microVM is (mine.vm.dnsGuest)
+          ++ optional (dnsGuest == null) { Address = "${ula.dnsAddress}/128"; };
           routes = [{ Destination = "${ula.addresses.${name}}/128"; }];
         })
         cfg.guests;
     };
 
-    boot.kernel.sysctl."net.ipv6.conf.all.forwarding" = mkDefault true;
+    # (nixos/nat64.nix sets it too with mkDefault, sysctls must have one definition)
+    boot.kernel.sysctl."net.ipv6.conf.all.forwarding" = mkOverride 999 true;
+
+    # the other microVMs after their resolver microVM (wants: started along, but they don't
+    # fail with it); only the order of the QEMU processes, see infra-host-ttl below
+    systemd.services = optionalAttrs (dnsGuest != null) (listToAttrs (map
+      (name: nameValuePair "microvm@${name}" {
+        overrideStrategy = "asDropin";
+        after = [ "microvm@${dnsGuest}.service" ];
+        wants = [ "microvm@${dnsGuest}.service" ];
+      })
+      (filter (name: name != dnsGuest) (attrNames cfg.guests))));
 
     # the NAT64 of the <internet> members
     mine.nat64 = mkIf (internetTaps != [ ]) {
@@ -261,19 +304,20 @@ in
       clients = internetTaps;
     };
 
-    # the resolver of the microVMs (DNS64 happens inside them)
-    services.unbound.settings.server = {
+    # the resolver of the microVMs (DNS64 happens inside them), on the host unless a
+    # microVM is (mine.vm.dnsGuest)
+    services.unbound.settings.server = mkIf (dnsGuest == null) {
       interface = [ ula.dnsAddress ];
       access-control = [ "${ula.network} allow" ];
       # the address is configured on the taps by networkd, possibly after unbound started
       ip-freebind = true;
     };
-    networking.firewall.interfaces = mapAttrs'
+    networking.firewall.interfaces = mkIf (dnsGuest == null) (mapAttrs'
       (name: guest: nameValuePair guest.tap {
         allowedUDPPorts = [ 53 ];
         allowedTCPPorts = [ 53 ];
       })
-      cfg.guests;
+      cfg.guests);
 
     networking.nftables.enable = true;
     networking.nftables.tables.microvm-guests-arp = {
@@ -356,6 +400,11 @@ in
           # IPv6 only with a ULA: every name resolves to its NAT64 address, resolution
           # itself is forwarded to the host
           networking.nameservers = mkForce [ "::1" ];
+          # no name resolution by multicast on the link (only the host is on it)
+          services.resolved.settings.Resolve = {
+            LLMNR = false;
+            MulticastDNS = false;
+          };
 
           # 464XLAT with <internet>: the IPv4 of applications (e.g. literal addresses) is
           # translated to IPv6 inside the VM (CLAT), from its own address (clatd's default
@@ -365,6 +414,25 @@ in
             settings = {
               plat-dev = cfg.guestInterface;
               plat-prefix = nat64Prefix;
+              # the VM never has native IPv4: no 10s wait for it before starting
+              v4-conncheck-enable = false;
+            };
+          };
+          # clatd takes the source address of `ip -6 route get <PLAT prefix>`: early in the
+          # boot there is none yet (falls back to ::1, which tayga refuses), so wait for it
+          # (at most 30s), and retry should it fail anyway
+          systemd.services.clatd = mkIf (hasInternet name) {
+            path = [ pkgs.iproute2 pkgs.gnugrep ];
+            preStart = ''
+              for _ in $(seq 60); do
+                ip -6 route get ${removeSuffix "/96" nat64Prefix} 2>/dev/null | grep -q " src ${ula.addresses.${name}} " && exit 0
+                sleep 0.5
+              done
+              echo "no route with source ${ula.addresses.${name}} towards the NAT64 prefix yet, starting anyway"
+            '';
+            serviceConfig = {
+              Restart = "on-failure";
+              RestartSec = "5s";
             };
           };
           services.unbound = {
@@ -372,16 +440,22 @@ in
             resolveLocalQueries = false;
             settings = {
               server = {
-                interface = [ "::1" ];
-                access-control = [ "::1/128 allow" ];
+                # the resolver microVM brings its own setup (loopback, upstream), here only
+                # what makes it the resolver of the others
+                interface = if name == dnsGuest then [ ula.addresses.${name} ] else [ "::1" ];
+                access-control = if name == dnsGuest then [ "${ula.network} allow" ] else [ "::1/128 allow" ];
                 module-config = ''"dns64 iterator"'';
+                # a resolver microVM still starting is retried after a minute, not after
+                # unbound's default 15 minutes
+                infra-host-ttl = mkIf (dnsGuest != null && name != dnsGuest) 60;
                 dns64-prefix = nat64Prefix;
                 dns64-synthall = true;
               };
-              forward-zone = [
+              # the resolver microVM has its own upstream (and serves the others)
+              forward-zone = mkIf (name != dnsGuest) [
                 {
                   name = ".";
-                  forward-addr = [ ula.dnsAddress ];
+                  forward-addr = [ resolverAddress ];
                 }
               ];
             };

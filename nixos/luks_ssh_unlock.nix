@@ -19,9 +19,22 @@ with builtins;
       '';
     };
 
+  options.mine.boot.remoteUnlockTorOnly =
+    with types;
+    mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Only reach the initrd's SSH through the Tor hidden service (`mine.boot.tor`): sshd
+        listens on loopback, where Tor delivers the connections, not on the network. The
+        initrd has no firewall, otherwise its SSH is open to every network the host is on.
+      '';
+    };
+
   config =
     let
       cfg = config.mine.boot.remoteUnlock;
+      admins = filterAttrs (name: _: elem name config.mine.admins) config.users.users;
 
       startsWith = prefix: str: substring 0 (stringLength prefix) str == prefix;
 
@@ -35,6 +48,14 @@ with builtins;
         );
     in
     mkIf cfg {
+      assertions = [{
+        assertion = config.mine.boot.remoteUnlockTorOnly ->
+          (config.mine.boot.tor.enable && any
+            (p: p.bind == "127.0.0.1" && p.bindPort == config.boot.initrd.network.ssh.port)
+            config.mine.boot.tor.ports);
+        message = "mine.boot.remoteUnlockTorOnly: the initrd's SSH would be unreachable, it needs a mine.boot.tor port to 127.0.0.1:${toString config.boot.initrd.network.ssh.port}.";
+      }];
+
       mine.boot.tor.ports = [
         {
           port = config.boot.initrd.network.ssh.port;
@@ -55,19 +76,24 @@ with builtins;
           ssh = mkIf (!config.age.rekey.initialRollout) {
             enable = true;
             port = mkDefault 22;
+            # only the admins: the initrd's sshd drops the keys' options (a root shell for
+            # the unlock), a service user's key (e.g. zrb, restricted to its command) would
+            # become a full login with port forwarding
             authorizedKeys = flatten (
               mapAttrsToList
                 (
                   username: user: map removeRestrictionsFromKey user.openssh.authorizedKeys.keys
                 )
-                config.users.users
+                admins
             );
             authorizedKeyFiles = flatten (
-              mapAttrsToList (username: user: user.openssh.authorizedKeys.keyFiles) config.users.users
+              mapAttrsToList (username: user: user.openssh.authorizedKeys.keyFiles) admins
             );
             hostKeys = [ "/etc/ssh/host_key" ];
             extraConfig = ''
               PasswordAuthentication no
+            '' + optionalString config.mine.boot.remoteUnlockTorOnly ''
+              ListenAddress 127.0.0.1:${toString config.boot.initrd.network.ssh.port}
             '';
           };
         };
