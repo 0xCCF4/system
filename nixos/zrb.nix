@@ -107,11 +107,17 @@ with lib;
           "pool/crypt/system/persist".primary = "tank/backups/zrb/${config.services.zrb.client.sourceName}";
         };
 
-        retention = {
-          recent = mkDefault 7;
-          weeklyForDays = mkDefault 30;
-          monthlyForDays = mkDefault 365;
-        };
+        retention =
+          if config.mine.presets.isWorkstation then {
+            recent = mkDefault 7;
+            weeklyForDays = mkDefault 0;
+            monthlyForDays = mkDefault 0;
+            yearlyForYears = mkDefault 0;
+          } else {
+            recent = mkDefault 7;
+            weeklyForDays = mkDefault 30;
+            monthlyForDays = mkDefault 365;
+          };
 
         jobs.daily = {
           onCalendar = "daily";
