@@ -45,6 +45,21 @@ with lib;
         default = [ "/mnt2" ];
         description = "Directories to exclude from the on-demand clamdscan scan, as anchored regex patterns.";
       };
+      allowlistedFiles = mkOption {
+        type = listOf str;
+        default = [
+          # False positive for Html.Exploit.CVE_2016_7217-1 (2026-11-02):
+          # jitsi-meet 1.0.9365 libs/lib-jitsi-meet.min.map (also copied as-is into
+          # templated-jitsi-meet)
+          "1a78eadb6b126a220be356c3ed60462e405decc83dad3839a98f9d1a8fec31f1:4078096:lib-jitsi-meet.min.map"
+        ];
+        description = ''
+          Files clamd must not flag, as "sha256:size:name" entries (output of
+          `sigtool --sha256 <file>`), written to local.sfp in the database directory.
+          ClamAV has no per-path or per-signature exclusion; this pins the exact
+          verified file content instead.
+        '';
+      };
     };
   };
 
@@ -115,6 +130,12 @@ with lib;
       };
 
       services.clamav.updater.enable = true;
+
+      # clamd loads *.sfp from its database directory and picks up changes on
+      # its periodic SelfCheck; freshclam leaves unknown files there alone
+      systemd.tmpfiles.rules = mkIf (cfg.allowlistedFiles != [ ]) [
+        "L+ ${config.services.clamav.daemon.settings.DatabaseDirectory}/local.sfp - - - - ${pkgs.writeText "local.sfp" (concatLines cfg.allowlistedFiles)}"
+      ];
 
       # clamav-daemon.socket lives in /run/clamav; without this every clamd
       # stop deletes the socket file while the socket unit listens on
