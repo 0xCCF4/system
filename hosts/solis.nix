@@ -46,6 +46,8 @@ with lib;
 
       mine.persistence.enable = true;
 
+      boot.tmp.cleanOnBoot = true;
+
       mine.eduroam.enable = true;
 
       specialisation."de-keyboard".configuration = {
