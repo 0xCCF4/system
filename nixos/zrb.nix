@@ -112,7 +112,6 @@ with lib;
             recent = mkDefault 7;
             weeklyForDays = mkDefault 0;
             monthlyForDays = mkDefault 0;
-            yearlyForYears = mkDefault 0;
           } else {
             recent = mkDefault 7;
             weeklyForDays = mkDefault 30;
