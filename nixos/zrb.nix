@@ -242,26 +242,40 @@ with lib;
       };
     }
       {
-        systemd.services = mkIf (config.services.zrb.client.enable && config.mine.zrb.retry.enable) (mkMerge (mapAttrsToList
+        systemd = mkIf (config.services.zrb.client.enable && config.mine.zrb.retry.enable) (mkMerge (mapAttrsToList
           (name: job:
             let
               unit = "zrb-send-${name}";
               send = config.systemd.services.${unit};
+              rearm = pkgs.writeShellScript "${unit}-retry-rearm" ''
+                if [ "$EXIT_CODE" != exited ] || [ "$EXIT_STATUS" != 0 ]; then
+                  echo "send failed ($EXIT_CODE $EXIT_STATUS), next try in ${config.mine.zrb.retry.interval}"
+                  ${config.systemd.package}/bin/systemctl restart --no-block ${unit}-retry.timer
+                fi
+              '';
             in
             {
-              ${unit} = {
-                onFailure = [ "${unit}-retry.service" ];
-                conflicts = [ "${unit}-retry.service" ];
+              services.${unit} = {
+                onFailure = [ "${unit}-retry.timer" ];
+                conflicts = [ "${unit}-retry.service" "${unit}-retry.timer" ];
               };
-              "${unit}-retry" = {
+              timers."${unit}-retry" = {
+                description = "Retry of zrb send job '${name}'";
+                timerConfig = {
+                  OnActiveSec = config.mine.zrb.retry.interval;
+                  Unit = "${unit}-retry.service";
+                };
+              };
+              services."${unit}-retry" = {
                 description = "Retry of zrb send job '${name}'";
                 restartIfChanged = false;
                 after = [ "network-online.target" ];
                 wants = [ "network-online.target" ];
                 inherit (send) environment;
-                serviceConfig = filterAttrs (n: _: elem n [ "Type" "User" "ExecStart" "WatchdogSec" ]) send.serviceConfig // {
-                  Restart = "on-failure";
-                  RestartSec = config.mine.zrb.retry.interval;
+                serviceConfig = filterAttrs (n: _: elem n [ "Type" "User" "WatchdogSec" ]) send.serviceConfig // {
+                  # "-": a failed try does not leave the unit failed, the timer is armed again
+                  ExecStart = "-${send.serviceConfig.ExecStart}";
+                  ExecStopPost = "+${rearm}";
                 };
               };
             })

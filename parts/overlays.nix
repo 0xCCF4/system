@@ -25,6 +25,10 @@
         ];
       });
 
+      ncspot = prev.ncspot.overrideAttrs (old: {
+        buildInputs = (old.buildInputs or [ ]) ++ [ final.aws-lc ];
+      });
+
       todoman = prev.todoman.overrideAttrs {
         sphinxBuilders = "singlehtml man";
         preInstallSphinx = ''
