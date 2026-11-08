@@ -255,6 +255,7 @@ with lib;
               };
               "${unit}-retry" = {
                 description = "Retry of zrb send job '${name}'";
+                restartIfChanged = false;
                 after = [ "network-online.target" ];
                 wants = [ "network-online.target" ];
                 inherit (send) environment;
