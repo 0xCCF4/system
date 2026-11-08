@@ -14,9 +14,5 @@ with builtins;
 
       extraConfig = readFile ./tmux.conf;
     };
-
-    home.packages = mkIf config.programs.tmux.enable [
-      pkgs.autoclaude
-    ];
   };
 }

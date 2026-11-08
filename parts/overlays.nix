@@ -29,6 +29,13 @@
         buildInputs = (old.buildInputs or [ ]) ++ [ final.aws-lc ];
       });
 
+      # Same class: cargoSetupHook sets RUSTONIG_SYSTEM_LIBONIG, but presenterm has
+      # neither oniguruma nor pkg-config, so the onig_sys build script panics.
+      presenterm = prev.presenterm.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ final.pkg-config ];
+        buildInputs = (old.buildInputs or [ ]) ++ [ final.oniguruma ];
+      });
+
       todoman = prev.todoman.overrideAttrs {
         sphinxBuilders = "singlehtml man";
         preInstallSphinx = ''

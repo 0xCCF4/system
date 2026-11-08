@@ -43,7 +43,6 @@ with lib;
 
       # Required
       glib
-      gtk2
 
       # Inspired by steam
       # https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/st/steam/package.nix#L36-L85
@@ -179,7 +178,6 @@ with lib;
       gst_all_1.gst-plugins-base
       gst_all_1.gst-plugins-ugly
       gst_all_1.gstreamer
-      gtk2
       harfbuzz
       icu
       keyutils.lib
@@ -275,7 +273,6 @@ with lib;
       freetype
       fontconfig
       glib
-      gtk2
       gtk3
       graphviz
       gcc
