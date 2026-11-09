@@ -2,9 +2,6 @@
   description = "NixOS configuration";
 
   inputs = {
-    # include the external/private submodule without `?submodules=1` (Nix >= 2.27)
-    self.submodules = true;
-
     # Nixpkgs
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-stable.url = "github:nixos/nixpkgs/release-25.11";
