@@ -27,6 +27,29 @@ with lib;
 
       configPath = ".mozilla/firefox";
 
+      # Extensions installed via enterprise policy, fetched from addons.mozilla.org.
+      policies.ExtensionSettings =
+        let
+          withMode = mode: mapAttrs (_: slug: {
+            installation_mode = mode;
+            install_url = "https://addons.mozilla.org/firefox/downloads/latest/${slug}/latest.xpi";
+          });
+        in
+        # Installed automatically, can be disabled but not removed
+        withMode "normal_installed"
+          {
+            "{446900e4-71c2-419f-a6a7-df9c091e268b}" = "bitwarden-password-manager";
+            "gdpr@cavi.au.dk" = "consent-o-matic";
+            "addon@darkreader.org" = "darkreader";
+            "uBlock0@raymondhill.net" = "ublock-origin";
+            "{d7742d87-e61d-4b78-b8a1-b469842139fa}" = "vimium-ff";
+          }
+        # Not installed automatically, but allowed to be installed manually
+        // withMode "allowed" {
+          "keepassxc-browser@keepassxc.org" = "keepassxc-browser";
+          "87677a2c52b84ad3a151a4a72f5bd3c4@jetpack" = "grammarly-1";
+        };
+
       # Privacy about:config settings
       profiles.default = {
         id = 0;
