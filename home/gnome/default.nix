@@ -1,7 +1,7 @@
 { config
 , pkgs
 , lib
-, self
+, mineSelf
 , osConfig
 , ...
 }:
@@ -19,12 +19,12 @@ in
   options.home.mine = {
     gnome.vitals = lib.mkOption {
       type = lib.types.bool;
-      default = self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
+      default = mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
       description = "Enable vitals extension";
     };
     gnome.spaceBar = lib.mkOption {
       type = lib.types.bool;
-      default = self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
+      default = mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
       description = "Enable space-bar extension";
     };
   };

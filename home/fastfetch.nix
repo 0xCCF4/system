@@ -1,7 +1,7 @@
 { config
 , pkgs
 , lib
-, self
+, mineSelf
 , osConfig
 , ...
 }:
@@ -11,7 +11,7 @@ with lib;
     with types;
     mkOption {
       type = bool;
-      default = self.lib.evalMissingOption osConfig "mine.presets.isServer" false;
+      default = mineSelf.lib.evalMissingOption osConfig "mine.presets.isServer" false;
       description = "Run fastfetch on shell startup";
     };
 

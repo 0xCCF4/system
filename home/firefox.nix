@@ -1,7 +1,7 @@
 { pkgs
 , lib
 , config
-, self
+, mineSelf
 , osConfig
 , ...
 }:
@@ -23,7 +23,7 @@ with lib;
     ];
 
     programs.firefox = {
-      enable = mkDefault (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false);
+      enable = mkDefault (mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false);
 
       configPath = ".mozilla/firefox";
 

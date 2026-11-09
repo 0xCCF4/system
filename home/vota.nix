@@ -1,7 +1,7 @@
 { config
 , pkgs
 , lib
-, self
+, mineSelf
 , osConfig
 , ...
 }:
@@ -10,7 +10,7 @@ with lib;
   options.home.mine.vota = with types; {
     enable = mkOption {
       type = bool;
-      default = self.lib.evalMissingOption osConfig.mine.presets "isWorkstation" false;
+      default = mineSelf.lib.evalMissingOption osConfig.mine.presets "isWorkstation" false;
       description = "Install the `vota ballot …` client for Vota's admin API.";
     };
 

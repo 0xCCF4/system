@@ -1,7 +1,7 @@
 { config
 , pkgs
 , lib
-, self
+, mineSelf
 , osConfig
 , ...
 }:
@@ -24,7 +24,7 @@ let
       osConfig.programs.hyprland.package
   }/bin/hyprctl";
 
-  luxIp = self.nixosConfigurations.lux.config.mine.info.public.ipv4;
+  luxIp = mineSelf.nixosConfigurations.lux.config.mine.info.public.ipv4;
 in
 {
   options.home.mine.waybar = with lib.types; {
@@ -329,7 +329,7 @@ in
         '
       '';
 
-      defaultCity = self.lib.evalMissingOption osConfig "mine.info.weatherCity" "Berlin";
+      defaultCity = mineSelf.lib.evalMissingOption osConfig "mine.info.weatherCity" "Berlin";
 
       weatherRefreshSignal = 8;
 
@@ -856,7 +856,7 @@ in
 
       programs.waybar = with config.lib.stylix.colors; {
         enable = mkDefault (
-          (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
+          (mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
           && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable)
         );
 

@@ -1,7 +1,7 @@
 { osConfig
 , lib
 , config
-, self
+, mineSelf
 , noxa
 , ...
 }:
@@ -45,7 +45,7 @@ with builtins;
       {
         assertion =
           config.home.mine.traits.traits == [ ]
-          || (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" true);
+          || (mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" true);
         message = "${fgYellow}Traits can only be set for workstations.${default}";
       }
     ];

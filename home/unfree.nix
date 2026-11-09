@@ -1,6 +1,6 @@
 { config
 , lib
-, self
+, mineSelf
 , osConfig
 , ...
 }:
@@ -10,7 +10,7 @@ with builtins;
   options.home.mine.unfree = with types; {
     enable = mkOption {
       type = bool;
-      default = self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
+      default = mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
       description = "Enable unfree package management";
     };
     allowAll = mkOption {
