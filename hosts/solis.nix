@@ -62,6 +62,59 @@ with lib;
         mine.noSuspend = false;
       };
 
+      # Share the uplink with hosts plugged into the dock: DHCP + DNS + IPv4 NAT on ethDocking
+      specialisation."docking-router".configuration =
+        let
+          iface = "ethDocking";
+          address = "10.77.0.1";
+          # dnscrypt-proxy's ip:port -> dnsmasq's ip#port
+          toDnsmasqServer = listen:
+            let m = builtins.match "\\[?([^]]*)]?:([0-9]+)" listen;
+            in "${elemAt m 0}#${elemAt m 1}";
+        in
+        {
+          networking.networkmanager.unmanaged = [ "interface-name:${iface}" ];
+          networking.interfaces.${iface} = {
+            useDHCP = false;
+            ipv4.addresses = [{ inherit address; prefixLength = 24; }];
+          };
+          # upstream only starts it when the device appears; also on a live
+          # switch-to-configuration into this specialisation (device already there)
+          systemd.services."network-addresses-${iface}".wantedBy = [ "multi-user.target" ];
+          # dnsmasq waits for the address (bind-dynamic picks it up either way)
+          systemd.services.dnsmasq = {
+            wants = [ "network-addresses-${iface}.service" ];
+            after = [ "network-addresses-${iface}.service" ];
+          };
+
+          # no externalInterface: masquerade out of whichever uplink is active (ethMonRight, wifi)
+          networking.nat = {
+            enable = true;
+            internalInterfaces = [ iface ];
+          };
+
+          services.dnsmasq = {
+            enable = true;
+            resolveLocalQueries = false;
+            settings = {
+              interface = iface;
+              bind-dynamic = true; # ethDocking may appear later (dock plugged in)
+              except-interface = "lo";
+              no-resolv = true;
+              # the local dnscrypt-proxy (filtered, encrypted upstream)
+              server = map toDnsmasqServer config.mine.dns.listenAddresses;
+              dhcp-range = [ "10.77.0.100,10.77.0.200,255.255.255.0,12h" ];
+              dhcp-option = [ "option:router,${address}" "option:dns-server,${address}" ];
+              dhcp-authoritative = true;
+            };
+          };
+
+          networking.firewall.interfaces.${iface} = {
+            allowedUDPPorts = [ 53 67 ];
+            allowedTCPPorts = [ 53 ];
+          };
+        };
+
       # Remote unlock luks via ssh+tor
       mine.boot.remoteUnlock = true;
       boot.initrd.network.ssh.port = 4444;

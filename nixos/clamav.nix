@@ -56,8 +56,20 @@ with lib;
         description = ''
           Files clamd must not flag, as "sha256:size:name" entries (output of
           `sigtool --sha256 <file>`), written to local.sfp in the database directory.
-          ClamAV has no per-path or per-signature exclusion; this pins the exact
-          verified file content instead.
+          ClamAV has no per-path exclusion; this pins the exact verified file
+          content instead.
+        '';
+      };
+      ignoredSignatures = mkOption {
+        type = listOf str;
+        default = [
+          # lld emits exactly this for tiny LTO test binaries
+          "Win.Dropper.Agent-36276"
+        ];
+        description = ''
+          Signature names clamd must not use, written to local.ign2 in the
+          database directory. Only for signatures that are verified to be too
+          generic to be useful; prefer allowlistedFiles for single files.
         '';
       };
     };
@@ -131,11 +143,13 @@ with lib;
 
       services.clamav.updater.enable = true;
 
-      # clamd loads *.sfp from its database directory and picks up changes on
+      # clamd loads *.sfp and *.ign2 from its database directory and picks up changes on
       # its periodic SelfCheck; freshclam leaves unknown files there alone
-      systemd.tmpfiles.rules = mkIf (cfg.allowlistedFiles != [ ]) [
-        "L+ ${config.services.clamav.daemon.settings.DatabaseDirectory}/local.sfp - - - - ${pkgs.writeText "local.sfp" (concatLines cfg.allowlistedFiles)}"
-      ];
+      systemd.tmpfiles.rules =
+        optional (cfg.allowlistedFiles != [ ])
+          "L+ ${config.services.clamav.daemon.settings.DatabaseDirectory}/local.sfp - - - - ${pkgs.writeText "local.sfp" (concatLines cfg.allowlistedFiles)}"
+        ++ optional (cfg.ignoredSignatures != [ ])
+          "L+ ${config.services.clamav.daemon.settings.DatabaseDirectory}/local.ign2 - - - - ${pkgs.writeText "local.ign2" (concatLines cfg.ignoredSignatures)}";
 
       # clamav-daemon.socket lives in /run/clamav; without this every clamd
       # stop deletes the socket file while the socket unit listens on
