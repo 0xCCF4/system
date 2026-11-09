@@ -1,7 +1,7 @@
 { config
 , pkgs
 , lib
-, self
+, mineSelf
 , osConfig
 , ...
 }:
@@ -28,7 +28,7 @@ with builtins;
     ];
 
     programs.vscode = {
-      enable = mkDefault (self.lib.evalMissingOption osConfig.mine.presets "isWorkstation" false);
+      enable = mkDefault (mineSelf.lib.evalMissingOption osConfig.mine.presets "isWorkstation" false);
 
       package = pkgs.vscode;
 

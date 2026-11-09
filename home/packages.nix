@@ -1,7 +1,7 @@
 { osConfig
 , config
 , lib
-, self
+, mineSelf
 , pkgs
 , ...
 }:
@@ -16,7 +16,7 @@ with builtins;
   options.home.mine.packages =
     with types;
     let
-      isWorkstation = self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
+      isWorkstation = mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
       traits = config.home.mine.traits;
     in
     {

@@ -2,7 +2,7 @@
 , pkgs
 , lib
 , osConfig
-, self
+, mineSelf
 , ...
 }:
 with lib;
@@ -10,7 +10,7 @@ with lib;
   config = {
     services.mako = {
       enable = mkDefault (
-        (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
+        (mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
         && (osConfig.programs.hyprland.enable || config.wayland.windowManager.hyprland.enable)
       );
       settings = {

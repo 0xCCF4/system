@@ -2,14 +2,14 @@
 , lib
 , pkgs
 , osConfig
-, self
+, mineSelf
 , ...
 }:
 with lib;
 let
   cfg = config.home.mine.bitwarden;
-  isWorkstation = self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
-  serverUrl = "https://${self.nixosConfigurations.lux.config.mine.services.caddyProxy.routes.vaultwarden.public.domain}";
+  isWorkstation = mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
+  serverUrl = "https://${mineSelf.nixosConfigurations.lux.config.mine.services.caddyProxy.routes.vaultwarden.public.domain}";
 
   # Formats `rbw list --fields name,user` into aligned rows: a display column
   # (padded name + user, for the selector to show/search) followed by the raw

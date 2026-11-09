@@ -1,7 +1,7 @@
 { config
 , pkgs
 , lib
-, self
+, mineSelf
 , osConfig
 , ...
 }:
@@ -14,14 +14,14 @@ with lib;
   options.home.mine.element = with types; {
     enable = mkOption {
       type = bool;
-      default = self.lib.evalMissingOption osConfig.mine.presets "isWorkstation" false;
+      default = mineSelf.lib.evalMissingOption osConfig.mine.presets "isWorkstation" false;
       description = "Enable Element (Matrix client) desktop app";
     };
 
     settings = mkOption {
       default =
         let
-          luxDomain = self.nixosConfigurations.lux.config.mine.info.domain;
+          luxDomain = mineSelf.nixosConfigurations.lux.config.mine.info.domain;
         in
         {
           disable_custom_urls = true;
@@ -29,7 +29,7 @@ with lib;
         }
         // optionalAttrs (luxDomain != null) {
           default_server_config."m.homeserver" = {
-            base_url = "https://${self.nixosConfigurations.lux.config.mine.services.matrix.domains.homeserver}";
+            base_url = "https://${mineSelf.nixosConfigurations.lux.config.mine.services.matrix.domains.homeserver}";
             server_name = luxDomain;
           };
         };

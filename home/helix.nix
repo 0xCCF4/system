@@ -1,7 +1,7 @@
 { config
 , pkgs
 , lib
-, self
+, mineSelf
 , osConfig
 , ...
 }:
@@ -17,7 +17,7 @@ with lib;
         mkIf
           (
             config.programs.helix.enable
-            && (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
+            && (mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false)
           )
           [
             pkgs.tinymist

@@ -2,14 +2,14 @@
 , pkgs
 , lib
 , osConfig
-, self
+, mineSelf
 , ...
 }:
 with lib;
 {
   config = {
     services.tomat = {
-      # enable = mkDefault (self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false);
+      # enable = mkDefault (mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false);
       settings = {
         notifications = {
           enabled = true;

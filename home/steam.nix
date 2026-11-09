@@ -2,7 +2,7 @@
 , pkgs
 , lib
 , osConfig
-, self
+, mineSelf
 , ...
 }:
 with lib;
@@ -13,7 +13,7 @@ with lib;
   ];
 
   config =
-    mkIf ((self.lib.evalMissingOption osConfig "mine.steam" false) && config.home.mine.traits.hasGaming)
+    mkIf ((mineSelf.lib.evalMissingOption osConfig "mine.steam" false) && config.home.mine.traits.hasGaming)
       {
         home.packages = with pkgs; [
           protonup-ng

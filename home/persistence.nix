@@ -1,7 +1,7 @@
 { config
 , lib
 , osConfig
-, self
+, mineSelf
 , inputs
 , ...
 }:
@@ -16,13 +16,13 @@ with builtins;
   options.home.mine = with types; {
     persistence.enable = mkOption {
       type = bool;
-      default = self.lib.evalMissingOption osConfig "mine.persistence.enable" false;
+      default = mineSelf.lib.evalMissingOption osConfig "mine.persistence.enable" false;
       description = "Enable home persistence";
     };
 
     persistence.defaultHomeFolders = mkOption {
       type = bool;
-      default = self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
+      default = mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
       description = "Add default persistence folders/files: Documents, Pictures, Music, Videos, Desktop, keyrings";
     };
 

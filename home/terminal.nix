@@ -2,7 +2,7 @@
 , pkgs
 , lib
 , osConfig
-, self
+, mineSelf
 , ...
 }:
 with lib;

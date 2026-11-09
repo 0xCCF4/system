@@ -1,7 +1,7 @@
 { config
 , lib
 , osConfig
-, self
+, mineSelf
 , ...
 }:
 with lib;
@@ -10,7 +10,7 @@ with builtins;
   config =
     let
       shell = config.programs.fish;
-      isWorkstation = self.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
+      isWorkstation = mineSelf.lib.evalMissingOption osConfig "mine.presets.isWorkstation" false;
     in
     {
       programs.kitty = {
