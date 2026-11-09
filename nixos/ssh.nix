@@ -38,6 +38,21 @@ in
   };
 
   config = {
+    # OpenSSH >= 10.x (nixpkgs) adds a post-quantum `mldsa44-ed25519` host key by default,
+    # and noxa feeds every host key into `age.identityPaths`. age can't parse that key type
+    # ("malformed SSH identity ... ssh: unhandled key type") and aborts all decryption on it.
+    # Only hand age the key types it supports; the secrets are encrypted to the ed25519 key.
+    # Same filter as upstream agenix's default; drop once noxa filters itself.
+    age.identityPaths = mkForce (
+      map (key: key.private) (
+        filter (key: elem key.type [ "rsa" "ed25519" ]) (
+          zipListsWith (key: private: key // { inherit private; })
+            config.services.openssh.hostKeys
+            config.noxa.sshHostKeys.hostKeysPrivate
+        )
+      )
+    );
+
     services.openssh = {
       enable = mkDefault true;
       settings.PasswordAuthentication = mkDefault false;

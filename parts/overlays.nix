@@ -7,7 +7,12 @@
     (withSystem system ({ config, ... }: config.packages))
     // {
       timetrax = inputs.timetrax.packages.${system}.default;
-      frostx = inputs.frostx.packages.${system}.default;
+      # Same class as presenterm below: zstd-sys is told to use the system libzstd,
+      # but frostx has neither zstd nor pkg-config, so its build script panics.
+      frostx = inputs.frostx.packages.${system}.default.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ final.pkg-config ];
+        buildInputs = (old.buildInputs or [ ]) ++ [ final.zstd ];
+      });
       vota = inputs.vota.packages.${system}.default;
       zrb = inputs.zrb.packages.${system}.default;
 
