@@ -142,8 +142,15 @@ in
       rbwPicker
     ];
 
+    # bw refuses to change the server while logged in ("Logout required before server
+    # config update", exit 1), also to the same URL: only set it when it differs, and
+    # only warn when that fails, so a logged-in bw doesn't fail the whole activation.
     home.activation.bwConfigServer = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      run ${getExe pkgs.bitwarden-cli} config server ${serverUrl}
+      bwCurrentServer="$(${getExe pkgs.bitwarden-cli} config server 2>/dev/null || true)"
+      if [ "''${bwCurrentServer%/}" != ${escapeShellArg serverUrl} ]; then
+        run ${getExe pkgs.bitwarden-cli} config server ${serverUrl} \
+          || warnEcho "bw server is $bwCurrentServer, not ${serverUrl}: run 'bw logout', then activate again"
+      fi
     '';
   };
 }
