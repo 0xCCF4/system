@@ -119,6 +119,7 @@ with builtins;
           nixpkgs-review # pr checker tool
           vmtouch # pin files to memory
           smartmontools # check drive health
+          box # run an AI coding agent in a bubblewrap sandbox
         ]
         ++ lists.optionals cfg.latex [
           texliveFull
@@ -209,5 +210,11 @@ with builtins;
             ".local/share/FreeCAD"
           ])
         ];
+
+      # the per-project scratchpads of box: files of an agent that outlive its sandbox but
+      # do not belong in the project
+      home.mine.persistence.data.directories = lists.optionals cfg.cmdlineExtras [
+        ".local/state/box"
+      ];
     };
 }
