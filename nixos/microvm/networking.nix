@@ -23,7 +23,8 @@ let
   internetMember = "<internet>";
   hostMember = "<host>";
   ulaMember = "<ula>";
-  specialMembers = [ internetMember hostMember ulaMember ];
+  ulaInMember = "<ula-in>";
+  specialMembers = [ internetMember hostMember ulaMember ulaInMember ];
   guestMembers = network: filter (member: !elem member specialMembers) network.members;
   sharesNetworkWith = special: name: any
     (network: elem special network.members && elem name network.members)
@@ -31,8 +32,22 @@ let
 
   # The NAT64 of the <internet> members (nixos/nat64.nix, in its own network namespace)
   hasInternet = sharesNetworkWith internetMember;
-  internetTaps = map (name: cfg.guests.${name}.tap) (filter hasInternet (attrNames cfg.guests));
+  # only some IPv4 destinations through the NAT64 (internetAllow), without <internet>
+  hasInternetAllow = name: !hasInternet name && cfg.guests.${name}.internetAllow != [ ];
+  usesNat64 = name: hasInternet name || hasInternetAllow name;
+  internetTaps = map (name: cfg.guests.${name}.tap) (filter usesNat64 (attrNames cfg.guests));
   nat64 = config.mine.nat64;
+
+  # an IPv4 address or prefix as its NAT64 address (prefix), e.g. 192.0.2.1 -> 64:ff9b::c000:201
+  toNat64 = ipv4:
+    let
+      parts = splitString "/" ipv4;
+      octets = map toInt (splitString "." (head parts));
+      group = a: b: toLower (toHexString (a * 256 + b));
+    in
+    assert length octets == 4 && all (o: o >= 0 && o <= 255) octets;
+    "${removeSuffix "/96" nat64Prefix}${group (elemAt octets 0) (elemAt octets 1)}:${group (elemAt octets 2) (elemAt octets 3)}"
+    + optionalString (length parts == 2) "/${toString (96 + toInt (elemAt parts 1))}";
 
   # All chains have policy drop: traffic of other interfaces is accepted (and left to the
   # host's other tables), every tap only passes what its rules accept
@@ -97,6 +112,10 @@ let
         # ${name}: to the internet through the NAT64 (<internet>), and only the replies
         iifname "${guest.tap}" oifname "${nat64.interface}" accept
         iifname "${nat64.interface}" oifname "${guest.tap}" ct state established,related accept
+      '' + optionalString (hasInternetAllow name) ''
+        # ${name}: only to ${concatStringsSep ", " guest.internetAllow} through the NAT64 (internetAllow), and only the replies
+        iifname "${guest.tap}" oifname "${nat64.interface}" ip6 daddr { ${concatMapStringsSep ", " toNat64 guest.internetAllow} } accept
+        iifname "${nat64.interface}" oifname "${guest.tap}" ct state established,related accept
       '' + optionalString (dnsGuest != null && name != dnsGuest) ''
         # ${name}: DNS to the resolver microVM (mine.vm.dnsGuest), and its answers
         iifname "${guest.tap}" oifname "${cfg.guests.${dnsGuest}.tap}" ip6 daddr ${resolverAddress} meta l4proto { tcp, udp } th dport 53 accept
@@ -105,6 +124,10 @@ let
         # ${name}: from the other ULA hosts (<ula>), and the replies
         oifname "${guest.tap}" ip6 saddr ${noxa.ula.prefix} accept
         iifname "${guest.tap}" ip6 daddr ${noxa.ula.prefix} accept
+      '' + optionalString (sharesNetworkWith ulaInMember name && !sharesNetworkWith ulaMember name) ''
+        # ${name}: from the other ULA hosts (<ula-in>), it only answers
+        oifname "${guest.tap}" ip6 saddr ${noxa.ula.prefix} accept
+        iifname "${guest.tap}" ip6 daddr ${noxa.ula.prefix} ct state established,related accept
       '')
     cfg.guests);
 
@@ -156,6 +179,17 @@ in
               "02:7a:${concatMapStringsSep ":" (i: substring (i * 2) 2 hash) (range 0 3)}";
             description = "MAC address of the microVM's interface.";
           };
+
+          internetAllow = mkOption {
+            type = listOf str;
+            default = [ ];
+            example = [ "192.0.2.1" "198.51.100.0/24" ];
+            description = ''
+              IPv4 addresses or prefixes the microVM may open connections to through the NAT64
+              (and its CLAT), without a network with `<internet>`: no other internet access.
+              Ignored with `<internet>`.
+            '';
+          };
         };
       }));
     };
@@ -172,6 +206,9 @@ in
         - `<ula>`: the members and every address of the fleet ULA prefix (`noxa.ula.prefix`),
           e.g. the WireGuard peers and all other microVMs, may reach each other (subject to
           the host's forward chain).
+        - `<ula-in>`: like `<ula>`, but only towards the members: every address of the fleet
+          ULA prefix may open connections to them, they only answer (subject to the host's
+          forward chain).
         - `<host>`: the members and the host may reach each other (the host's services
           subject to its firewall). Without it only the host's DNS resolver for the
           microVMs is reachable, and the host opens no connections to the members.
@@ -181,7 +218,7 @@ in
           type = listOf str;
           default = [ ];
           example = [ "vm1" "vm2" "<internet>" ];
-          description = "The microVMs of this network, and the special members `<internet>`, `<host>` and `<ula>`.";
+          description = "The microVMs of this network, and the special members `<internet>`, `<host>`, `<ula>` and `<ula-in>`.";
         };
       });
     };
@@ -251,8 +288,8 @@ in
         message = "mine.vm.guests: tap interface names must be at most 15 characters, shorten the microVM names to at most 11.";
       }
       {
-        assertion = nat64.wanInterfaces == [ ] -> all (name: !sharesNetworkWith internetMember name) (attrNames cfg.guests);
-        message = "mine.vm.networks: <internet> needs mine.wanInterfaces (or mine.nat64.wanInterfaces).";
+        assertion = nat64.wanInterfaces == [ ] -> all (name: !usesNat64 name) (attrNames cfg.guests);
+        message = "mine.vm.networks: <internet> (and mine.vm.guests.<name>.internetAllow) needs mine.wanInterfaces (or mine.nat64.wanInterfaces).";
       }
       {
         # Jool in the host's namespace translates in prerouting, before the forward chain
@@ -409,7 +446,7 @@ in
           # 464XLAT with <internet>: the IPv4 of applications (e.g. literal addresses) is
           # translated to IPv6 inside the VM (CLAT), from its own address (clatd's default
           # clat-v6-addr=shared), the host's NAT64 translates it back
-          services.clatd = mkIf (hasInternet name) {
+          services.clatd = mkIf (usesNat64 name) {
             enable = true;
             settings = {
               plat-dev = cfg.guestInterface;
@@ -421,7 +458,7 @@ in
           # clatd takes the source address of `ip -6 route get <PLAT prefix>`: early in the
           # boot there is none yet (falls back to ::1, which tayga refuses), so wait for it
           # (at most 30s), and retry should it fail anyway
-          systemd.services.clatd = mkIf (hasInternet name) {
+          systemd.services.clatd = mkIf (usesNat64 name) {
             path = [ pkgs.iproute2 pkgs.gnugrep ];
             preStart = ''
               for _ in $(seq 60); do

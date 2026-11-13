@@ -5,13 +5,32 @@
 , ...
 }:
 with lib;
+let
+  publicOnWireguard = config.mine.services.caddyProxy.publicOnWireguard;
+in
 {
   options.mine.services.caddyProxy = {
+    publicOnWireguard = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      example = [ "cloud-admin" ];
+      description = ''
+        WireGuard networks every public route is also exposed on, under its public domain:
+        the peers resolve that name to the caddy container's ULA (their local DNS
+        overrides), so their traffic to the public services goes through the tunnel. A
+        route's own `wireguardNetworks.<network>` settings take precedence.
+      '';
+    };
+
     routes = mkOption {
       default = { };
       description = "Declarative reverse-proxy routes served by the caddy container.";
       type = types.attrsOf (
-        types.submodule {
+        types.submodule ({ config, ... }: {
+          config.wireguardNetworks = mkIf config.public.enable (genAttrs publicOnWireguard (_: {
+            hostname = mkDefault config.public.domain;
+          }));
+
           options = {
             upstream = mkOption {
               type = types.str;
@@ -255,7 +274,7 @@ with lib;
               };
             };
           };
-        }
+        })
       );
     };
 

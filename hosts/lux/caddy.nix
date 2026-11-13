@@ -44,6 +44,10 @@ with lib;
       # wireguard routes (mine.services.caddyProxy.routes.*.wireguardNetworks) via its ULA
       mine.guestUla.containers = [ "caddy" ];
 
+      # The fleet reaches every public service through the tunnel: its hosts resolve
+      # the public names to the caddy container's ULA (instead of the public address)
+      mine.services.caddyProxy.publicOnWireguard = [ "cloud-admin" ];
+
       # (caddy chowns it inside the container, LogsDirectory)
       systemd.tmpfiles.rules = [ "d /var/log/containers/caddy 0750 root root -" ];
 
