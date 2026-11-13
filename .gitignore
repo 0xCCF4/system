@@ -24,3 +24,8 @@ users/!.gitignore
 pki/.*
 !pki/.gitignore
 /netsim/
+
+# Python bytecode and pytest caches (pkgs/box)
+__pycache__/
+*.pyc
+.pytest_cache/
