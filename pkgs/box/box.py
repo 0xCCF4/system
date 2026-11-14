@@ -149,6 +149,7 @@ class Agent:
     note: str = ""  # notes/<name>.txt, appended to the command
     note_no_home: str = ""  # the variant for --no-home
     note_flag: str = ""  # the flag the agent takes the note with
+    session_dir_env: str = ""  # the variable that moves the session folder into the workspace
 
 
 AGENTS: dict[str, Agent] = {
@@ -158,6 +159,7 @@ AGENTS: dict[str, Agent] = {
         state_dirs=(".pi",),
         command=("pi",),
         bundled=True,
+        session_dir_env="PI_CODING_AGENT_SESSION_DIR",
     ),
     "claude": Agent(
         name="claude",
@@ -324,9 +326,13 @@ def environment(
     box: Box,
     shell: str,
     host_env: Mapping[str, str],
+    agent: Agent | None = None,
 ) -> list[tuple[str, str]]:
     """The environment inside the box. The host environment does not leak in."""
     values: list[tuple[str, str]] = [(ENV_MARKER, "1")]
+    if agent is not None and agent.session_dir_env:
+        # sessions stay with the workspace: <workspace>/.pi/sessions
+        values.append((agent.session_dir_env, f"{box.cwd}/.pi/sessions"))
     if box.scratchpad:
         values.append((ENV_SCRATCHPAD, box.scratchpad))
     values += [
@@ -412,7 +418,7 @@ def plan(
         # a private nix cache, so the host's ~/.cache/nix stays hidden
         argv += ["--bind", box.cache, "/tmp/.cache/nix"]
     argv += ["--remount-ro", box.home, "--chdir", box.cwd, "--clearenv"]
-    for name, value in environment(options, box, shell, host_env):
+    for name, value in environment(options, box, shell, host_env, agent):
         argv += ["--setenv", name, value]
     return argv
 
