@@ -78,7 +78,7 @@ with lib;
         ).output;
     };
 
-    stylix.image = mkDefault config.mine.wallpapers.snowflake.wallpaper;
+    stylix.image = mkIf config.mine.presets.isWorkstation (mkDefault config.mine.wallpapers.snowflake.wallpaper);
     stylix.polarity = mkDefault "dark";
   };
 }
