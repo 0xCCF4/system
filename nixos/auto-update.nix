@@ -49,6 +49,24 @@ with lib;
           the other is done.
         '';
       };
+      maxJobs = mkOption {
+        type = nullOr ints.positive;
+        default = null;
+        example = 1;
+        description = ''
+          Number of derivations built in parallel during the update
+          (`--max-jobs`). If null, the nix setting (`nix.settings.max-jobs`) is used.
+        '';
+      };
+      cores = mkOption {
+        type = nullOr ints.unsigned;
+        default = null;
+        example = 1;
+        description = ''
+          Number of cores a single build may use during the update (`--cores`,
+          0 means all). If null, the nix setting (`nix.settings.cores`) is used.
+        '';
+      };
       healthCheckDelaySeconds = mkOption {
         type = int;
         default = 10;
@@ -66,6 +84,12 @@ with lib;
 
       lockFile = escapeShellArg cfg.lockFile;
       flock = "${pkgs.util-linux}/bin/flock";
+
+      # build limits of the update, passed to both nixos-rebuild calls
+      buildFlags = concatStringsSep " " (
+        optionals (cfg.maxJobs != null) [ "--max-jobs" (toString cfg.maxJobs) ]
+        ++ optionals (cfg.cores != null) [ "--cores" (toString cfg.cores) ]
+      );
 
       autoUpdateScript = pkgs.writeShellApplication {
         name = "auto-update";
@@ -109,7 +133,7 @@ with lib;
           nix flake update --flake "$WORKDIR/flake" "''${UPDATE_INPUTS[@]}"
 
           echo "[auto-update] running: nixos-rebuild test"
-          if ! nixos-rebuild test --flake "$WORKDIR/flake#$HOSTNAME"; then
+          if ! nixos-rebuild test ${buildFlags} --flake "$WORKDIR/flake#$HOSTNAME"; then
             echo "[auto-update] nixos-rebuild test FAILED - nothing was activated" >&2
             exit 1
           fi
@@ -135,7 +159,7 @@ with lib;
           fi
 
           echo "[auto-update] health check passed - promoting new generation"
-          nixos-rebuild switch --flake "$WORKDIR/flake#$HOSTNAME"
+          nixos-rebuild switch ${buildFlags} --flake "$WORKDIR/flake#$HOSTNAME"
           COMMITTED=1
           echo "[auto-update] done"
         '';

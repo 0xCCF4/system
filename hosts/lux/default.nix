@@ -102,6 +102,8 @@ in
       "nixpkgs"
       "nixpkgs-stable"
     ];
+    mine.autoUpdate.maxJobs = 1;
+    mine.autoUpdate.cores = 1;
 
     # Remote unlock luks via ssh+tor
     mine.boot.remoteUnlock = true;
