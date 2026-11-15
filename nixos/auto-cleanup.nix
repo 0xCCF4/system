@@ -6,5 +6,9 @@
       dates = "daily";
       options = "--delete-older-than 7d";
     };
+    nix.optimise = {
+      automatic = mkDefault true;
+      dates = [ "weekly" ];
+    };
   };
 }

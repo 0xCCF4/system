@@ -23,12 +23,12 @@ with builtins;
       cmdlineEssential = mkOption {
         type = bool;
         default = true;
-        description = "Install essential command line packages";
+        description = "Install essential command line packages, for servers and workstations alike";
       };
       cmdlineExtras = mkOption {
         type = bool;
-        default = true;
-        description = "Install extra command line packages";
+        default = isWorkstation;
+        description = "Install extra command line packages that only make sense on a workstation";
       };
       development = mkOption {
         type = bool;
@@ -89,36 +89,36 @@ with builtins;
           mosh # roaming ssh replacement
           socat # udp netcat
           tty-clock # tty clock
-          tor # toe
-        ]
-        ++ lists.optionals cfg.cmdlineExtras [
-          uutils-coreutils-noprefix
+          tor # tor
+          uutils-coreutils-noprefix # Rust rewrite of coreutils, installed with unprefixed names
+          ripgrep-all # ripgrep inside archives
+          dua # directory disk usage analyzer
+          yazi # terminal file manager
           bat # better cat
           eza # alternative to ls
           fd # alternative to find
           fzf # fuzzy finder
           ripgrep # recursive file content search
-          ripgrep-all # ripgrep inside archives
-          tokei # count lines of code
+          dust # du alternative
+          pv # monitor data stream progress
           age # simple file encryption
           tldr # show command examples
           just # make replacement
+          xh # http requests
+          smartmontools # check drive health
           nh # nixos builder wrapper
           nix-output-monitor # colorful nix build output
           nvd # nix version differ
+          zrb # ZFS backup tool
+        ]
+        ++ lists.optionals cfg.cmdlineExtras [
+          tokei # count lines of code
           graphviz # graph visualization
           presenterm # terminal presentation tool
           ncspot # cli spotify client
           fselect # find files with SQL-like syntax
-          xh # http requests
-          dust # du alternative
-          dua # directory disk usage analyzer
-          yazi # terminal file manager
-          pv # monitor data stream progress
-          zrb # ZFS backup tool
           nixpkgs-review # pr checker tool
           vmtouch # pin files to memory
-          smartmontools # check drive health
           box # run an AI coding agent in a bubblewrap sandbox
         ]
         ++ lists.optionals cfg.latex [

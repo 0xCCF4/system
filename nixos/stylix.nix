@@ -45,6 +45,7 @@ with lib;
   config = {
     stylix.enable = mkDefault true;
     stylix.targets.grub.enable = mkDefault false;
+    stylix.targets.gtksourceview.enable = mkDefault false; 
     stylix.base16Scheme = mkDefault "${pkgs.base16-schemes}/share/themes/gruvbox-dark-hard.yaml";
 
     stylix.fonts.monospace = {

@@ -150,6 +150,7 @@ class Agent:
     note_no_home: str = ""  # the variant for --no-home
     note_flag: str = ""  # the flag the agent takes the note with
     session_dir_env: str = ""  # the variable that moves the session folder into the workspace
+    env: tuple[tuple[str, str], ...] = ()  # fixed variables for the agent inside the box
 
 
 AGENTS: dict[str, Agent] = {
@@ -160,6 +161,7 @@ AGENTS: dict[str, Agent] = {
         command=("pi",),
         bundled=True,
         session_dir_env="PI_CODING_AGENT_SESSION_DIR",
+        env=(("PI_TELEMETRY", "0"),),  # no install or update telemetry, no attribution headers
     ),
     "claude": Agent(
         name="claude",
@@ -333,6 +335,8 @@ def environment(
     if agent is not None and agent.session_dir_env:
         # sessions stay with the workspace: <workspace>/.pi/sessions
         values.append((agent.session_dir_env, f"{box.cwd}/.pi/sessions"))
+    if agent is not None:
+        values += list(agent.env)
     if box.scratchpad:
         values.append((ENV_SCRATCHPAD, box.scratchpad))
     values += [
