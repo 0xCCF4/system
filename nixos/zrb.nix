@@ -2,9 +2,14 @@
 , pkgs
 , lib
 , config
+, nodes
 , ...
 }:
 with lib;
+let
+  # the backup node's SSH port, for the reachability checks of backupSSH
+  backupSSHPort = head nodes.${config.mine.zrb.backupNode}.services.openssh.ports;
+in
 {
 
   imports = [
@@ -27,18 +32,19 @@ with lib;
         type = nullOr (either types.str (attrsOf anything));
         default =
           if (config.mine.zrb.backupNode != null) then {
-            # prefer the LAN when reachable, fall back to wireguard
+            # prefer the LAN when reachable, fall back to wireguard; reachability by a TCP
+            # connection to its SSH port (the hosts ignore IPv4 pings, nixos/kernel_hardening.nix)
             local = rec {
               priority = -10;
               host = "${config.mine.zrb.backupNode}.lan";
-              command = "${getExe' pkgs.iputils "ping"} -c 1 -W 1 ${host} > /dev/null";
+              command = "${getExe' pkgs.netcat "nc"} -z -w 1 ${host} ${toString backupSSHPort}";
               # same machine, reuse the known_hosts entry of the wireguard name
               extraOptions.HostKeyAlias = "${config.mine.zrb.backupNode}.vlan";
             };
             wireguard = rec {
               priority = 0;
               host = "${config.mine.zrb.backupNode}.vlan";
-              command = "${getExe' pkgs.iputils "ping"} -c 1 -W 1 ${host} > /dev/null";
+              command = "${getExe' pkgs.netcat "nc"} -z -w 1 ${host} ${toString backupSSHPort}";
             };
           } else null;
         description = "The SSH host to connect to for backups. Either a hostname or a set of noxa ssh hostname rules.";

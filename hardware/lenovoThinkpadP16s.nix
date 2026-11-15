@@ -12,7 +12,9 @@ with lib;
   imports = [
     ./disks/disko-zfs.nix
     ./modules/efi.nix
-    nixos-hardware.nixosModules.lenovo-thinkpad-p14s-intel-gen5
+    nixos-hardware.nixosModules.lenovo-thinkpad
+    nixos-hardware.nixosModules.common-pc-ssd
+    "${nixos-hardware}/common/cpu/intel/meteor-lake"
   ];
 
   # ZFS configuration
@@ -42,18 +44,21 @@ with lib;
   boot.swraid.mdadmConf = "PROGRAM /usr/bin/env true";
   services.lvm.boot.thin.enable = true;
   boot.kernelModules = [
-    "kvm-amd"
+    "kvm-intel"
     "dm-snapshot"
   ];
+  boot.kernelParams = [
+    "intel_iommu=on" # DMA protection: Thunderbolt/USB4/PCIe devices only reach memory the kernel grants (off by default for Intel in the NixOS kernel)
+    "efi=disable_early_pci_dma" # no device DMA during early boot, before the IOMMU is up
+  ];
   hardware.enableRedistributableFirmware = mkDefault true;
-  hardware.cpu.amd.updateMicrocode = mkDefault true;
   hardware.graphics.enable = true;
   hardware.graphics.enable32Bit = true;
   hardware.graphics.extraPackages = [ pkgs.mesa ];
   services.lvm.enable = true;
   services.fprintd.enable = true;
-  services.xserver.videoDrivers = [ "amdgpu" ];
   hardware.bluetooth.enable = true;
+  hardware.bluetooth.powerOnBoot = false;
 
   # System configuration
   nixpkgs.hostPlatform = mkDefault "x86_64-linux";

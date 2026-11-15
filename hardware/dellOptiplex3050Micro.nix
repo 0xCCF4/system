@@ -37,6 +37,10 @@ with lib;
     "e1000e" # onboard Intel I219 NIC
   ];
   boot.kernelModules = [ "kvm-intel" ];
+  boot.kernelParams = [
+    "intel_iommu=on" # DMA protection: Thunderbolt/USB4/PCIe devices only reach memory the kernel grants (off by default for Intel in the NixOS kernel)
+    "efi=disable_early_pci_dma" # no device DMA during early boot, before the IOMMU is up
+  ];
   boot.extraModulePackages = [ ];
   hardware.enableRedistributableFirmware = true;
 

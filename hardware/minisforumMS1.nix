@@ -62,7 +62,11 @@ with lib;
   hardware.enableRedistributableFirmware = true;
 
   # System configuration
-  boot.kernelParams = [ "zfs.zfs_arc_max=12884901888" ];
+  boot.kernelParams = [
+    "zfs.zfs_arc_max=12884901888"
+    "intel_iommu=on" # DMA protection: Thunderbolt/USB4/PCIe devices only reach memory the kernel grants (off by default for Intel in the NixOS kernel)
+    "efi=disable_early_pci_dma" # no device DMA during early boot, before the IOMMU is up
+  ];
   nixpkgs.hostPlatform = mkDefault "x86_64-linux";
   hardware.cpu.intel.updateMicrocode = mkDefault config.hardware.enableRedistributableFirmware;
   networking.useDHCP = mkDefault true;

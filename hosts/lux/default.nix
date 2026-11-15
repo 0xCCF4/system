@@ -105,6 +105,12 @@ in
     mine.autoUpdate.maxJobs = 1;
     mine.autoUpdate.cores = 1;
 
+    services.usbguard = {
+      enable = true; # no USB devices added after boot (the hypervisor's emulated USB controller)
+      presentDevicePolicy = "allow"; # the devices present at boot stay allowed: the virtual keyboard/tablet of the vps console
+      implicitPolicyTarget = "block"; # everything plugged in later is blocked
+    };
+
     # Remote unlock luks via ssh+tor
     mine.boot.remoteUnlock = true;
     boot.initrd.network.ssh.port = 4444;

@@ -148,5 +148,11 @@ with builtins;
             (uniqUsers ++ fakeUsers)
         );
       };
+
+      # new files of users readable only by themselves (rw-------), instead of 022: login
+      # shells, login.defs (useradd, pam_umask) and the systemd user manager (the desktop apps)
+      environment.extraInit = "umask 077"; # login shells
+      security.loginDefs.settings.UMASK = "077"; # login.defs
+      systemd.services."user@".serviceConfig.UMask = "0077"; # systemd --user and everything it starts
     };
 }

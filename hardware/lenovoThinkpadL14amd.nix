@@ -12,7 +12,10 @@ with lib;
   imports = [
     ./disks/disko-zfs.nix
     ./modules/efi.nix
-    nixos-hardware.nixosModules.lenovo-thinkpad-l14-amd
+    nixos-hardware.nixosModules.lenovo-thinkpad
+    nixos-hardware.nixosModules.common-pc-ssd
+    nixos-hardware.nixosModules.common-cpu-amd
+    nixos-hardware.nixosModules.common-gpu-amd
   ];
 
   # ZFS configuration
@@ -37,6 +40,10 @@ with lib;
   ];
   boot.swraid.enable = true;
   boot.swraid.mdadmConf = "PROGRAM /usr/bin/env true";
+  boot.kernelParams = [
+    "acpi_backlight=native" # backlight through thinkpad_acpi (as the L14 module of nixos-hardware set it)
+    "efi=disable_early_pci_dma" # no device DMA during early boot, before the IOMMU is up
+  ];
   boot.kernelModules = [
     "kvm-amd"
     "dm-snapshot"
@@ -51,6 +58,7 @@ with lib;
   services.fprintd.enable = true;
   services.xserver.videoDrivers = [ "amdgpu" ];
   hardware.bluetooth.enable = true;
+  hardware.bluetooth.powerOnBoot = false; # radio off until switched on (remote Bluetooth bugs), TLP blocks it at startup too
 
   # System configuration
   nixpkgs.hostPlatform = mkDefault "x86_64-linux";

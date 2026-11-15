@@ -63,5 +63,11 @@ with lib;
 
       systemd.network.links = links;
       boot.initrd.systemd.network.links = links;
+
+      # workstations: each network sees its own MAC, stable on repeat visits (DHCP leases,
+      # captive portals), instead of the hardware MAC everywhere (tracking across networks);
+      # the renames above match the permanent MAC and are not affected
+      networking.networkmanager.wifi.macAddress = mkIf config.mine.presets.isWorkstation (mkDefault "stable"); # Wi-Fi
+      networking.networkmanager.ethernet.macAddress = mkIf config.mine.presets.isWorkstation (mkDefault "stable"); # LAN and the docking station
     };
 }

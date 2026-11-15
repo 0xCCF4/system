@@ -7,7 +7,7 @@
 with lib;
 {
   imports = [
-    ../hardware/lenovoThinkpadP14.nix
+    ../hardware/lenovoThinkpadP16s.nix
   ]
   ++ self.lib.optionalsIfExist [
     ../external/private/hosts/solis.nix

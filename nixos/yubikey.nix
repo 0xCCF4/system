@@ -29,6 +29,9 @@ with builtins;
       enableSSHSupport = mkDefault true;
     };
 
+    # TODO: security.pam.u2f.control = "required" (password and key touch, a real second
+    # factor) instead of the default "sufficient" (either one); register a backup key first
+    # (pamu2fcfg), without the key there is no login and no sudo
     security.pam.services = {
       login.u2fAuth = mkDefault true;
       sudo.u2fAuth = mkDefault true;
