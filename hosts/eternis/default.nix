@@ -53,6 +53,8 @@ in
     services.zrb.client.group = "zrbclient";
     services.zrb.server.primary.enable = true;
 
+    boot.zfs.extraPools = [ "tank" ];
+
     #mine.vm.networks = {
     #  vm-test.members = [ "green" "red" "<internet>" ];
     #  abc.members = [ "red" "<host>" ];
