@@ -337,30 +337,47 @@ in
           (network: netCfg: if netCfg.hostname != null then netCfg.hostname else wgDefaultHostname routeName network)
           (filterAttrs (_: netCfg: netCfg.enable) route.wireguardNetworks));
 
+      # Client addresses that skip Anubis completely
+      anubisSkipNetworks = [ "fc00::/7" ];
+
+      # Comes first in every Anubis site block, so the first matching
+      # reverse_proxy handles the request.
+      anubisSkipBlock = route: ''
+        @anubis_skip client_ip ${concatStringsSep " " anubisSkipNetworks}
+        reverse_proxy @anubis_skip ${route.upstream}
+      '';
+
       # When bypassPaths is set, matching requests skip Anubis entirely and go
-      # straight to the real upstream (first match wins, same as the
-      # respond-then-catch-all-reverse_proxy pattern routeExtraConfig already
-      # relies on below); everything else still goes through Anubis.
+      # straight to the real upstream. The first match wins, the same way the
+      # respond-then-catch-all-reverse_proxy pattern below works. Everything
+      # else still goes through Anubis.
       #
-      # onlyPaths is the inverse: matching requests (plus Anubis's own
-      # /.within.website/* challenge pages, assets and pass-challenge API,
-      # without which no challenge could ever be solved) go through Anubis;
-      # everything else goes straight to the real upstream.
+      # onlyPaths is the inverse. Matching requests go through Anubis, plus
+      # Anubis's own /.within.website/* challenge pages, assets and
+      # pass-challenge API. No challenge can be solved without those.
+      # Everything else goes straight to the real upstream.
       reverseProxyBlock = routeName: route:
         if route.anubis.enable && route.anubis.onlyPaths != [ ]
         then ''
+          ${anubisSkipBlock route}
           @anubis_only path /.within.website/* ${concatStringsSep " " route.anubis.onlyPaths}
           reverse_proxy @anubis_only ${routeUpstream routeName route}
           reverse_proxy ${route.upstream}
         ''
         else if route.anubis.enable && route.anubis.bypassPaths != [ ]
         then ''
+          ${anubisSkipBlock route}
           @anubis_bypass path ${concatStringsSep " " route.anubis.bypassPaths}
           reverse_proxy @anubis_bypass ${route.upstream}
           reverse_proxy ${routeUpstream routeName route}
         ''
-        else ''
+        else if route.anubis.enable
+        then ''
+          ${anubisSkipBlock route}
           reverse_proxy ${routeUpstream routeName route}
+        ''
+        else ''
+          reverse_proxy ${route.upstream}
         '';
 
       routeExtraConfig =
