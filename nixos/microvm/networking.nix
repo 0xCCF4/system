@@ -487,6 +487,13 @@ in
                 infra-host-ttl = mkIf (dnsGuest != null && name != dnsGuest) 60;
                 dns64-prefix = nat64Prefix;
                 dns64-synthall = true;
+              } // optionalAttrs (name != dnsGuest) {
+                hide-identity = true;
+                hide-version = true;
+                deny-any = true; # no ANY answers (mostly used for amplification)
+                # DNS rebinding (the resolver microVM filters too); the own names exempt
+                private-address = config.mine.services.unbound.privateAddresses;
+                private-domain = [ "vlan." "lan." ];
               };
               # the resolver microVM has its own upstream (and serves the others)
               forward-zone = mkIf (name != dnsGuest) [

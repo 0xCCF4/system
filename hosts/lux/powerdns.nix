@@ -178,6 +178,15 @@ with lib;
             A = [ config.mine.info.public.ipv4 ];
             AAAA = [ config.containers.caddy.localAddress6 ];
           };
+          feeds = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.caddy.localAddress6 ];
+          };
+          captive = {
+            A = [ config.mine.info.public.ipv4 ];
+            AAAA = [ config.containers.caddy.localAddress6 ];
+          }; # connectivity/captive portal check of the laptops (hosts/lux/connectivity_check.nix), plain HTTP
+          mx = { }; # mail only: no A/AAAA, gets MX, SPF, DKIM and MTA-STS like every subdomain
         } // {
           ${removeSuffix ".${domain}" config.mine.services.matrix.domains.turn} = {
             A = [ config.mine.info.public.ipv4 ];

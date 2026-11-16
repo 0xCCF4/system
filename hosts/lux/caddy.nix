@@ -86,15 +86,24 @@ with lib;
         config = { pkgs, ... }: {
           imports = [
             (import ./container-common.nix { inherit (config.system) stateVersion; inherit (config.time) timeZone; inherit hostAddress6; })
-            # port 80 is not geo-blocked: plain HTTP sites may only redirect or answer ACME
-            # challenges (the HTTPS sites get caddy's automatic redirect)
+            # port 80 is not geo-blocked: plain HTTP sites may only redirect, answer ACME
+            # challenges or send fixed text (staticPlainHttp, no upstream behind it); the HTTPS
+            # sites get caddy's automatic redirect
             ({ config, lib, ... }: {
-              assertions = lib.mapAttrsToList
+              options.mine.caddy.staticPlainHttp = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = [ ];
+                description = "Plain HTTP vhosts (http://...) that only answer with fixed text (e.g. the connectivity check).";
+              };
+              config.assertions = lib.mapAttrsToList
                 (name: vhost: {
                   assertion = !(lib.hasPrefix "http://" vhost.hostName)
                     || lib.hasInfix "redir https://" vhost.extraConfig
-                    || lib.hasInfix "/.well-known/acme-challenge/" vhost.extraConfig;
-                  message = "caddy: ${name} serves plain HTTP, port 80 is only for redirects to HTTPS and ACME challenges.";
+                    || lib.hasInfix "/.well-known/acme-challenge/" vhost.extraConfig
+                    || (lib.elem vhost.hostName config.mine.caddy.staticPlainHttp
+                      && !(lib.hasInfix "reverse_proxy" vhost.extraConfig)
+                      && !(lib.hasInfix "file_server" vhost.extraConfig));
+                  message = "caddy: ${name} serves plain HTTP, port 80 is only for redirects to HTTPS, ACME challenges and fixed text (mine.caddy.staticPlainHttp).";
                 })
                 config.services.caddy.virtualHosts;
             })

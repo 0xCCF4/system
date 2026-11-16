@@ -589,8 +589,11 @@ in
           # Every other site (no own `bind`) is public: one listener per address and port,
           # no wildcard listener next to the bound ones (and none answering on the ULA).
           # Conservative-but-firm defaults against slow-loris-style abuse.
+          # default_bind without brackets: caddy copies it verbatim into the ACME issuer's
+          # bind_host and brackets it again ([[addr]]:443, no certificates); the listener
+          # gets its brackets either way.
           services.caddy.globalConfig = ''
-            ${optionalString (caddyPublicAddress != null) "default_bind [${caddyPublicAddress}]"}
+            ${optionalString (caddyPublicAddress != null) "default_bind ${caddyPublicAddress}"}
             servers {
               timeouts {
                 read_header 10s

@@ -208,6 +208,12 @@ with lib;
               do-ip4 = false;
               do-nat64 = true;
               nat64-prefix = "64:ff9b::/96";
+              hide-identity = true;
+              hide-version = true;
+              deny-any = true; # no ANY answers (mostly used for amplification)
+              # DNS rebinding, but not 127.0.0.0/8: the DNS blocklists answer with 127.0.0.x
+              # (an MX on loopback is refused by postfix itself)
+              private-address = filter (address: address != "127.0.0.0/8") config.mine.services.unbound.privateAddresses;
             };
           };
 

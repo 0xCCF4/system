@@ -161,7 +161,9 @@ with lib;
               text = builtins.concatStringsSep "\n" (
                 mapAttrsToList
                   (
-                    name: ips: concatStringsSep "\n" (map (ip: "${name} ${ip}") ips)
+                    # `=`: exactly this name; without it a rule also matches every subdomain
+                    # (the apex example.org would send all *.example.org to its address)
+                    name: ips: concatStringsSep "\n" (map (ip: "${if hasPrefix "*" name || hasPrefix "=" name then name else "=${name}"} ${ip}") ips)
                   )
                   config.mine.dns.hosts
               );

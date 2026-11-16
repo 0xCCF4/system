@@ -15,6 +15,8 @@
         home.mine.traits.traits = [
           "gaming"
         ];
+
+        home.mine.rss.enable = false;
       };
   os = { ... }: {
     mine.steam = true;

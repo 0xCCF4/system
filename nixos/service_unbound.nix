@@ -24,6 +24,33 @@ with lib;
           on the uplink, the hotspot, or for the WireGuard peers.
         '';
       };
+      privateAddresses = mkOption {
+        type = listOf str;
+        readOnly = true;
+        default = [
+                "0.0.0.0/8"
+                "10.0.0.0/8"
+                "100.64.0.0/10"
+                "127.0.0.0/8"
+                "169.254.0.0/16"
+                "172.16.0.0/12"
+                "192.0.0.0/24"
+                "192.168.0.0/16"
+                "198.18.0.0/15"
+                "224.0.0.0/4"
+                "240.0.0.0/4"
+                "::/128"
+                "::1/128"
+                "fc00::/7"
+                "fe80::/10"
+                "::ffff:0:0/96"
+        ];
+        description = ''
+          Non-global addresses that answers from upstream must not point at (DNS rebinding,
+          unbound's private-address); also used by the other unbound instances
+          (hosts/lux/container_dns.nix, hosts/lux/mailserver.nix, the microVMs).
+        '';
+      };
       lanNetworks = mkOption {
         type = listOf str;
         default = [ ];
@@ -73,27 +100,11 @@ with lib;
           harden-referral-path = false;
           hide-identity = true;
           hide-version = true;
+          deny-any = true; # no ANY answers (mostly used for amplification)
           identity = "DNS";
           # DNS rebinding: answers from upstream pointing at non-global addresses are
           # dropped (as nixos/nat64.nix' nonGlobalIpv4, which DNS64 would else synthesize)
-          private-address = [
-            "0.0.0.0/8"
-            "10.0.0.0/8"
-            "100.64.0.0/10"
-            "127.0.0.0/8"
-            "169.254.0.0/16"
-            "172.16.0.0/12"
-            "192.0.0.0/24"
-            "192.168.0.0/16"
-            "198.18.0.0/15"
-            "224.0.0.0/4"
-            "240.0.0.0/4"
-            "::/128"
-            "::1/128"
-            "fc00::/7"
-            "fe80::/10"
-            "::ffff:0:0/96"
-          ];
+          private-address = config.mine.services.unbound.privateAddresses;
           private-domain = [
             "lan."
             "vlan."

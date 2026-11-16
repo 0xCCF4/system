@@ -46,6 +46,17 @@
           }
           }.path;
         };
+        home.mine.rss = mkIf osConfig.mine.presets.isWorkstation {
+          enable = mkDefault true;
+          url = "https://${inputs.self.nixosConfigurations.lux.config.mine.services.caddyProxy.routes.feeds.wireguardNetworks."cloud-admin".hostname}/";
+          tokenFile = osConfig.age.secrets.${
+          inputs.noxa.lib.secrets.computeIdentifier {
+            module = "miniflux";
+            ident = "api-token";
+            hosts = [ osConfig.networking.hostName "lux" ];
+          }
+          }.path;
+        };
       };
   os =
     { pkgs
@@ -80,7 +91,22 @@
               generator.script = "vota-admin-token";
               owner = "mx";
             }
+          ]
+          # Miniflux API token, one per workstation, shared with lux, where
+          # hosts/lux/miniflux.nix registers it as an API key of the admin user
+          ++ optionals config.mine.presets.isWorkstation [
+            {
+              ident = "api-token";
+              module = "miniflux";
+              hosts = [ config.networking.hostName "lux" ];
+              generator.script = "miniflux-api-token";
+              owner = "mx";
+            }
           ];
+
+        # Miniflux API key format: 64 hex characters (32 random bytes), as Miniflux generates
+        # them itself; also used by hosts/lux/miniflux.nix for the same secrets
+        age.generators.miniflux-api-token = { pkgs, ... }: "${pkgs.openssl}/bin/openssl rand -hex 32";
 
         # Vota's Admin Token format: `vta_` + 43 base64url characters.
         age.generators.vota-admin-token = { pkgs, ... }:

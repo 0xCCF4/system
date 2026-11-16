@@ -108,9 +108,8 @@ in
       (map (name: "${config.containers.${name}.localAddress6}/128") (lib.attrNames config.containers))
       (_: { method = "static"; });
 
-    # Containers resolve DNS through the host
-    services.resolved.settings.Resolve.DNSStubListenerExtra =
-      map (name: config.containers.${name}.hostAddress6) (lib.attrNames config.containers);
+    # Containers resolve DNS through the host: unbound on their veth host addresses, with
+    # DNS64 (hosts/lux/container_dns.nix)
 
     networking.firewall.interfaces = lib.genAttrs
       (map (name: "ve-${name}") (lib.attrNames config.containers))
@@ -123,10 +122,16 @@ in
     # the translated traffic passes the forward chain below (as IPv6 from 64:ff9b::/96)
     mine.nat64 = {
       enable = true;
-      # mailserver resolves to 64:ff9b::/96 (its own DNS64), coturn and the videobridge
-      # send to their IPv4 peers first (ICE, relayed data); the others reach IPv4
-      # through explicit rules below, if at all
-      clients = [ "ve-mailserver" "ve-mtx-co-v4" "ve-jitsi" ];
+      # mailserver resolves to 64:ff9b::/96 through its own DNS64. Coturn and the
+      # videobridge send to their IPv4 peers first (ICE, relayed data). Miniflux reaches the
+      # publishers that only exist on IPv4 through the NAT64. If another container needs
+      # IPv4, it gets an explicit rule below.
+      clients = [
+        "ve-mailserver"
+        "ve-mtx-co-v4"
+        "ve-jitsi"
+        "ve-miniflux"
+      ];
       publicIpv4 = config.mine.info.public.ipv4;
       inherit portForwards;
     };
@@ -201,6 +206,9 @@ in
 
           # synapse -> internet (push gateways, URL previews)
           iifname == "ve-mtx-syn" oifname == "wan" tcp dport { 80, 443 } accept
+
+          # miniflux -> internet (feed fetching, IPv4 through the NAT64)
+          iifname == "ve-miniflux" oifname == "wan" tcp dport { 80, 443 } accept
 
           # vaultwarden -> mailserver (submission)
           iifname == "ve-vaultwarden" oifname == "ve-mailserver" tcp dport 465 accept
