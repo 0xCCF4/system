@@ -11,8 +11,9 @@ except submodules (external/private is a separate, private repo):
    addresses, email addresses and MAC addresses fail too, unless they are listed in
    pkgs/privacy-check/allowlist.txt (public, for well-known third-party values).
 
-Usage: privacy_check.py [--worktree]   (default: the index; --worktree: tracked files
-as they are on disk). Exit code 1 on findings. Bypass for one commit: --no-verify.
+Usage: privacy_check.py [--worktree | --message FILE]   (default: the index; --worktree:
+tracked files as they are on disk; --message: a commit message, for the commit-msg hook,
+without git's # comment lines). Exit code 1 on findings. Bypass for one commit: --no-verify.
 """
 
 import ipaddress
@@ -108,7 +109,11 @@ def is_public_ip(text):
 
 
 def main():
-    worktree = "--worktree" in sys.argv[1:]
+    args = sys.argv[1:]
+    worktree = "--worktree" in args
+    message = args[args.index("--message") + 1] if "--message" in args else None
+    if message is not None:
+        message = os.path.abspath(message)
     os.chdir(git("rev-parse", "--show-toplevel").decode().strip())
 
     if not os.path.isfile(DENYLIST):
@@ -120,7 +125,13 @@ def main():
     allow = {value.lower() for value in read_list(ALLOWLIST)} if os.path.isfile(ALLOWLIST) else set()
 
     findings = []
-    for path, data in files(worktree):
+    if message is not None:
+        with open(message, "rb") as handle:
+            lines = handle.read().split(b"\n")
+        sources = [("commit message", b"\n".join(line for line in lines if not line.startswith(b"#")))]
+    else:
+        sources = files(worktree)
+    for path, data in sources:
         if b"\0" in data[:8192]:
             continue  # binary
         text = data.decode("utf-8", errors="replace")
