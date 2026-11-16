@@ -19,30 +19,57 @@ with lib;
 
   options.mine.services.powerdns.secondaries = mkOption {
     type = types.listOf types.str;
-    readOnly = true;
-    default =
-      let
-        v4 = [ "198.51.100.1" "198.51.100.2" "198.51.100.3" ];
-        v6 = [ "2001:db8:53::1" "2001:db8:53::2" "2001:db8:53::3" ];
-      in
-      (map (ip: "64:ff9b::${ip}") v4) ++ v6;
+    default = [ ];
+    example = [ "64:ff9b::192.0.2.1" "2001:db8::53" ];
     description = ''
-      IPv6 addresses of the Secondary secondaries (the IPv4 ones via NAT64),
-      allowed to AXFR and NOTIFYed. hosts/lux/firewall.nix lets the NOTIFYs out.
+      IPv6 addresses of the secondary name servers (IPv4 ones as 64:ff9b::<IPv4>, via the
+      NAT64), allowed to AXFR and NOTIFYed. hosts/lux/firewall.nix lets the NOTIFYs out.
+      Set in external/private.
     '';
   };
 
-  options.mine.services.powerdns.mailbackup = mkOption {
-    type = types.enum [ "standalone" "inboundBackup" "backup" ];
-    default = "standalone";
-    description = ''
-      MAILBACKUP's role for the mail domains:
-      - `standalone`: lux alone (MX, SPF, DKIM), nothing at MAILBACKUP.
-      - `inboundBackup`: MAILBACKUP additionally as fallback MX (mx.example.com). Mail can then
-        arrive through MAILBACKUP's filtering instead of lux' (backup MX bypass).
-      - `backup`: also outbound through MAILBACKUP: its servers in the SPF record (this
-        authorises MAILBACKUP's whole shared infrastructure) and its DKIM selectors delegated.
-    '';
+  options.mine.services.powerdns.secondaryNameServers = mkOption {
+    type = types.listOf types.str;
+    default = [ ];
+    example = [ "ns1.example.net." ];
+    description = "NS records of the secondaries (besides ns1.<domain>), with the trailing dot. Set in external/private.";
+  };
+
+  options.mine.services.powerdns.mailBackup = {
+    mode = mkOption {
+      type = types.enum [ "standalone" "inboundBackup" "backup" ];
+      default = "standalone";
+      description = ''
+        Role of a backup mail provider for the mail domains:
+        - `standalone`: lux alone (MX, SPF, DKIM), no backup provider.
+        - `inboundBackup`: the provider additionally as fallback MX (`mx`). Mail can then
+          arrive through the provider's filtering instead of lux' (backup MX bypass).
+        - `backup`: also outbound through the provider: its servers in the SPF record
+          (`spfInclude`, this authorises its whole shared infrastructure) and its DKIM
+          selectors delegated (`dkimSelectors` at `dkimSelectorDomain`).
+        The provider's names are set in external/private.
+      '';
+    };
+    mx = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "The provider's fallback MX, with the trailing dot.";
+    };
+    spfInclude = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "The provider's SPF record to include (mode `backup`).";
+    };
+    dkimSelectors = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = "The provider's DKIM selectors (mode `backup`).";
+    };
+    dkimSelectorDomain = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "Domain the provider publishes its DKIM keys under, with the trailing dot.";
+    };
   };
 
   options.mine.services.powerdns.dkimSelector = mkOption {
@@ -83,9 +110,9 @@ with lib;
       tsigKeySecret = config.age.secrets.${tsigKeySecretIdentifier};
       tsigKeyName = "${domain}.${config.mine.info.public.ipv4}";
 
-      secondarySecondaries = config.mine.services.powerdns.secondaries;
+      secondaries = config.mine.services.powerdns.secondaries;
 
-      mailbackup = config.mine.services.powerdns.mailbackup;
+      mailBackup = config.mine.services.powerdns.mailBackup;
 
       MX = [
         {
@@ -93,20 +120,19 @@ with lib;
           exchange = "mail.${domain}.";
         } # self-hosted, primary
       ]
-      ++ optional (mailbackup != "standalone") {
+      ++ optional (mailBackup.mode != "standalone") {
         preference = 20;
-        exchange = "mx.example.com.";
-      }; # MAILBACKUP, fallback
+        exchange = mailBackup.mx;
+      }; # the backup provider, fallback
 
-      # Mail relayed through MAILBACKUP (see the SPF include) is DKIM-signed with
-      # MAILBACKUP's selectors, so point them at the keys MAILBACKUP publishes. With
-      # an aligned DKIM pass, DMARC passes even when SPF breaks on forwarding.
-      mailbackupDkimSelectors = [ "mailbackup-dkim-0002" "mailbackup-dkim-0003" ];
-      mailbackupDkim = optionalAttrs (mailbackup == "backup") (listToAttrs (map
+      # Mail relayed through the backup provider (see the SPF include) is DKIM-signed with
+      # its selectors, so point them at the keys it publishes. With an aligned DKIM pass,
+      # DMARC passes even when SPF breaks on forwarding.
+      backupDkim = optionalAttrs (mailBackup.mode == "backup") (listToAttrs (map
         (selector: nameValuePair "${selector}._domainkey" {
-          CNAME = [ "${selector}._domainkey.example.com." ];
+          CNAME = [ "${selector}._domainkey.${mailBackup.dkimSelectorDomain}" ];
         })
-        mailbackupDkimSelectors));
+        mailBackup.dkimSelectors));
 
       dkimPublicKey = config.mine.services.powerdns.dkimPublicKey;
       DKIM = optional (dkimPublicKey != null) {
@@ -149,7 +175,7 @@ with lib;
         };
         A = [ config.mine.info.public.ipv4 ];
         AAAA = [ config.containers.caddy.localAddress6 ];
-        TXT = [ "v=spf1 mx${optionalString (mailbackup == "backup") " include:_spf.example.com"} -all" ];
+        TXT = [ "v=spf1 mx${optionalString (mailBackup.mode == "backup") " include:${mailBackup.spfInclude}"} -all" ];
         # Every subdomain is a mail domain too, with the same MX as the apex.
         subdomains = mapAttrs (_: records:
           records // {
@@ -205,7 +231,7 @@ with lib;
             A = [ config.mine.info.public.ipv4 ];
             AAAA = [ config.containers.caddy.localAddress6 ];
           };
-        } // mailbackupDkim // mtaStsRecords;
+        } // backupDkim // mtaStsRecords;
         inherit MX DKIM;
         # Receivers reject mail failing both aligned SPF and aligned DKIM.
         # Subdomains without their own _dmarc record fall back to this one.
@@ -219,7 +245,7 @@ with lib;
             rua = "mailto:postmaster+dmarc@${domain}";
           }
         ];
-        NS = [ "ns1.${domain}." "ns1.example.net." "ns2.example.net." "ns3.example.net." ];
+        NS = [ "ns1.${domain}." ] ++ config.mine.services.powerdns.secondaryNameServers;
         # Only Let's Encrypt may issue certificates (Caddy, the mailserver), no wildcards;
         # the subdomains inherit it (CAA is looked up up the tree)
         CAA = [
@@ -233,6 +259,17 @@ with lib;
       zoneFilePath = builtins.toFile "${domain}.zone" zoneFile;
     in
     {
+      assertions = [
+        {
+          assertion = mailBackup.mode != "standalone" -> mailBackup.mx != null;
+          message = "mine.services.powerdns.mailBackup: mode ${mailBackup.mode} needs mx.";
+        }
+        {
+          assertion = mailBackup.mode == "backup" -> (mailBackup.spfInclude != null && mailBackup.dkimSelectorDomain != null);
+          message = "mine.services.powerdns.mailBackup: mode backup needs spfInclude and dkimSelectorDomain.";
+        }
+      ];
+
       # DNSSEC: the DS published in .de must match one of the zone's keys, else the zone
       # is bogus for every validating resolver (or, without DS, simply not secured).
       # Fails (systemctl --failed) when it doesn't match or isn't published.
@@ -275,7 +312,7 @@ with lib;
       mine.services.geoBlock.exemptPorts.udp = [ 53 ];
 
       mine.services.powerdns.mailSubdomains = map (sub: "${sub}.${domain}")
-        (attrNames (removeAttrs zoneRecords.subdomains ([ "autoconfig" ] ++ attrNames mailbackupDkim ++ attrNames mtaStsRecords)));
+        (attrNames (removeAttrs zoneRecords.subdomains ([ "autoconfig" ] ++ attrNames backupDkim ++ attrNames mtaStsRecords)));
 
       containers.caddy.config.services.caddy.virtualHosts = listToAttrs (map
         (mailDomain: nameValuePair "mta-sts.${mailDomain}" {
@@ -370,8 +407,8 @@ with lib;
               include-dir=/run/pdns/secrets
 
               primary=yes
-              allow-axfr-ips=${concatStringsSep "," secondarySecondaries}
-              also-notify=${concatStringsSep "," secondarySecondaries}
+              allow-axfr-ips=${concatStringsSep "," secondaries}
+              also-notify=${concatStringsSep "," secondaries}
             '';
           };
 

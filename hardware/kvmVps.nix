@@ -47,7 +47,7 @@ with lib;
   assertions = [
     {
       assertion = config.mine.info.public.ipv4 != null -> config.mine.info.public.ipv4PrefixLength != null && config.mine.info.public.ipv4Gateway != null;
-      message = "hardware/vps.nix: mine.info.public.ipv4 needs ipv4PrefixLength and ipv4Gateway.";
+      message = "hardware/kvmVps.nix: mine.info.public.ipv4 needs ipv4PrefixLength and ipv4Gateway.";
     }
   ];
   networking.useDHCP = false;

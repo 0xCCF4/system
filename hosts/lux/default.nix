@@ -11,7 +11,7 @@ in
 {
   imports = attrValues siblingModules
     ++ [
-    ../../hardware/vps.nix
+    ../../hardware/kvmVps.nix
   ]
     ++ self.lib.optionalsIfExist [
     ../../external/private/hosts/lux.nix
@@ -107,7 +107,7 @@ in
 
     services.usbguard = {
       enable = true; # no USB devices added after boot (the hypervisor's emulated USB controller)
-      presentDevicePolicy = "allow"; # the devices present at boot stay allowed: the virtual keyboard/tablet of the vps console
+      presentDevicePolicy = "allow"; # the devices present at boot stay allowed: the virtual tablet of the hoster's console
       implicitPolicyTarget = "block"; # everything plugged in later is blocked
     };
 
