@@ -8,11 +8,13 @@
 --cmd CMD replaces the program that runs: the agent's own (pi, claude) or the command
 of the generic launcher. CMD is split like a shell would (--cmd 'npx claude'). The rest
 stays: the state of the agent, its note and the arguments after the options.
+Without --local the bundled pi comes first in PATH, so `box-pi --cmd bash` gets it too.
 
 Writable: the current directory, the scratchpad of this project, the state of the
 agent (pi: ~/.pi, claude: ~/.claude and ~/.claude.json) and the paths of --rw.
 The rest of $HOME is a tmpfs, so it hides and it does not persist. With --no-home
-the box binds nothing from it. Read-only: /nix, /usr, /etc and the system profile.
+the box binds nothing from it. Read-only: /nix, /usr, /etc, the system profile and,
+with network, /run/systemd/resolve (the target of /etc/resolv.conf).
 
 /tmp is a fresh directory under /tmp/box on the host, and the box deletes it when it
 exits. With --tmpfs, /tmp stays in memory instead. The network is shared, unless
@@ -53,6 +55,10 @@ ENV_NETWORK = "AGENT_SANDBOX_NETWORK"
 
 # Read-only paths of the host, mounted when they exist.
 SYSTEM_RO_BINDS = ("/usr", "/etc", "/nix", "/run/current-system/sw")
+# Read-only paths the network needs, mounted when they exist and the box has network.
+# /etc/resolv.conf is a symlink into /run/systemd/resolve with systemd-resolved
+# (stub-resolv.conf: nameserver 127.0.0.53, reachable through the shared network).
+NET_RO_BINDS = ("/run/systemd/resolve",)
 # Host variables that go in without --env (LOCALE_ARCHIVE: NixOS' glibc finds the
 # locales only through it). TERM has a default of its own.
 PASSTHROUGH_ENV = (
@@ -345,9 +351,14 @@ def environment(
     shell: str,
     host_env: Mapping[str, str],
     agent: Agent | None = None,
+    bundled_pi: str = "",
 ) -> list[tuple[str, str]]:
     """The environment inside the box. The host environment does not leak in."""
     values: list[tuple[str, str]] = [(ENV_MARKER, "1")]
+    # the bundled agent first in PATH, so it is also what `pi` means in a --cmd shell
+    bundled_bin = ""
+    if agent is not None and agent.bundled and not options.local and bundled_pi.startswith("/"):
+        bundled_bin = os.path.dirname(bundled_pi) + ":"
     if agent is not None and agent.session_dir_env:
         # sessions stay with the workspace: <workspace>/.pi/sessions
         values.append((agent.session_dir_env, f"{box.cwd}/.pi/sessions"))
@@ -365,7 +376,7 @@ def environment(
         # agent from the user's profile, then nix and the system
         (
             "PATH",
-            f"/etc/profiles/per-user/{box.user}/bin:/nix/var/nix/profiles/default/bin"
+            f"{bundled_bin}/etc/profiles/per-user/{box.user}/bin:/nix/var/nix/profiles/default/bin"
             ":/run/current-system/sw/bin:/usr/bin:/bin",
         ),
         # every XDG directory in /tmp: $HOME is read-only. Only the paths above are writable.
@@ -374,6 +385,10 @@ def environment(
         ("XDG_DATA_HOME", "/tmp/.local/share"),
         ("XDG_STATE_HOME", "/tmp/.local/state"),
         ("npm_config_cache", "/tmp/.npm"),
+        # NixOS' /etc/bashrc (and fish/zsh) source /etc/set-environment unless this is
+        # set, and that replaces PATH: an interactive shell (--cmd bash) would lose the
+        # bundled pi. The box sets its own environment, so mark it as done.
+        ("__NIXOS_SET_ENVIRONMENT_DONE", "1"),
         # nix from inside the box goes through the daemon
         ("NIX_REMOTE", "daemon"),
         ("NIX_CONFIG", "extra-experimental-features = nix-command flakes"),
@@ -393,12 +408,14 @@ def plan(
     shell: str,
     host_env: Mapping[str, str],
     exists: Callable[[str], bool] = os.path.exists,
+    bundled_pi: str = "",
 ) -> list[str]:
     """The bubblewrap argv of this run. Pure: the same input gives the same argv."""
     argv = ["--unshare-all", "--die-with-parent"]
     if box.network == "host":
         argv.append("--share-net")
-    for path in SYSTEM_RO_BINDS:
+    ro_binds = SYSTEM_RO_BINDS + (NET_RO_BINDS if box.network == "host" else ())
+    for path in ro_binds:
         if exists(path):
             argv += ["--ro-bind", path, path]
     argv += [
@@ -438,7 +455,7 @@ def plan(
         # a private nix cache, so the host's ~/.cache/nix stays hidden
         argv += ["--bind", box.cache, "/tmp/.cache/nix"]
     argv += ["--remount-ro", box.home, "--chdir", box.cwd, "--clearenv"]
-    for name, value in environment(options, box, shell, host_env, agent):
+    for name, value in environment(options, box, shell, host_env, agent, bundled_pi):
         argv += ["--setenv", name, value]
     return argv
 
@@ -587,8 +604,6 @@ def main(
         options = options_from(namespace)
         if options.local and (agent is None or not agent.bundled):
             raise BoxError("--local needs box-pi. Only pi is bundled, the others run from PATH.")
-        if options.local and options.cmd:
-            raise BoxError("--local and --cmd both choose the program. Give one.")
         if agent is None and not (options.cmd or options.command):
             raise BoxError("no command given (see --help)")
         box = resolve(options, host_env, cwd)
@@ -597,7 +612,7 @@ def main(
         temp = prepare(agent, options, box)
         box = dataclasses.replace(box, temp=temp)
         command = command_for(agent, options, notes_dir, bundled_pi)
-        box_argv = plan(agent, options, box, shell, host_env, exists)
+        box_argv = plan(agent, options, box, shell, host_env, exists, bundled_pi)
     except BoxError as error:
         print(f"{name}: {error}", file=err)
         return 1
