@@ -29,3 +29,18 @@ shared@company.com
 
 # test vector in pkgs/pki/tests (a key ID, not a MAC)
 65:56:ec:45:d3:ce
+
+# placeholders used by the history rewrite and generated MACs (nixos/microvm)
+02:00:00:00:00:01
+02:7a:01:00:00:01
+02:7a:01:00:00:02
+@example.edu
+
+# GitHub's own addresses (merge commits, no-reply author address)
+support@github.com
+noreply@github.com
+20901343+0xccf4@users.noreply.github.com
+
+# not an email: a version tag in a module path
+powerdns@v1.0.2
+default-theme@mozilla.org
