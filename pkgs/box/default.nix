@@ -1,7 +1,7 @@
 # box: run an AI coding agent in a bubblewrap sandbox. See box.py.
 #
 #   box          the generic launcher, any command
-#   box-pi       pi, with ~/.pi mounted (--bundled: the pi-coding-agent of this package)
+#   box-pi       pi, with ~/.pi mounted: the pi-coding-agent of this package (--local: pi from PATH)
 #   box-claude   claude, with ~/.claude and ~/.claude.json mounted
 #
 # One program, three symlinks: it dispatches on its own name. box.py holds the plan.
@@ -28,7 +28,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "box";
-  version = "0.2.0";
+  version = "0.4.0";
 
   src = lib.cleanSource ./.;
 

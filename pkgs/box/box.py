@@ -2,8 +2,12 @@
 """box: run a command in a bubblewrap sandbox.
 
     box          run any command in the box
-    box-pi       run pi in the box (--bundled: the pi-coding-agent of this package)
+    box-pi       run pi in the box: the pi-coding-agent of this package (--local: the pi from PATH)
     box-claude   run claude in the box
+
+--cmd CMD replaces the program that runs: the agent's own (pi, claude) or the command
+of the generic launcher. CMD is split like a shell would (--cmd 'npx claude'). The rest
+stays: the state of the agent, its note and the arguments after the options.
 
 Writable: the current directory, the scratchpad of this project, the state of the
 agent (pi: ~/.pi, claude: ~/.claude and ~/.claude.json) and the paths of --rw.
@@ -96,7 +100,7 @@ class Flag:
     name: str
     help: str
     value: str = ""  # the metavar when the flag takes an argument
-    complete: str = ""  # "path" or "env": what the shell completions offer
+    complete: str = ""  # "path", "env" or "command": what the shell completions offer
     agents: tuple[str, ...] = ()  # the agents that accept it; empty: every command
 
     @property
@@ -109,9 +113,15 @@ class Flag:
 
 FLAGS: tuple[Flag, ...] = (
     Flag(
-        "bundled",
-        "run the pi-coding-agent of this package, not the pi from PATH",
+        "local",
+        "run the pi from PATH, not the pi-coding-agent of this package",
         agents=("pi",),
+    ),
+    Flag(
+        "cmd",
+        "run CMD instead of the program of the agent; state, note and arguments stay",
+        value="CMD",
+        complete="command",
     ),
     Flag(
         "rw",
@@ -145,7 +155,7 @@ class Agent:
     state_dirs: tuple[str, ...] = ()  # under $HOME: created and bound rw
     state_files: tuple[str, ...] = ()  # under $HOME: created when missing, bound rw
     command: tuple[str, ...] = ()  # from PATH inside the box
-    bundled: bool = False  # takes --bundled: the package's own binary
+    bundled: bool = False  # runs the package's own binary by default, --local: from PATH
     note: str = ""  # notes/<name>.txt, appended to the command
     note_no_home: str = ""  # the variant for --no-home
     note_flag: str = ""  # the flag the agent takes the note with
@@ -199,7 +209,8 @@ class Options:
     no_home: bool = False
     tmpfs: bool = False
     print_only: bool = False
-    bundled: bool = False
+    local: bool = False  # --local: the agent from PATH, not the bundled one
+    cmd: tuple[str, ...] = ()  # --cmd, split: replaces the program
     command: tuple[str, ...] = ()
 
 
@@ -292,10 +303,15 @@ def command_for(
     notes_dir: str,
     bundled_pi: str,
 ) -> list[str]:
-    """The command inside the box: the agent, its note, then its own arguments."""
+    """The command inside the box: the agent (or --cmd), its note, then its own arguments."""
     if agent is None:
-        return list(options.command)
-    command = [bundled_pi] if agent.bundled and options.bundled else list(agent.command)
+        return list(options.cmd) + list(options.command)
+    if options.cmd:
+        command = list(options.cmd)
+    elif agent.bundled and not options.local:
+        command = [bundled_pi]
+    else:
+        command = list(agent.command)
     if agent.note_flag:
         note = note_text(agent, notes_dir, options.no_home)
         if note:
@@ -486,7 +502,7 @@ class Option:
     help: str
     takes_value: bool
     metavar: str = ""
-    complete: str = ""  # "path" or "env": what the shells offer after it
+    complete: str = ""  # "path", "env" or "command": what the shells offer after it
 
 
 def interface(prog: str) -> tuple[Option, ...]:
@@ -517,6 +533,15 @@ def options_from(namespace: argparse.Namespace) -> Options:
     # argparse leaves the "--" separator in REMAINDER. It is not part of the command.
     if command[:1] == ["--"]:
         command.pop(0)
+    cmds = namespace.cmd or []
+    if len(cmds) > 1:
+        raise BoxError("--cmd given more than once")
+    try:
+        cmd = tuple(shlex.split(cmds[0])) if cmds else ()
+    except ValueError as error:
+        raise BoxError(f"--cmd: {error}") from None
+    if cmds and not cmd:
+        raise BoxError("--cmd is empty")
     return Options(
         rw=tuple(namespace.rw or ()),
         ro=tuple(namespace.ro or ()),
@@ -525,7 +550,8 @@ def options_from(namespace: argparse.Namespace) -> Options:
         no_home=bool(namespace.no_home),
         tmpfs=bool(namespace.tmpfs),
         print_only=bool(namespace.print),
-        bundled=bool(namespace.bundled),
+        local=bool(namespace.local),
+        cmd=cmd,
         command=tuple(command),
     )
 
@@ -559,9 +585,11 @@ def main(
     try:
         namespace = build_parser(name, agent).parse_args(argv)
         options = options_from(namespace)
-        if options.bundled and (agent is None or not agent.bundled):
-            raise BoxError("--bundled needs box-pi. Only pi is bundled.")
-        if agent is None and not options.command:
+        if options.local and (agent is None or not agent.bundled):
+            raise BoxError("--local needs box-pi. Only pi is bundled, the others run from PATH.")
+        if options.local and options.cmd:
+            raise BoxError("--local and --cmd both choose the program. Give one.")
+        if agent is None and not (options.cmd or options.command):
             raise BoxError("no command given (see --help)")
         box = resolve(options, host_env, cwd)
         check_workspace(box)

@@ -49,6 +49,7 @@ def bash(share: Path) -> str:
     cases = "\n".join(f'    {command}) options="{words(command)}" ;;' for command in COMMANDS)
     path_flags = " | ".join(sorted({name for c in COMMANDS for name in flags_with(c, "path")}))
     env_flags = " | ".join(sorted({name for c in COMMANDS for name in flags_with(c, "env")}))
+    command_flags = " | ".join(sorted({name for c in COMMANDS for name in flags_with(c, "command")}))
     return f"""# Bash completion for box, box-pi and box-claude.
 # {HEADER}
 _box() {{
@@ -64,6 +65,10 @@ _box() {{
       ;;
     {env_flags})
       mapfile -t COMPREPLY < <(compgen -v -- "$cur")
+      return
+      ;;
+    {command_flags})
+      mapfile -t COMPREPLY < <(compgen -c -- "$cur")
       return
       ;;
   esac
@@ -96,6 +101,7 @@ def zsh_spec(option: box.Option) -> str:
     kind = {
         "path": "path:_files",
         "env": "variable:_parameters",
+        "command": "command:_command_names -e",
     }.get(option.complete, f"{option.metavar.lower() or 'value'}:")
     return f"'{name}[{text}]:{kind}'"
 
@@ -144,6 +150,8 @@ def fish_line(command: str, option: box.Option) -> str:
         parts.append("--require-parameter")
         if option.complete == "path":
             parts.append("--force-files")
+        elif option.complete == "command":
+            parts.append("--no-files --arguments '(__fish_complete_command)'")
     parts.append(f"--description '{fish_escape(option.help)}'")
     return " ".join(parts)
 
