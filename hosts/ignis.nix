@@ -68,29 +68,6 @@ with lib;
       };
     };
 
-    # HOMEVPN VPN
-    noxa.secrets.def = [
-      {
-        ident = "homevpn-keypair";
-        module = "mine.wireguard";
-      }
-      {
-        ident = "homevpn-presharedkey";
-        module = "mine.wireguard";
-      }
-    ];
-    networking.wg-quick.interfaces.homevpn = {
-      address = [ "192.168.200.206/24" ];
-      privateKeyFile =
-        config.age.secrets.${
-        noxa.lib.secrets.computeIdentifier {
-          ident = "homevpn-keypair";
-          module = "mine.wireguard";
-        }
-        }.path;
-      autostart = false;
-    };
-
     specialisation.selinux.configuration = {
       #security.selinux.enable = true;
     };

@@ -1,0 +1,31 @@
+# Values the privacy check (privacy_check.py) accepts in the public repo: well-known
+# third-party addresses and IDs that identify nothing about us. One per line, matched
+# case-insensitively; an entry "@domain" allows every address of that domain.
+
+# public resolvers and registries
+9.9.9.9
+81.91.160.0
+2a02:568::
+
+# placeholders
+00:00:00:00:00:00
+
+# git remote syntax
+git@github.com
+
+# extension IDs (Firefox, GNOME), not email addresses
+gdpr@cavi.au.dk
+addon@darkreader.org
+ublock0@raymondhill.net
+keepassxc-browser@keepassxc.org
+firefox-compact-dark@mozilla.org
+drive-menu@gnome-shell-extensions.gcampax.github.com
+appindicatorsupport@rgcjonas.gmail.com
+vitals@corecoding.com
+87677a2c52b84ad3a151a4a72f5bd3c4@jetpack
+
+# example in the davmail folder-id patch
+shared@company.com
+
+# test vector in pkgs/pki/tests (a key ID, not a MAC)
+65:56:ec:45:d3:ce

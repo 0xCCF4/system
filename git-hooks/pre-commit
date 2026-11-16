@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Refuse commits that put private data into the public repo (pkgs/privacy-check).
+# Enabled by `git config core.hooksPath git-hooks` (the dev shell does that).
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+check="$root/pkgs/privacy-check/privacy_check.py"
+if command -v python3 > /dev/null; then
+  exec python3 -I "$check"
+fi
+exec nix run nixpkgs#python3 -- -I "$check"
