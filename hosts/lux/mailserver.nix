@@ -188,9 +188,22 @@ with lib;
 
         config = { pkgs, ... }: {
           imports = [
+            (import ../../modules/nixos/mine/mailReplyAlias.nix)
             mailserver.nixosModules.mailserver
             (import ./container-common.nix { inherit (config.system) stateVersion; inherit (config.time) timeZone; inherit hostAddress6; })
           ];
+
+          # Reply-as-alias: rewrite outbound replies to send from the alias the
+          # original message was delivered to (only for the postmaster catch-all
+          # account, and only for aliases it is authorised to send from).
+          mine.services.mailReplyAlias = {
+            enable = true;
+            storagePath = "/var/lib/mailserver/vmail";
+            accounts.postmaster = {
+              login = "postmaster@${domain}";
+              primary = "postmaster@${domain}";
+            };
+          };
 
           # lego's standalone HTTP-01 listener (see security.acme below).
           networking.firewall.allowedTCPPorts = [ 80 ];
