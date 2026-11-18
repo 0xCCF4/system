@@ -55,6 +55,13 @@ with lib;
         mine.locale.keyboardVariant = mkForce "nodeadkeys";
       };
 
+      # Printing with network printer discovery (CUPS + avahi mDNS + cups-browsed)
+      specialisation."printing".configuration = {
+        mine.printing = true;
+        services.avahi.enable = mkForce true;
+        services.printing.browsed.enable = mkForce true;
+      };
+
       # Battery management
       mine.tlp.enable = true;
       mine.noSuspend = mkDefault true;
