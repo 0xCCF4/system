@@ -167,7 +167,7 @@ with lib;
 
       fetchScript = pkgs.writeShellApplication {
         name = "geoblock-fetch";
-        runtimeInputs = [ pkgs.curl pkgs.gnutar pkgs.gzip pkgs.coreutils pkgs.systemd ];
+        runtimeInputs = [ pkgs.curl pkgs.gnutar pkgs.gzip pkgs.coreutils ];
         text = ''
           WORK="$(mktemp -d -t geoblock-fetch.XXXXXXXXXX)"
           trap 'rm -rf "$WORK"' EXIT
@@ -203,8 +203,15 @@ with lib;
             rm -rf "${cfg.cacheDirectory}/$zone.old"
           done
 
-          echo "[geoblock-fetch] done, refreshing the geo-list sets"
-          systemctl restart geoblock-update-set.service
+          echo "[geoblock-fetch] done"
+          # Signal the geoblock-cache.path unit that the zone data changed.
+          # That unit starts geoblock-update-set.service to repopulate the
+          # nftables sets.  This service runs as the unprivileged `geoblock`
+          # user, so it must not call systemctl itself.  A systemctl call would
+          # need root.  The `.updated` marker is touched last, after the zone
+          # dirs are fully swapped in, so the path unit fires with a complete
+          # cache.
+          touch "${cfg.cacheDirectory}/.updated"
         '';
       };
 
@@ -325,6 +332,25 @@ with lib;
         serviceConfig = {
           Type = "oneshot";
           ExecStart = getExe fetchScript;
+          User = "geoblock";
+          Group = "geoblock";
+          NoNewPrivileges = true;
+          ProtectSystem = true;
+          ProtectHome = true;
+          PrivateTmp = true;
+          PrivateDevices = true;
+          ProtectKernelTunables = true;
+          ProtectControlGroups = true;
+          ProtectKernelModules = true;
+          ProtectKernelLogs = true;
+          ProtectClock = true;
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
+          LockPersonality = true;
+          RemoveIPC = true;
+          UMask = "0077";
         };
       };
 
@@ -347,9 +373,64 @@ with lib;
         unitConfig.ReloadPropagatedFrom = [ "nftables.service" ];
         serviceConfig = {
           Type = "oneshot";
-          RemainAfterExit = true;
+          # No RemainAfterExit: the geoblock-cache.path unit starts this unit
+          # whenever the fetch publishes new zone data, and a plain start must
+          # re-run the script.  Boot-populate still happens via wantedBy below.
+          # An nftables restart re-runs it via partOf.
           ExecStart = getExe updateSetScript;
           ExecReload = getExe updateSetScript;
+
+          # Only nft needs privileges (CAP_NET_ADMIN); reads /var/lib/geoblock,
+          # writes temporary files.  No network, so restrict the address family.
+          NoNewPrivileges = true;
+          ProtectSystem = true;
+          ProtectHome = true;
+          PrivateTmp = true;
+          PrivateDevices = true;
+          ProtectKernelTunables = true;
+          ProtectControlGroups = true;
+          ProtectKernelModules = true;
+          ProtectKernelLogs = true;
+          ProtectClock = true;
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          RestrictAddressFamilies = [ "AF_UNIX" "AF_NETLINK" ];
+          CapabilityBoundingSet = [ "CAP_NET_ADMIN" ];
+          AmbientCapabilities = [ ];
+          LockPersonality = true;
+          RemoveIPC = true;
+          UMask = "0077";
+        };
+      };
+
+      # Dedicated unprivileged user for the download/update path.  It owns
+      # ${cfg.cacheDirectory} (see the tmpfiles rule below) so the fetch can
+      # write the zone data and the `.updated` marker itself.  The primary
+      # group is nogroup: nothing else needs group access to the cache, so a
+      # dedicated group only adds a uid/gid for no benefit.
+      users.users.geoblock = {
+        isSystemUser = true;
+        home = cfg.cacheDirectory;
+        description = "ipdeny zone download for geo-blocking";
+        group = "nogroup";
+      };
+
+      # Create the cache dir owned by geoblock at boot.  This runs on the
+      # persistent copy before the impermanence mount, so the ownership sticks.
+      systemd.tmpfiles.rules = [
+        "d ${cfg.cacheDirectory} 0755 geoblock nogroup -"
+      ];
+
+      # When the fetch publishes new zone data (marker touched last), re-run
+      # the set update.  Path units do a plain start, which always re-runs this
+      # oneshot because geoblock-update-set has no RemainAfterExit.
+      systemd.paths.geoblock-cache = {
+        description = "Watch for refreshed ipdeny zone data";
+        wantedBy = [ "multi-user.target" ];
+        pathConfig = {
+          PathChanged = "${cfg.cacheDirectory}/.updated";
+          Unit = "geoblock-update-set.service";
         };
       };
     };

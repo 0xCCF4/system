@@ -15,9 +15,16 @@ let
         # /etc/postfix to it; SNM's sender_login_maps uses hash:/etc/postfix/vaccounts.
         "vaccountsmap=hash:/var/lib/postfix/conf/vaccounts"
         "postmap=${config.services.postfix.package}/bin/postmap"
+        "debug=${if cfg.debug then "1" else "0"}"
       ]
       ++ lib.mapAttrsToList (_: acct: "account.${acct.login}=${acct.primary}") cfg.accounts
     ) + "\n";
+
+  # The config rendered into an immutable store file.  The milter reads it
+  # from REPLY_ALIAS_CONFIG, so it never writes its own config at runtime;
+  # that is what lets the service run unprivileged.  A missing or unreadable
+  # file degrades to a harmless no-op (see load_config).
+  replyAliasConfig = pkgs.writeText "reply-alias.conf" configText;
 in
 {
   options.mine.services.mailReplyAlias = {
@@ -36,6 +43,16 @@ in
       type = types.str;
       default = "/run/reply-alias/reply-alias.sock";
       description = "Unix socket the milter listens on for Postfix.";
+    };
+
+    debug = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Write detailed decision logs to the journal.  Off by default; turn it
+        on while testing and watch with
+        <command>journalctl -u reply-alias-milter -f</command>.
+      '';
     };
 
     storagePath = mkOption {
@@ -80,16 +97,14 @@ in
   config = mkIf cfg.enable {
     # Rewrite BEFORE DKIM signs: put our milter ahead of rspamd's in
     # smtpd_milters so the signature covers the rewritten From/envelope.
-    # mkForce replaces SNM's rspamd-only smtpd_milters with ours + rspamd.
-    services.postfix.settings.main.smtpd_milters = lib.mkForce [
-      "unix:${cfg.socket}"
-      "unix:/run/rspamd/rspamd-milter.sock"
-    ];
+    # mailMilter.nix aggregates every milter into smtpd_milters; adding ours
+    # as mkBefore sorts it ahead of the plain (rspamd) entry.
+    mine.services.mailMilter.milters = lib.mkBefore [ "unix:${cfg.socket}" ];
 
-    systemd.tmpfiles.rules = [
-      "d /run/reply-alias 0755 root root -"
-    ];
-
+    # The milter needs three read-only accesses: the Dovecot Maildirs (group
+    # of the mail storage, `virtualMail`), and Postfix's `vaccounts` sender-
+    # login map.  Running it as the postfix user with the mail-storage group
+    # added covers all of them; it never needs root.
     systemd.services.reply-alias-milter = {
       description = "Reply-to-alias Postfix milter";
       wantedBy = [ "multi-user.target" ];
@@ -98,19 +113,43 @@ in
       after = [ "network.target" ];
       serviceConfig = {
         Type = "simple";
+        # Give Postfix access to the milter socket and to the `vaccounts` map
+        # (via its group), and read access to the Dovecot Maildirs.
+        User = config.services.postfix.user;
+        Group = config.services.postfix.group;
+        SupplementaryGroups = [ config.mailserver.storage.group ];
+        Environment = [ "REPLY_ALIAS_CONFIG=${replyAliasConfig}" ];
         ExecStart = ''
-          ${pkgs.writeShellScript "reply-alias-milter-run" ''
-            cat > /etc/reply-alias.conf <<'EOF'
-            ${configText}
-            EOF
-            exec ${pkgs.python3.withPackages (ps: [ ps.pymilter ])}/bin/python3 ${milterScript}
-          ''}
+          ${pkgs.python3.withPackages (ps: [ ps.pymilter ])}/bin/python3 ${milterScript}
         '';
         RuntimeDirectory = "reply-alias";
-        RuntimeDirectoryMode = "0755";
+        # The socket Postfix connects to; group-writable so the postfix user
+        # can reach it.
+        RuntimeDirectoryMode = "0770";
         Restart = "on-failure";
         RestartSec = "2";
-        User = "root";
+
+        # Harden: unprivileged, no capabilities, root FS read-only.
+        NoNewPrivileges = true;
+        AmbientCapabilities = [ ];
+        CapabilityBoundingSet = "";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        PrivateMounts = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
+        ProtectControlGroups = true;
+        ProtectClock = true;
+        RestrictAddressFamilies = [ "AF_UNIX" ];
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        RemoveIPC = true;
+        UMask = "0077";
       };
     };
   };

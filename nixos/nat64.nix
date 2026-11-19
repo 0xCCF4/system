@@ -172,6 +172,13 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        NoNewPrivileges = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
+        LockPersonality = true;
+        RemoveIPC = true;
+        UMask = "0077";
       };
       # (deleting the namespace deletes the veth)
       script = ''

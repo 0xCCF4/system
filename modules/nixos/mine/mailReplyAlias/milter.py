@@ -24,6 +24,7 @@ Safeguards
 * Fail-open: any lookup error simply leaves the message untouched.
 """
 
+import logging
 import os
 import re
 import subprocess
@@ -31,11 +32,39 @@ import sys
 
 from Milter import Base, Milter, runmilter, CONTINUE
 
+# Debug logging goes to stderr, which systemd routes to the journal.  You can
+# watch it live with:
+#   journalctl -u reply-alias-milter -f
+# and toggle verbosity by setting the NixOS option (debug = true) and
+# restarting the service.
+log = logging.getLogger("reply-alias")
+_RUNNING = {}
+
+
+def setup_logging(debug):
+    """Configure stderr logging once; debug toggles level and detail."""
+    if _RUNNING:
+        return
+    _RUNNING["yes"] = True
+    level = logging.DEBUG if debug else logging.INFO
+    handler = logging.StreamHandler(sys.stderr)
+    # Mirror the milter's identity in every line so the two milters are
+    # easy to separate in the journal.
+    handler.setFormatter(logging.Formatter("%(name)s %(levelname)s: %(message)s"))
+    log.addHandler(handler)
+    log.setLevel(level)
+    log.propagate = False
+
 # ---------------------------------------------------------------------------
 # Configuration (read from the NixOS-generated config file)
 # ---------------------------------------------------------------------------
 
-CONFIG_PATH = "/etc/reply-alias.conf"
+# The NixOS module renders the config as an immutable store file and points
+# REPLY_ALIAS_CONFIG at it (see mailReplyAlias.nix).  Reading it from the
+# store means the milter never needs to write any config at runtime, which is
+# what lets it run unprivileged instead of as root.  Keep /etc/reply-alias.conf
+# as a fallback for manual setups; a missing file degrades to a no-op.
+CONFIG_PATH = os.environ.get("REPLY_ALIAS_CONFIG", "/etc/reply-alias.conf")
 
 
 def load_config(path=CONFIG_PATH):
@@ -60,6 +89,12 @@ SOCKET = CONFIG.get("socket", "/run/reply-alias/reply-alias.sock")
 STORAGE_ROOT = CONFIG.get("storage")
 VACCOUNTS_MAP = CONFIG.get("vaccountsmap")
 POSTMAP = CONFIG.get("postmap", "/run/current-system/sw/bin/postmap")
+DEBUG = CONFIG.get("debug", "0") in ("1", "true", "yes", "on")
+
+setup_logging(DEBUG)
+
+log.debug("reply-alias milter starting (debug on)")
+log.debug("socket=%s storage=%s vaccounts=%s", SOCKET, STORAGE_ROOT, VACCOUNTS_MAP)
 
 # Accounts that have opted in to reply-alias rewriting:
 #   account-login -> { "primary": str }
@@ -94,6 +129,127 @@ def extract_message_ids(value):
     return ids
 
 
+# ---------------------------------------------------------------------------
+# Sanitizers
+# ---------------------------------------------------------------------------
+# Every value that reaches a boundary (a subprocess argument, a path, or an
+# address written back into mail) is validated against its real grammar before
+# it is used.  A value that fails is dropped (fail open): the message is left
+# untouched rather than rewritten with bad data.
+
+# A safe Message-ID consists of dot-atom characters only.  It may never contain
+# whitespace, control characters, or angle brackets.
+_SAFE_DOT_ATOM = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!"
+                       "#$%&'*+-/=?^_`{|}~.")
+
+# A real Message-ID is at least a few chars long.  Any shorter token found in
+# an In-Reply-To / References header is almost certainly not a conforming ID and
+# would only risk a false (substring) match against a stored message, so it is
+# dropped.
+_MIN_MSGID_LEN = 8
+
+
+def is_safe_msgid(mid):
+    """True if `mid` looks like a real Message-ID (id-left@id-right, dot-atom).
+
+    Note: `extract_message_ids` deliberately grabs any `<...>` token it sees in
+    In-Reply-To / References, because that is where conforming Message-IDs sit.
+    A hostile sender can put arbitrary text there, so this is the gate that
+    rejects junk before it becomes a grep argument or a matcher key.  A Message-
+    ID's two halves (id-left, id-right) are each dot-atom, separated by @; the
+    @ itself is not a dot-atom character.
+    """
+    if not mid or len(mid) < _MIN_MSGID_LEN or len(mid) > 998:
+        return False
+    left, sep, right = mid.partition("@")
+    if not sep or not left or not right or "@" in right:
+        return False
+    return all(c in _SAFE_DOT_ATOM for c in left) and all(c in _SAFE_DOT_ATOM for c in right)
+
+
+# A rewritten address must be a real, well-formed email address: a dot-atom
+# local part and a hostname/domain part that contains no whitespace, control
+# characters, angle brackets, or quotes.  This is the value that is written
+# back into the envelope and the From header, so header/form-amalgamation
+# injection is prevented here.
+_EMAIL_RE = re.compile(
+    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$"
+)
+
+
+def safe_address(value):
+    """
+    Return `value` as a bare validated email address, or None if invalid.
+    Accepts an optional surrounding `<...>` (as written by Postfix delivery).
+    Rejects any value containing whitespace, control characters, or other
+    header-breaking characters.
+    """
+    if not value:
+        return None
+    v = value.strip()
+    if v.startswith("<") and v.endswith(">"):
+        v = v[1:-1]
+    # No whitespace or control characters anywhere in the address.
+    if any(c.isspace() or ord(c) < 0x20 or ord(c) == 0x7F for c in v):
+        return None
+    if not _EMAIL_RE.match(v):
+        return None
+    return v
+
+
+def safe_display_name(name):
+    """
+    Return `name` with any character that could break the From header removed.
+    `name` is the display part reconstructed from the reply's From header, so
+    it is attacker-controlled and may not carry CR/LF or other control
+    characters into the rewritten header.
+    """
+    if not name:
+        return ""
+    return "".join(c for c in name if ord(c) >= 0x20 and c not in "\r\n")
+
+
+def safe_log(text):
+    """Strip control characters so an attacker-controlled value (headers,
+    envelope sender, stored header values) cannot inject fake lines into the
+    journal.  Keeps printable characters and tab only."""
+    if not text:
+        return ""
+    return "".join(c for c in text if c == "\t" or (ord(c) >= 0x20 and ord(c) != 0x7F))
+
+
+def safe_log_list(items):
+    """Apply safe_log to every item of a list and return the sanitized list."""
+    return [safe_log(i) for i in items]
+
+
+def _safe_component(comp):
+    """True if `comp` is a plain dot-atom path component (no traversal)."""
+    return bool(comp) and comp not in (".", "..") and all(
+        c in _SAFE_DOT_ATOM and c not in "/\\" for c in comp
+    )
+
+
+def maildir_for_login(storage_root, login):
+    """Return the Maildir path for a login like user@example.com."""
+    if "@" not in login:
+        return None
+    user, _, domain = login.rpartition("@")
+    # Only plain dot-atom components, no path separators or traversal.
+    if not (_safe_component(user) and _safe_component(domain)):
+        return None
+    # Dovecot layout: ~/mail under home = <storage>/<domain>/<username>
+    return os.path.join(storage_root, domain, user, "mail")
+
+
+def _is_within(root, path):
+    """True if the real path `path` stays inside `root` (no escape)."""
+    root_real = os.path.realpath(root)
+    path_real = os.path.realpath(path)
+    return path_real == root_real or path_real.startswith(root_real + os.sep)
+
+
 _SIGNED_ENCRYPTED_CTS = (
     "multipart/signed",
     "multipart/encrypted",
@@ -125,15 +281,6 @@ def is_signed_or_encrypted(headers):
     return False
 
 
-def maildir_for_login(storage_root, login):
-    """Return the Maildir path for a login like user@example.com."""
-    if "@" not in login:
-        return None
-    user, _, domain = login.rpartition("@")
-    # Dovecot layout: ~/mail under home = <storage>/<domain>/<username>
-    return os.path.join(storage_root, domain, user, "mail")
-
-
 def find_original_recipient(maildir, message_ids):
     """
     Search the Maildir for a stored message whose Message-ID matches one of the
@@ -145,17 +292,28 @@ def find_original_recipient(maildir, message_ids):
         if not os.path.isdir(d):
             continue
         for mid in message_ids:
+            # Drop malformed Message-IDs before they reach grep or the matcher.
+            if not is_safe_msgid(mid):
+                continue
             # Probe quickly with grep -rl; only read files that contain the id.
-            probe = subprocess.run(
-                ["grep", "-rl", "-F", mid, "--", d],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
+            # Fail open: any error (timeout, missing binary) is treated as "no
+            # match" so a milter hiccup never blocks or fails mail.
+            try:
+                probe = subprocess.run(
+                    ["grep", "-rl", "-F", mid, "--", d],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                continue
             if probe.returncode == 1:  # no match
                 continue
             for path in probe.stdout.splitlines():
                 if not path:
+                    continue
+                # Only ever open files that stay inside this Maildir.
+                if not _is_within(maildir, path):
                     continue
                 recip = _x_original_to(path, mid)
                 if recip:
@@ -178,9 +336,12 @@ def _x_original_to(path, mid):
                 if low.startswith("x-original-to:"):
                     recip = line.split(":", 1)[1].strip()
                 elif low.startswith("message-id:"):
-                    # Compare the Message-ID of this stored message to the id we seek.
+                    # Compare the Message-ID of this stored message to the id we
+                    # seek, exactly and case-insensitively.  A raw substring
+                    # match ("mid in val") would let a short or partial token
+                    # hit the body of an unrelated, longer Message-ID.
                     val = line.split(":", 1)[1].strip()
-                    if mid in extract_message_ids(val) or mid in val:
+                    if mid.lower() in (i.lower() for i in extract_message_ids(val)):
                         found_mid = True
             if found_mid and recip:
                 return recip
@@ -227,6 +388,7 @@ def is_authorized(login, target, vaccounts_map, postmap):
 
 class ReplyAliasMilter(Base):
     def __init__(self):
+        """Reset per-message state for a new connection."""
         Base.__init__(self)
         self.active = False          # is this a message we may rewrite?
         self.authenticated_user = None
@@ -238,14 +400,18 @@ class ReplyAliasMilter(Base):
     # -- connection / auth ------------------------------------------------
 
     def connect(self, hostname, family, hostaddr):
+        """Accept the SMTP connection (no action needed)."""
         return CONTINUE
 
     def envfrom(self, f, *rest):
+        """Record the envelope sender; arm rewriting for authenticated, opted-in accounts (outbound only)."""
         self.sender = f
         auth = self.getsymval("{auth_authen}") or ""
         self.authenticated_user = auth
         # Only rewrite authenticated submissions from an opted-in account.
         self.active = bool(auth) and auth in ACCOUNTS
+        log.debug(
+            "envfrom sender=%r auth_authen=%r active=%s", safe_log(f), auth, self.active)
         if not self.active:
             return CONTINUE
         # (Re)initialise per-message state up front.
@@ -255,9 +421,11 @@ class ReplyAliasMilter(Base):
         return CONTINUE
 
     def envrcpt(self, to, *rest):
+        """Accept every recipient (rewriting is done at end of message)."""
         return CONTINUE
 
     def header(self, field, value):
+        """Collect headers; remember In-Reply-To/References ids and the From header."""
         if not self.active:
             return CONTINUE
         # pymilter passes the header name as bytes and the decoded value as str;
@@ -274,25 +442,32 @@ class ReplyAliasMilter(Base):
             self.message_ids.extend(extract_message_ids(value))
         elif name == "from":
             self.original_from = value
+            log.debug("From header: %r", safe_log(value))
         return CONTINUE
 
     def eoh(self):
+        """End of headers: nothing to do here."""
         return CONTINUE
 
     def body(self, blk):
+        """Pass body through unmodified (no body edits for this milter)."""
         return CONTINUE
 
     def eom(self):
+        """Find the reply's original recipient and rewrite envelope/From to the alias."""
         if not self.active:
             return CONTINUE
 
         # 1) Never touch signed/encrypted mail (would break signatures).
         if is_signed_or_encrypted(self.headers):
+            log.info("skip: message is signed/encrypted")
             return CONTINUE
 
         # 2) Only replies are rewritten.
         if not self.message_ids:
+            log.info("skip: no In-Reply-To/References (not a reply)")
             return CONTINUE
+        log.debug("reply msgids: %s", safe_log_list(self.message_ids))
 
         account = ACCOUNTS[self.authenticated_user]
         primary = account["primary"]
@@ -300,21 +475,42 @@ class ReplyAliasMilter(Base):
         # 3) Find the original recipient in the user's Maildir.
         maildir = maildir_for_login(STORAGE_ROOT, self.authenticated_user)
         if not maildir:
+            log.info("skip: no maildir for %s", self.authenticated_user)
             return CONTINUE
         target = find_original_recipient(maildir, self.message_ids)
         if not target:
+            log.info("skip: original message not found in %s", maildir)
+            return CONTINUE
+        log.debug("original recipient (raw): %r", safe_log(target))
+
+        # The X-Original-To value is user-controlled (read from a stored
+        # message).  It must be a well-formed address before it is validated
+        # by postmap or written back into the envelope and From header.
+        target = safe_address(target)
+        if not target:
+            log.info("skip: original recipient is not a valid address")
             return CONTINUE
 
         # 4) Never rewrite to the user's own primary address or to the address
-        #    the client already used.
+        #    the client already used (the reply's From address).
         if target.lower() == primary.lower():
+            log.info("skip: target %s is the account primary", target)
             return CONTINUE
-        if self.original_from and target.lower() in self.original_from.lower():
+        # Pull the bare address out of the reply's From header, then compare.
+        from_raw = self.original_from or ""
+        if "<" in from_raw:
+            from_addr = from_raw.partition("<")[2].partition(">")[0]
+        else:
+            from_addr = from_raw
+        if safe_address(from_addr) and target.lower() in safe_address(from_addr).lower():
+            log.info("skip: target %s already in From (%s)", target, safe_log(from_addr))
             return CONTINUE
 
         # 5) Authorisation: the account must be permitted to send from target,
         #    as decided by Postfix's own sender_login_maps (vaccounts).
         if not is_authorized(self.authenticated_user, target, VACCOUNTS_MAP, POSTMAP):
+            log.info("skip: %s not authorised for %s (vaccounts)",
+                     self.authenticated_user, target)
             return CONTINUE
 
         # 6) Rewrite. chgfrom() changes the envelope sender (Return-Path);
@@ -322,17 +518,21 @@ class ReplyAliasMilter(Base):
         try:
             self.chgfrom("<" + target + ">")
             self._rewrite_from(self.original_from, target)
-        except Exception:  # pragma: no cover - never block mail on our error
+            log.info("rewrote sender: %s -> %s", safe_log(self.sender), target)
+        except Exception:
+            log.exception("rewrite failed; leaving mail untouched")
             return CONTINUE
         return CONTINUE
 
     def _rewrite_from(self, original_from, target):
-        """Replace the From: header value with target, preserving a display name."""
-        if original_from:
-            name, _, addr = original_from.partition("<")
-            if addr.endswith(">"):
-                display = name.rstrip()
-                return self.chgheader("From", 0, display + " <" + target + ">")
+        """Replace the From header with target, preserving the display name if present."""
+        # `original_from` is user-controlled; strip any character that could
+        # break the From header before rebuilding the value.
+        display = safe_display_name(
+            original_from.partition("<")[0] if original_from else ""
+        )
+        if original_from and original_from.partition("<")[2].endswith(">"):
+            return self.chgheader("From", 0, display.rstrip() + " <" + target + ">")
         return self.chgheader("From", 0, target)
 
 

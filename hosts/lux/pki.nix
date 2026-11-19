@@ -108,6 +108,23 @@ with lib;
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
+              NoNewPrivileges = true;
+              ProtectSystem = true;
+              ProtectHome = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              ProtectKernelTunables = true;
+              ProtectControlGroups = true;
+              ProtectKernelModules = true;
+              ProtectKernelLogs = true;
+              ProtectClock = true;
+              RestrictNamespaces = true;
+              RestrictRealtime = true;
+              RestrictSUIDSGID = true;
+              RestrictAddressFamilies = [ "AF_UNIX" ];
+              LockPersonality = true;
+              RemoveIPC = true;
+              UMask = "0077";
             };
             script = ''
               install -m 0644 ${certDbData}/certstore.db /var/lib/pki/certstore.db
@@ -132,6 +149,26 @@ with lib;
                   -loglevel 1
               '';
               Restart = "always";
+              NoNewPrivileges = true;
+              ProtectSystem = "strict";
+              ProtectHome = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              ProtectKernelTunables = true;
+              ProtectControlGroups = true;
+              ProtectKernelModules = true;
+              ProtectKernelLogs = true;
+              ProtectClock = true;
+              RestrictNamespaces = true;
+              RestrictRealtime = true;
+              RestrictSUIDSGID = true;
+              RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" ];
+              CapabilityBoundingSet = "";
+              AmbientCapabilities = [ ];
+              MemoryDenyWriteExecute = true;
+              LockPersonality = true;
+              RemoveIPC = true;
+              UMask = "0077";
             };
           };
 
@@ -146,7 +183,26 @@ with lib;
             description = "Refresh pre-signed OCSP responses";
             after = [ "pki-db-install.service" ];
             requires = [ "pki-db-install.service" ];
-            serviceConfig.Type = "oneshot";
+            serviceConfig = {
+              Type = "oneshot";
+              NoNewPrivileges = true;
+              ProtectSystem = true;
+              ProtectHome = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              ProtectKernelTunables = true;
+              ProtectControlGroups = true;
+              ProtectKernelModules = true;
+              ProtectKernelLogs = true;
+              ProtectClock = true;
+              RestrictNamespaces = true;
+              RestrictRealtime = true;
+              RestrictSUIDSGID = true;
+              RestrictAddressFamilies = [ "AF_UNIX" ];
+              LockPersonality = true;
+              RemoveIPC = true;
+              UMask = "0077";
+            };
             script = ''
               ${pkgs.cfssl}/bin/cfssl ocsprefresh \
                 -ca /etc/pki/root-ca.pem \

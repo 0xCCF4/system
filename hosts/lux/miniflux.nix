@@ -244,6 +244,21 @@ with lib;
             serviceConfig = {
               Type = "oneshot";
               ExecStart = apiKeysScript;
+              NoNewPrivileges = true;
+              ProtectSystem = true; # disk locations other than /var stay read-only
+              ProtectHome = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              ProtectKernelTunables = true;
+              ProtectControlGroups = true;
+              ProtectKernelModules = true;
+              ProtectKernelLogs = true;
+              ProtectClock = true;
+              RestrictNamespaces = true;
+              RestrictRealtime = true;
+              LockPersonality = true;
+              RemoveIPC = true;
+              UMask = "0077";
             };
           };
 
@@ -262,6 +277,22 @@ with lib;
               Type = "oneshot";
               ExecStart = getExe reconcile;
               TimeoutStartSec = "30min"; # bounds a hanging run (each API call has its own 60s limit)
+              NoNewPrivileges = true;
+              ProtectSystem = true;
+              ProtectHome = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              ProtectKernelTunables = true;
+              ProtectControlGroups = true;
+              ProtectKernelModules = true;
+              ProtectKernelLogs = true;
+              ProtectClock = true;
+              RestrictNamespaces = true;
+              RestrictRealtime = true;
+              RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
+              LockPersonality = true;
+              RemoveIPC = true;
+              UMask = "0077";
             };
           };
           systemd.timers.miniflux-reconcile = {
