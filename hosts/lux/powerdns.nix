@@ -277,7 +277,18 @@ with lib;
         description = "Check that the DS record at the registrar matches the zone's DNSSEC keys";
         after = [ "container@powerdns.service" "network-online.target" ];
         wants = [ "network-online.target" ];
-        serviceConfig.Type = "oneshot";
+        serviceConfig = {
+          Type = "oneshot";
+          NoNewPrivileges = true;
+          ProtectSystem = true;
+          ProtectHome = true;
+          PrivateTmp = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          LockPersonality = true;
+          RemoveIPC = true;
+          UMask = "0077";
+        };
         path = [ pkgs.dig pkgs.gnugrep pkgs.gnused pkgs.gawk pkgs.coreutils pkgs.nixos-container ];
         script = ''
           # "<keytag> <algorithm> <digest type> <digest>", digests uppercase without spaces

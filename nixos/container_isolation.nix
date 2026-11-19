@@ -87,6 +87,11 @@ in
                 serviceConfig = {
                   Type = "oneshot";
                   RemainAfterExit = true;
+                  NoNewPrivileges = true;
+                  RestrictRealtime = true;
+                  LockPersonality = true;
+                  RemoveIPC = true;
+                  UMask = "0077";
                 };
                 script = concatMapStrings
                   (bind:

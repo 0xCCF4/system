@@ -138,6 +138,19 @@ with lib;
           PrivateTmp = "yes";
           PrivateDevices = "yes";
           PrivateNetwork = "yes";
+          NoNewPrivileges = true;
+          ProtectSystem = true; # /var stays writable for the mkdir
+          ProtectHome = true;
+          ProtectKernelTunables = true;
+          ProtectControlGroups = true;
+          ProtectKernelLogs = true;
+          ProtectClock = true;
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          LockPersonality = true;
+          RemoveIPC = true;
+          UMask = "0077";
         };
       };
 
@@ -167,6 +180,21 @@ with lib;
         serviceConfig = {
           inherit (config.systemd.services.clamav-freshclam.serviceConfig)
             Type ExecStart SuccessExitStatus StateDirectory User Group PrivateTmp PrivateDevices Slice;
+          # Inherits User/Group=clamav from freshclam
+          NoNewPrivileges = true;
+          ProtectSystem = true;
+          ProtectHome = true;
+          ProtectKernelTunables = true;
+          ProtectControlGroups = true;
+          ProtectKernelLogs = true;
+          ProtectClock = true;
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
+          LockPersonality = true;
+          RemoveIPC = true;
+          UMask = "0077";
         };
       };
       services.clamav.scanner.enable = true;
@@ -206,6 +234,12 @@ with lib;
           Restart = "on-failure";
           # stay clear of the default start limit (5 starts in 10s)
           RestartSec = "10s";
+          # On-access scanning reads every file, so the filesystem mounts and home
+          # dirs stay untouched; only downgrade the least risky process properties.
+          NoNewPrivileges = true;
+          RestrictRealtime = true;
+          LockPersonality = true;
+          UMask = "0077";
         };
       };
 

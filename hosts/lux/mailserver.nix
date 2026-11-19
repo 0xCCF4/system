@@ -10,6 +10,31 @@
 }:
 with lib;
 {
+  # Host-level mirror of the mail-service-tag option.  The host has no
+  # mailserver and no milter.  The option exists so that the auto-imported
+  # private module (external/private/nixos/mailServiceTags.nix) can set the
+  # service->tag mapping at host level.  The container is a separate eval.
+  # It receives the value via `mailServiceTagServices` below and imports the
+  # full module (mailServiceTag.nix) that builds the milter service.
+  options.mine.services.mailServiceTag = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable the mail-service-tag milter (container only).";
+    };
+    socket = lib.mkOption { type = lib.types.str; };
+    debug = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Write detailed milter decisions to the journal.";
+    };
+    services = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = { };
+      description = "Recipient local-part to Subject-tag mapping, set in external/private.";
+    };
+  };
+
   config =
     let
       domain = self.lib.requireOption "mine.info.domain" config.mine.info.domain;
@@ -17,6 +42,10 @@ with lib;
 
       hostAddress6 = luxAddr6For "fc00::/64" "mailserver-veth-host";
       localAddress6 = luxAddr6For luxPublicNetwork6 "mailserver";
+
+      # Service alias -> tag mapping, set privately in external/private.  The
+      # container (a separate eval) receives it as a plain value below.
+      mailServiceTagServices = config.mine.services.mailServiceTag.services;
 
       # Plaintext login passwords of the mail accounts (`<name>-password`
       # secrets), SNM hashes them for dovecot at start.
@@ -189,9 +218,19 @@ with lib;
         config = { pkgs, ... }: {
           imports = [
             (import ../../modules/nixos/mine/mailReplyAlias.nix)
+            (import ../../modules/nixos/mine/mailMilter.nix)
+            (import ../../modules/nixos/mine/mailServiceTag.nix)
             mailserver.nixosModules.mailserver
             (import ./container-common.nix { inherit (config.system) stateVersion; inherit (config.time) timeZone; inherit hostAddress6; })
           ];
+
+          # Aggregate all postfix milters into one ordered list (see
+          # mailMilter.nix).  rspamd's milter is the plain (default) entry;
+          # milters tagged mkBefore, here reply-alias, sort ahead of it.
+          mine.services.mailMilter = {
+            enable = true;
+            milters = [ "unix:/run/rspamd/rspamd-milter.sock" ];
+          };
 
           # Reply-as-alias: rewrite outbound replies to send from the alias the
           # original message was delivered to (only for the postmaster catch-all
@@ -203,6 +242,16 @@ with lib;
               login = "postmaster@${domain}";
               primary = "postmaster@${domain}";
             };
+          };
+
+          # Tag inbound mail to a known service alias with its `[service]`
+          # subject prefix.  Only messages that are not S/MIME or PGP signed
+          # are tagged.  The service->tag mapping is private, set at host level
+          # from external/private and passed in via mailServiceTagServices.
+          mine.services.mailServiceTag = {
+            enable = true;
+            debug = true;
+            services = mailServiceTagServices;
           };
 
           # lego's standalone HTTP-01 listener (see security.acme below).
@@ -241,6 +290,13 @@ with lib;
             "${pkgs.gnugrep}/bin/grep -qx 1 /sys/class/net/eth0/carrier";
 
           services.postfix.settings.main.inet_protocols = "ipv6";
+
+          services.postfix.settings.main.mynetworks = [ ];
+          services.postfix.settings.main.smtpd_relay_restrictions = lib.mkForce [
+            "permit_sasl_authenticated"
+            "reject_unauth_destination"
+          ];
+          services.postfix.setSendmail = false;
 
           # rspamd's url_redirector requests the URL shorteners found in mails (bit.ly
           # etc.) to resolve them: per-recipient tracking links would confirm to the
