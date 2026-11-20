@@ -7,8 +7,8 @@
     (withSystem system ({ config, ... }: config.packages))
     // {
       timetrax = inputs.timetrax.packages.${system}.default;
-      # Same class as presenterm below: zstd-sys is told to use the system libzstd,
-      # but frostx has neither zstd nor pkg-config, so its build script panics.
+      # cargoSetupHook sets ZSTD_SYS_USE_PKG_CONFIG, but frostx's own package
+      # has neither zstd nor pkg-config, so its build script panics.
       frostx = inputs.frostx.packages.${system}.default.overrideAttrs (old: {
         nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ final.pkg-config ];
         buildInputs = (old.buildInputs or [ ]) ++ [ final.zstd ];
@@ -28,17 +28,6 @@
         patches = (old.patches or [ ]) ++ [
           ./patches/davmail-folder-id-map.patch
         ];
-      });
-
-      ncspot = prev.ncspot.overrideAttrs (old: {
-        buildInputs = (old.buildInputs or [ ]) ++ [ final.aws-lc ];
-      });
-
-      # Same class: cargoSetupHook sets RUSTONIG_SYSTEM_LIBONIG, but presenterm has
-      # neither oniguruma nor pkg-config, so the onig_sys build script panics.
-      presenterm = prev.presenterm.overrideAttrs (old: {
-        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ final.pkg-config ];
-        buildInputs = (old.buildInputs or [ ]) ++ [ final.oniguruma ];
       });
 
       todoman = prev.todoman.overrideAttrs {

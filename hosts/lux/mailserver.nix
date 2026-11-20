@@ -234,10 +234,12 @@ with lib;
 
           # Reply-as-alias: rewrite outbound replies to send from the alias the
           # original message was delivered to (only for the postmaster catch-all
-          # account, and only for aliases it is authorised to send from).
+          # account, and only for aliases it is authorised to send from).  The
+          # message-id -> alias store lives inside the persisted state mount,
+          # because the container root is ephemeral.
           mine.services.mailReplyAlias = {
             enable = true;
-            storagePath = "/var/lib/mailserver/vmail";
+            statePath = "/var/lib/mailserver/milters";
             accounts.postmaster = {
               login = "postmaster@${domain}";
               primary = "postmaster@${domain}";

@@ -333,7 +333,7 @@ with lib;
           Type = "oneshot";
           ExecStart = getExe fetchScript;
           User = "geoblock";
-          Group = "geoblock";
+          Group = "nogroup";
           NoNewPrivileges = true;
           ProtectSystem = true;
           ProtectHome = true;
@@ -370,13 +370,14 @@ with lib;
         wants = [ "nftables.service" ];
         wantedBy = [ "multi-user.target" ];
         partOf = [ "nftables.service" ];
-        unitConfig.ReloadPropagatedFrom = [ "nftables.service" ];
         serviceConfig = {
           Type = "oneshot";
           # No RemainAfterExit: the geoblock-cache.path unit starts this unit
           # whenever the fetch publishes new zone data, and a plain start must
           # re-run the script.  Boot-populate still happens via wantedBy below.
-          # An nftables restart re-runs it via partOf.
+          # An nftables restart re-runs it via partOf.  An nftables *reload* is
+          # handled by the hook on nftables.service below, because a reload of
+          # this inactive unit is a no-op.
           ExecStart = getExe updateSetScript;
           ExecReload = getExe updateSetScript;
 
@@ -403,6 +404,10 @@ with lib;
           UMask = "0077";
         };
       };
+
+      systemd.services.nftables.serviceConfig.ExecReload = mkAfter [
+        (getExe updateSetScript)
+      ];
 
       # Dedicated unprivileged user for the download/update path.  It owns
       # ${cfg.cacheDirectory} (see the tmpfiles rule below) so the fetch can
