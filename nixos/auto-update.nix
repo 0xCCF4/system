@@ -178,7 +178,6 @@ with lib;
           TimeoutStartSec = "infinity";
           TimeoutStopSec = "infinity";
           PrivateTmp = true;
-          ProtectHome = true;
           RestrictRealtime = true;
           LockPersonality = true;
           RemoveIPC = true;

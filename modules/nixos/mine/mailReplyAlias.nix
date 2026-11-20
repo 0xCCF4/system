@@ -3,30 +3,41 @@ with lib;
 let
   cfg = config.mine.services.mailReplyAlias;
 
-  # Paths to the milter script and its config file.
-  milterScript = ./mailReplyAlias/milter.py;
+  # The socket lives in /run so that the service runtime directory can hold it.
+  runtimeDirectory = removePrefix "/run/" (dirOf cfg.socket);
+
+  # The unit name doubles as the service user and group name (see
+  # milterService.nix).
+  serviceName = "reply-alias-milter";
+
+  # Per-milter state: the SQLite store of message-id -> alias rows.
+  stateDir = "${cfg.statePath}/reply-alias";
 
   # Render the milter config file.  Each line is key=value.
   configText =
-    concatStringsSep "\n" (
-      [ "socket=${cfg.socket}"
-        "storage=${cfg.storagePath}"
-        # Postfix compiles its mapFiles into /var/lib/postfix/conf and symlinks
-        # /etc/postfix to it; SNM's sender_login_maps uses hash:/etc/postfix/vaccounts.
-        "vaccountsmap=hash:/var/lib/postfix/conf/vaccounts"
-        "postmap=${config.services.postfix.package}/bin/postmap"
-        "debug=${if cfg.debug then "1" else "0"}"
-      ]
-      ++ lib.mapAttrsToList (_: acct: "account.${acct.login}=${acct.primary}") cfg.accounts
-    ) + "\n";
+    concatStringsSep "\n"
+      (
+        [
+          "socket=${cfg.socket}"
+          "statefile=${stateDir}/aliases.sqlite3"
+          "retentiondays=${toString cfg.retentionDays}"
+          # Postfix compiles its mapFiles into /var/lib/postfix/conf and
+          # symlinks /etc/postfix to it.  SNM's sender_login_maps therefore
+          # uses hash:/etc/postfix/vaccounts.
+          "vaccountsmap=hash:/var/lib/postfix/conf/vaccounts"
+          "postmap=${config.services.postfix.package}/bin/postmap"
+          "debug=${if cfg.debug then "1" else "0"}"
+        ]
+        ++ lib.mapAttrsToList (_: acct: "account.${acct.login}=${acct.primary}") cfg.accounts
+      ) + "\n";
 
   # The config rendered into an immutable store file.  The milter reads it
-  # from REPLY_ALIAS_CONFIG, so it never writes its own config at runtime;
-  # that is what lets the service run unprivileged.  A missing or unreadable
-  # file degrades to a harmless no-op (see load_config).
+  # from REPLY_ALIAS_CONFIG, so it never writes its own config at runtime.
+  # A missing or unreadable file degrades to a harmless no-op.
   replyAliasConfig = pkgs.writeText "reply-alias.conf" configText;
 in
 {
+
   options.mine.services.mailReplyAlias = {
     enable = mkOption {
       type = types.bool;
@@ -55,11 +66,22 @@ in
       '';
     };
 
-    storagePath = mkOption {
+    statePath = mkOption {
       type = types.path;
+      default = "/var/lib/reply-alias";
       description = ''
-        Dovecot storage root (the parent of `<domain>/<user>/mail`). Used to
-        locate the delivered copy of a message to read its X-Original-To header.
+        Directory for the milter's message-id -> alias store.  Point it at
+        persistent storage.  A system with an ephemeral root file system, such
+        as the mailserver container, must place it on a mounted path.
+      '';
+    };
+
+    retentionDays = mkOption {
+      type = types.ints.positive;
+      default = 90;
+      description = ''
+        How long a recorded message-id -> alias pair is kept.  A reply to a
+        message older than this is not rewritten.
       '';
     };
 
@@ -94,63 +116,49 @@ in
     };
   };
 
-  config = mkIf cfg.enable {
-    # Rewrite BEFORE DKIM signs: put our milter ahead of rspamd's in
-    # smtpd_milters so the signature covers the rewritten From/envelope.
-    # mailMilter.nix aggregates every milter into smtpd_milters; adding ours
-    # as mkBefore sorts it ahead of the plain (rspamd) entry.
-    mine.services.mailMilter.milters = lib.mkBefore [ "unix:${cfg.socket}" ];
+  config = mkIf cfg.enable (mkMerge [
+    {
+      assertions = [
+        {
+          assertion = hasPrefix "/run/" cfg.socket;
+          message = "mine.services.mailReplyAlias.socket must be below /run/";
+        }
+      ];
+    }
 
-    # The milter needs three read-only accesses: the Dovecot Maildirs (group
-    # of the mail storage, `virtualMail`), and Postfix's `vaccounts` sender-
-    # login map.  Running it as the postfix user with the mail-storage group
-    # added covers all of them; it never needs root.
-    systemd.services.reply-alias-milter = {
+    (import ./milterService.nix {
+      inherit config pkgs;
+      name = serviceName;
       description = "Reply-to-alias Postfix milter";
-      wantedBy = [ "multi-user.target" ];
-      # Start before Postfix so the socket exists before any mail is processed.
-      before = [ "postfix.service" ];
-      after = [ "network.target" ];
-      serviceConfig = {
-        Type = "simple";
-        # Give Postfix access to the milter socket and to the `vaccounts` map
-        # (via its group), and read access to the Dovecot Maildirs.
-        User = config.services.postfix.user;
-        Group = config.services.postfix.group;
-        SupplementaryGroups = [ config.mailserver.storage.group ];
-        Environment = [ "REPLY_ALIAS_CONFIG=${replyAliasConfig}" ];
-        ExecStart = ''
-          ${pkgs.python3.withPackages (ps: [ ps.pymilter ])}/bin/python3 ${milterScript}
-        '';
-        RuntimeDirectory = "reply-alias";
-        # The socket Postfix connects to; group-writable so the postfix user
-        # can reach it.
-        RuntimeDirectoryMode = "0770";
-        Restart = "on-failure";
-        RestartSec = "2";
-
-        # Harden: unprivileged, no capabilities, root FS read-only.
-        NoNewPrivileges = true;
-        AmbientCapabilities = [ ];
-        CapabilityBoundingSet = "";
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        PrivateTmp = true;
-        PrivateDevices = true;
-        PrivateMounts = true;
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectKernelLogs = true;
-        ProtectControlGroups = true;
-        ProtectClock = true;
-        RestrictAddressFamilies = [ "AF_UNIX" ];
-        RestrictNamespaces = true;
-        RestrictRealtime = true;
-        RestrictSUIDSGID = true;
-        LockPersonality = true;
-        RemoveIPC = true;
-        UMask = "0077";
+      script = ./mailReplyAlias/reply_alias_milter.py;
+      inherit runtimeDirectory;
+      environment = [ "REPLY_ALIAS_CONFIG=${replyAliasConfig}" ];
+      extraServiceConfig = {
+        # The store is the only thing this milter writes.  Everything else is
+        # read-only to it.
+        ReadWritePaths = [ stateDir ];
+        # `postmap` is the Postfix binary, and it enumerates the local
+        # interfaces at startup through netlink.  Without these families it
+        # either floods the journal with warnings or fails outright,
+        # depending on the Postfix release.  The milter code itself opens no
+        # sockets.
+        RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
       };
-    };
-  };
+    })
+
+    {
+      # The store must exist before the service starts, because
+      # ReadWritePaths needs the path to be present.
+      systemd.tmpfiles.rules = [
+        "d ${stateDir} 0700 ${serviceName} ${serviceName} -"
+      ];
+
+      # Rewrite before DKIM signs.  rspamd signs and verifies, and it must see
+      # the rewritten From, so this milter goes ahead of rspamd's in
+      # smtpd_milters.  mailMilter.nix aggregates every milter into that
+      # setting, and mkBefore sorts this entry ahead of the plain (rspamd)
+      # entry.
+      mine.services.mailMilter.milters = lib.mkBefore [ "unix:${cfg.socket}" ];
+    }
+  ]);
 }
