@@ -179,6 +179,9 @@ with builtins;
           signal-desktop
         ];
 
+      # box bundles claude-code, which is unfree
+      home.mine.unfree.allowList = mkIf cfg.cmdlineExtras [ "claude-code" ];
+
       home.mine.persistence.cache.directories =
         let
           names = (map (p: p.name) (config.home.packages));

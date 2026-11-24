@@ -2,7 +2,8 @@
 #
 #   box          the generic launcher, any command
 #   box-pi       pi, with ~/.pi mounted: the pi-coding-agent of this package (--local: pi from PATH)
-#   box-claude   claude, with ~/.claude and ~/.claude.json mounted
+#   box-claude   claude, with ~/.claude and ~/.claude.json mounted: the claude-code of
+#                this package (--local: the claude from PATH)
 #
 # One program, three symlinks: it dispatches on its own name. box.py holds the plan.
 # completions.py generates the shell completions from the FLAGS table, so they cannot
@@ -13,22 +14,24 @@
 , python3
 , bubblewrap
 , pi-coding-agent
+, claude-code
 , runtimeShell
 }:
 let
   script = lib.replaceStrings
-    [ "#!/usr/bin/env python3" "@bwrap@" "@bundledPi@" "@shell@" ]
+    [ "#!/usr/bin/env python3" "@bwrap@" "@bundledPi@" "@bundledClaude@" "@shell@" ]
     [
       "#!${python3.interpreter}"
       (lib.getExe bubblewrap)
       (lib.getExe pi-coding-agent)
+      (lib.getExe claude-code)
       "${runtimeShell}"
     ]
     (builtins.readFile ./box.py);
 in
 stdenv.mkDerivation {
   pname = "box";
-  version = "0.4.0";
+  version = "0.7.0";
 
   src = lib.cleanSource ./.;
 
