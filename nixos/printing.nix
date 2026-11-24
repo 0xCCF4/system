@@ -26,6 +26,6 @@ with lib;
         pkgs.gutenprint
         pkgs.hplip
       ];
-      services.printing.browsed.enable = false;
+      services.printing.browsed.enable = mkDefault false;
     };
 }

@@ -16,6 +16,10 @@
       vota = inputs.vota.packages.${system}.default;
       zrb = inputs.zrb.packages.${system}.default;
 
+      # box bundles claude-code, which is unfree. It is built here and not in perSystem
+      # so that this pkgs decides: a host admits claude-code through mine.unfree.allowList.
+      box = final.callPackage ../pkgs/box { };
+
       waybar = prev.waybar.overrideAttrs (old: {
         patches = (old.patches or [ ]) ++ [
           ./patches/waybar-mpris-ellipsize.patch

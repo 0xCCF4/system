@@ -3,28 +3,38 @@
 
     box          run any command in the box
     box-pi       run pi in the box: the pi-coding-agent of this package (--local: the pi from PATH)
-    box-claude   run claude in the box
+    box-claude   run claude in the box: the claude-code of this package (--local: the claude from PATH)
 
 --cmd CMD replaces the program that runs: the agent's own (pi, claude) or the command
 of the generic launcher. CMD is split like a shell would (--cmd 'npx claude'). The rest
-stays: the state of the agent, its note and the arguments after the options.
-Without --local the bundled pi comes first in PATH, so `box-pi --cmd bash` gets it too.
+stays: the state of the agent and the arguments after the options. The note goes out
+too, unless CMD runs the agent itself, because the flag that carries it belongs to the
+agent: `box-claude --cmd /bin/sh` gets a shell and no note.
+Without --local the bundled agent comes first in PATH, so `box-pi --cmd bash` gets pi too.
 
 Writable: the current directory, the scratchpad of this project, the state of the
 agent (pi: ~/.pi, claude: ~/.claude and ~/.claude.json) and the paths of --rw.
-The rest of $HOME is a tmpfs, so it hides and it does not persist. With --no-home
-the box binds nothing from it. Read-only: /nix, /usr, /etc, the system profile and,
-with network, /run/systemd/resolve (the target of /etc/resolv.conf).
+The rest of $HOME is an empty directory that the box creates and deletes: writable,
+hidden and short-lived. It has to be writable, because an agent that saves its
+configuration atomically writes a lock and a temporary file beside the configuration
+file, and a read-only home fails that save. With --no-home the box binds nothing
+from it. Read-only: /nix, /usr, /etc, /lib and /lib64 (where NixOS puts the ELF
+loader for foreign binaries), the system profile and, with network,
+/run/systemd/resolve (the target of /etc/resolv.conf).
 
-/tmp is a fresh directory under /tmp/box on the host, and the box deletes it when it
-exits. With --tmpfs, /tmp stays in memory instead. The network is shared, unless
---no-net.
+/tmp and $HOME are fresh directories under /tmp/box on the host, and the box deletes
+them when it exits. With --tmpfs, they stay in memory instead. The network is shared,
+unless --no-net.
+
+With --ssh the agent behind $SSH_AUTH_SOCK comes in at the same path, and SSH_AUTH_SOCK
+inside points at it: ssh, git and every other client can sign with the keys of the
+host, and the keys themselves never enter the box.
 
 AGENT_SANDBOX=1, AGENT_SANDBOX_SCRATCHPAD and AGENT_SANDBOX_NETWORK tell an agent
 inside about the box (the sandbox extension of the /pi package reads them).
 AGENT_SANDBOX_SCRATCHPAD is absent with --no-home.
 
-The three @...@ names are substituted at build time (see default.nix). Tests pass
+The four @...@ names are substituted at build time (see default.nix). Tests pass
 their own values, so the module also runs from a checkout.
 """
 
@@ -47,14 +57,23 @@ from typing import Callable, Mapping, Sequence
 # Substituted at build time.
 BWRAP = "@bwrap@"
 BUNDLED_PI = "@bundledPi@"
+BUNDLED_CLAUDE = "@bundledClaude@"
 SHELL = "@shell@"
+
+# The binary of this package for each agent that brings one: `box-pi` and `box-claude`
+# run these without --local, whatever `pi` or `claude` means on the host.
+BUNDLED: dict[str, str] = {"pi": BUNDLED_PI, "claude": BUNDLED_CLAUDE}
 
 ENV_MARKER = "AGENT_SANDBOX"
 ENV_SCRATCHPAD = "AGENT_SANDBOX_SCRATCHPAD"
 ENV_NETWORK = "AGENT_SANDBOX_NETWORK"
+# The variable that names the ssh agent socket, on the host and in the box.
+SSH_SOCK = "SSH_AUTH_SOCK"
 
-# Read-only paths of the host, mounted when they exist.
-SYSTEM_RO_BINDS = ("/usr", "/etc", "/nix", "/run/current-system/sw")
+# Read-only paths of the host, mounted when they exist. /lib and /lib64 hold the ELF
+# loader that NixOS puts there for foreign binaries (nix-ld, through environment.ldso):
+# without them an installer that drops a glibc binary in $HOME cannot exec it.
+SYSTEM_RO_BINDS = ("/usr", "/etc", "/lib", "/lib64", "/nix", "/run/current-system/sw")
 # Read-only paths the network needs, mounted when they exist and the box has network.
 # /etc/resolv.conf is a symlink into /run/systemd/resolve with systemd-resolved
 # (stub-resolv.conf: nameserver 127.0.0.53, reachable through the shared network).
@@ -120,12 +139,12 @@ class Flag:
 FLAGS: tuple[Flag, ...] = (
     Flag(
         "local",
-        "run the pi from PATH, not the pi-coding-agent of this package",
-        agents=("pi",),
+        "run the agent from PATH, not the one of this package",
+        agents=("pi", "claude"),
     ),
     Flag(
         "cmd",
-        "run CMD instead of the program of the agent; state, note and arguments stay",
+        "run CMD instead of the program of the agent; state and arguments stay",
         value="CMD",
         complete="command",
     ),
@@ -144,7 +163,8 @@ FLAGS: tuple[Flag, ...] = (
     ),
     Flag("no-home", "empty home directory: no state, no scratchpad"),
     Flag("no-net", "no network in the box"),
-    Flag("tmpfs", "keep /tmp in memory, not on disk under /tmp/box"),
+    Flag("ssh", "map the ssh agent of the host into the box ($SSH_AUTH_SOCK)"),
+    Flag("tmpfs", "keep /tmp and $HOME in memory, not on disk under /tmp/box"),
     Flag("print", "print the bubblewrap command line and exit"),
 )
 
@@ -162,7 +182,7 @@ class Agent:
     state_files: tuple[str, ...] = ()  # under $HOME: created when missing, bound rw
     command: tuple[str, ...] = ()  # from PATH inside the box
     bundled: bool = False  # runs the package's own binary by default, --local: from PATH
-    note: str = ""  # notes/<name>.txt, appended to the command
+    note: str = ""  # notes/<name>.txt, appended when the command runs the agent
     note_no_home: str = ""  # the variant for --no-home
     note_flag: str = ""  # the flag the agent takes the note with
     session_dir_env: str = ""  # the variable that moves the session folder into the workspace
@@ -189,6 +209,7 @@ AGENTS: dict[str, Agent] = {
         state_dirs=(".claude",),
         state_files=(".claude.json",),
         command=("claude",),
+        bundled=True,
         note="claude.txt",
         note_no_home="claude-no-home.txt",
         note_flag="--append-system-prompt",
@@ -213,6 +234,7 @@ class Options:
     pass_env: tuple[str, ...] = ()
     network: str = "host"
     no_home: bool = False
+    ssh: bool = False  # --ssh: SSH_AUTH_SOCK goes in
     tmpfs: bool = False
     print_only: bool = False
     local: bool = False  # --local: the agent from PATH, not the bundled one
@@ -303,22 +325,44 @@ def note_text(agent: Agent, notes_dir: str, no_home: bool) -> str:
     return Path(notes_dir, name).read_text(encoding="utf-8").strip()
 
 
+def runs_agent(agent: Agent, command: Sequence[str]) -> bool:
+    """Whether the command runs the agent itself, so that it takes the note flag.
+
+    --cmd can replace the agent with anything (/bin/sh, npx claude, timeout 60 claude),
+    and only the agent's own program knows the flag of its note. A --cmd that names the
+    agent among its words keeps it: the note goes at the end of that command line.
+    """
+    return any(Path(word).name in agent.command for word in command)
+
+
+def bundled_program(
+    agent: Agent | None,
+    options: Options,
+    bundled: Mapping[str, str],
+) -> str:
+    """The binary of this package for the agent, or "" when the agent comes from PATH."""
+    if agent is None or not agent.bundled or options.local:
+        return ""
+    return bundled.get(agent.name, "")
+
+
 def command_for(
     agent: Agent | None,
     options: Options,
     notes_dir: str,
-    bundled_pi: str,
+    bundled: Mapping[str, str] = BUNDLED,
 ) -> list[str]:
     """The command inside the box: the agent (or --cmd), its note, then its own arguments."""
     if agent is None:
         return list(options.cmd) + list(options.command)
+    program = bundled_program(agent, options, bundled)
     if options.cmd:
         command = list(options.cmd)
-    elif agent.bundled and not options.local:
-        command = [bundled_pi]
+    elif program:
+        command = [program]
     else:
         command = list(agent.command)
-    if agent.note_flag:
+    if agent.note_flag and runs_agent(agent, command):
         note = note_text(agent, notes_dir, options.no_home)
         if note:
             command += [agent.note_flag, note]
@@ -328,7 +372,8 @@ def command_for(
 def prepare(agent: Agent | None, options: Options, box: Box) -> str | None:
     """Create the host paths that the box binds: the agent state, the scratchpad, the cache.
 
-    Returns the directory that becomes /tmp in the box, or None with --tmpfs.
+    Returns the directory that becomes /tmp in the box, with the empty home beside it,
+    or None with --tmpfs.
     """
     if agent is not None and not options.no_home:
         for name in agent.state_dirs:
@@ -342,7 +387,10 @@ def prepare(agent: Agent | None, options: Options, box: Box) -> str | None:
     if options.tmpfs:
         return None
     Path(TMP_ROOT).mkdir(parents=True, exist_ok=True)
-    return tempfile.mkdtemp(dir=TMP_ROOT)
+    temp = tempfile.mkdtemp(dir=TMP_ROOT)
+    # the empty home of the box, so a write to $HOME costs disk and not memory
+    Path(temp, "home").mkdir()
+    return temp
 
 
 def environment(
@@ -351,14 +399,15 @@ def environment(
     shell: str,
     host_env: Mapping[str, str],
     agent: Agent | None = None,
-    bundled_pi: str = "",
+    bundled: Mapping[str, str] = BUNDLED,
 ) -> list[tuple[str, str]]:
     """The environment inside the box. The host environment does not leak in."""
     values: list[tuple[str, str]] = [(ENV_MARKER, "1")]
     # the bundled agent first in PATH, so it is also what `pi` means in a --cmd shell
     bundled_bin = ""
-    if agent is not None and agent.bundled and not options.local and bundled_pi.startswith("/"):
-        bundled_bin = os.path.dirname(bundled_pi) + ":"
+    program = bundled_program(agent, options, bundled)
+    if program.startswith("/"):
+        bundled_bin = os.path.dirname(program) + ":"
     if agent is not None and agent.session_dir_env:
         # sessions stay with the workspace: <workspace>/.pi/sessions
         values.append((agent.session_dir_env, f"{box.cwd}/.pi/sessions"))
@@ -387,13 +436,16 @@ def environment(
         ("npm_config_cache", "/tmp/.npm"),
         # NixOS' /etc/bashrc (and fish/zsh) source /etc/set-environment unless this is
         # set, and that replaces PATH: an interactive shell (--cmd bash) would lose the
-        # bundled pi. The box sets its own environment, so mark it as done.
+        # bundled agent. The box sets its own environment, so mark it as done.
         ("__NIXOS_SET_ENVIRONMENT_DONE", "1"),
         # nix from inside the box goes through the daemon
         ("NIX_REMOTE", "daemon"),
         ("NIX_CONFIG", "extra-experimental-features = nix-command flakes"),
         ("NIX_PATH", "nixpkgs=flake:nixpkgs"),
     ]
+    if options.ssh and host_env.get(SSH_SOCK):
+        # the socket goes in at the same path, so the variable needs no rewriting
+        values.append((SSH_SOCK, host_env[SSH_SOCK]))
     for name in (*PASSTHROUGH_ENV, *options.pass_env):
         value = host_env.get(name)
         if value:
@@ -408,7 +460,7 @@ def plan(
     shell: str,
     host_env: Mapping[str, str],
     exists: Callable[[str], bool] = os.path.exists,
-    bundled_pi: str = "",
+    bundled: Mapping[str, str] = BUNDLED,
 ) -> list[str]:
     """The bubblewrap argv of this run. Pure: the same input gives the same argv."""
     argv = ["--unshare-all", "--die-with-parent"]
@@ -433,14 +485,17 @@ def plan(
     if box.temp:
         # /tmp is a host directory, removed when the box exits
         argv += ["--bind", box.temp, "/tmp"]
+        # $HOME is an empty directory beside it: writable, and gone with the box
+        argv += ["--bind", f"{box.temp}/home", box.home]
     else:
-        # --tmpfs: /tmp stays in memory and never reaches the host
-        argv += ["--tmpfs", "/tmp"]
-    argv += [
-        # $HOME hides behind a tmpfs. The paths below come back. Then it turns read-only.
-        "--tmpfs",
-        box.home,
-    ]
+        # --tmpfs: /tmp and $HOME stay in memory and never reach the host
+        argv += ["--tmpfs", "/tmp", "--tmpfs", box.home]
+    if options.ssh:
+        # the agent socket, at the path the variable names: bwrap creates the parents,
+        # which also covers a socket under $HOME or the /tmp that the box replaces
+        socket = host_env.get(SSH_SOCK, "")
+        if socket:
+            argv += ["--bind", socket, socket]
     writable = [absolute(path, box.cwd) for path in options.rw]
     readable = [absolute(path, box.cwd) for path in options.ro]
     if agent is not None and not options.no_home:
@@ -454,8 +509,8 @@ def plan(
         argv += ["--bind", f"{box.state}/{box.project}", f"{box.state}/{box.project}"]
         # a private nix cache, so the host's ~/.cache/nix stays hidden
         argv += ["--bind", box.cache, "/tmp/.cache/nix"]
-    argv += ["--remount-ro", box.home, "--chdir", box.cwd, "--clearenv"]
-    for name, value in environment(options, box, shell, host_env, agent, bundled_pi):
+    argv += ["--chdir", box.cwd, "--clearenv"]
+    for name, value in environment(options, box, shell, host_env, agent, bundled):
         argv += ["--setenv", name, value]
     return argv
 
@@ -565,6 +620,7 @@ def options_from(namespace: argparse.Namespace) -> Options:
         pass_env=tuple(namespace.env or ()),
         network="none" if namespace.no_net else "host",
         no_home=bool(namespace.no_home),
+        ssh=bool(namespace.ssh),
         tmpfs=bool(namespace.tmpfs),
         print_only=bool(namespace.print),
         local=bool(namespace.local),
@@ -578,7 +634,7 @@ def main(
     *,
     prog: str | None = None,
     bwrap: str = BWRAP,
-    bundled_pi: str = BUNDLED_PI,
+    bundled: Mapping[str, str] = BUNDLED,
     shell: str = SHELL,
     notes_dir: str | None = None,
     environ: Mapping[str, str] | None = None,
@@ -603,7 +659,13 @@ def main(
         namespace = build_parser(name, agent).parse_args(argv)
         options = options_from(namespace)
         if options.local and (agent is None or not agent.bundled):
-            raise BoxError("--local needs box-pi. Only pi is bundled, the others run from PATH.")
+            raise BoxError("--local needs box-pi or box-claude, the commands that bring an agent.")
+        if options.ssh:
+            socket = host_env.get(SSH_SOCK)
+            if not socket:
+                raise BoxError("--ssh needs SSH_AUTH_SOCK. Start the ssh agent first.")
+            if not exists(socket):
+                raise BoxError(f"--ssh: no socket at {socket}")
         if agent is None and not (options.cmd or options.command):
             raise BoxError("no command given (see --help)")
         box = resolve(options, host_env, cwd)
@@ -611,8 +673,8 @@ def main(
         check_paths(options, box.cwd, exists)
         temp = prepare(agent, options, box)
         box = dataclasses.replace(box, temp=temp)
-        command = command_for(agent, options, notes_dir, bundled_pi)
-        box_argv = plan(agent, options, box, shell, host_env, exists, bundled_pi)
+        command = command_for(agent, options, notes_dir, bundled)
+        box_argv = plan(agent, options, box, shell, host_env, exists, bundled)
     except BoxError as error:
         print(f"{name}: {error}", file=err)
         return 1
