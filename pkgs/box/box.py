@@ -26,9 +26,12 @@ loader for foreign binaries), the system profile and, with network,
 them when it exits. With --tmpfs, they stay in memory instead. The network is shared,
 unless --no-net.
 
-With --ssh the agent behind $SSH_AUTH_SOCK comes in at the same path, and SSH_AUTH_SOCK
-inside points at it: ssh, git and every other client can sign with the keys of the
-host, and the keys themselves never enter the box.
+With --ssh the box has an ssh directory of its own: ~/.ssh in the box is
+~/.ssh/box on the host, read-write and persistent. Keys that an agent makes there
+outlive the box, and the keys and the agent of the host stay out. The box also gets
+an empty /etc/ssh: ssh refuses a system config that the user namespace re-owns, and
+the sshd material of the host has no business in the box. --ssh needs the state of
+$HOME, so --no-home refuses it.
 
 AGENT_SANDBOX=1, AGENT_SANDBOX_SCRATCHPAD and AGENT_SANDBOX_NETWORK tell an agent
 inside about the box (the sandbox extension of the /pi package reads them).
@@ -67,8 +70,8 @@ BUNDLED: dict[str, str] = {"pi": BUNDLED_PI, "claude": BUNDLED_CLAUDE}
 ENV_MARKER = "AGENT_SANDBOX"
 ENV_SCRATCHPAD = "AGENT_SANDBOX_SCRATCHPAD"
 ENV_NETWORK = "AGENT_SANDBOX_NETWORK"
-# The variable that names the ssh agent socket, on the host and in the box.
-SSH_SOCK = "SSH_AUTH_SOCK"
+# --ssh: where the box keeps its own ssh directory on the host, under $HOME.
+SSH_DIR = ".ssh/box"
 
 # Read-only paths of the host, mounted when they exist. /lib and /lib64 hold the ELF
 # loader that NixOS puts there for foreign binaries (nix-ld, through environment.ldso):
@@ -163,7 +166,7 @@ FLAGS: tuple[Flag, ...] = (
     ),
     Flag("no-home", "empty home directory: no state, no scratchpad"),
     Flag("no-net", "no network in the box"),
-    Flag("ssh", "map the ssh agent of the host into the box ($SSH_AUTH_SOCK)"),
+    Flag("ssh", "give the box its own ~/.ssh, kept on the host as ~/.ssh/box"),
     Flag("tmpfs", "keep /tmp and $HOME in memory, not on disk under /tmp/box"),
     Flag("print", "print the bubblewrap command line and exit"),
 )
@@ -234,7 +237,7 @@ class Options:
     pass_env: tuple[str, ...] = ()
     network: str = "host"
     no_home: bool = False
-    ssh: bool = False  # --ssh: SSH_AUTH_SOCK goes in
+    ssh: bool = False  # --ssh: the box keeps its own ~/.ssh on the host
     tmpfs: bool = False
     print_only: bool = False
     local: bool = False  # --local: the agent from PATH, not the bundled one
@@ -380,6 +383,11 @@ def prepare(agent: Agent | None, options: Options, box: Box) -> str | None:
             Path(box.home, name).mkdir(parents=True, exist_ok=True)
         for name in agent.state_files:
             Path(box.home, name).touch(exist_ok=True)
+    if options.ssh:
+        ssh_dir = Path(box.home, SSH_DIR)
+        if not ssh_dir.exists():
+            ssh_dir.mkdir(parents=True)
+            ssh_dir.chmod(0o700)
     if box.scratchpad:
         Path(box.scratchpad).mkdir(parents=True, exist_ok=True)
     if box.cache:
@@ -443,9 +451,6 @@ def environment(
         ("NIX_CONFIG", "extra-experimental-features = nix-command flakes"),
         ("NIX_PATH", "nixpkgs=flake:nixpkgs"),
     ]
-    if options.ssh and host_env.get(SSH_SOCK):
-        # the socket goes in at the same path, so the variable needs no rewriting
-        values.append((SSH_SOCK, host_env[SSH_SOCK]))
     for name in (*PASSTHROUGH_ENV, *options.pass_env):
         value = host_env.get(name)
         if value:
@@ -490,12 +495,6 @@ def plan(
     else:
         # --tmpfs: /tmp and $HOME stay in memory and never reach the host
         argv += ["--tmpfs", "/tmp", "--tmpfs", box.home]
-    if options.ssh:
-        # the agent socket, at the path the variable names: bwrap creates the parents,
-        # which also covers a socket under $HOME or the /tmp that the box replaces
-        socket = host_env.get(SSH_SOCK, "")
-        if socket:
-            argv += ["--bind", socket, socket]
     writable = [absolute(path, box.cwd) for path in options.rw]
     readable = [absolute(path, box.cwd) for path in options.ro]
     if agent is not None and not options.no_home:
@@ -505,6 +504,12 @@ def plan(
     for path in readable:
         argv += ["--ro-bind", path, path]
     argv += ["--bind", box.cwd, box.cwd]
+    if options.ssh:
+        # the ssh directory of the box: its own keys and config, kept on the host
+        argv += ["--bind", f"{box.home}/{SSH_DIR}", f"{box.home}/.ssh"]
+        # an empty /etc/ssh: ssh refuses a config file re-owned by the user namespace,
+        # and the sshd keys of the host do not belong in the box
+        argv += ["--tmpfs", "/etc/ssh"]
     if box.state and box.cache:
         argv += ["--bind", f"{box.state}/{box.project}", f"{box.state}/{box.project}"]
         # a private nix cache, so the host's ~/.cache/nix stays hidden
@@ -660,12 +665,8 @@ def main(
         options = options_from(namespace)
         if options.local and (agent is None or not agent.bundled):
             raise BoxError("--local needs box-pi or box-claude, the commands that bring an agent.")
-        if options.ssh:
-            socket = host_env.get(SSH_SOCK)
-            if not socket:
-                raise BoxError("--ssh needs SSH_AUTH_SOCK. Start the ssh agent first.")
-            if not exists(socket):
-                raise BoxError(f"--ssh: no socket at {socket}")
+        if options.ssh and options.no_home:
+            raise BoxError("--ssh needs the home directory, so it refuses --no-home.")
         if agent is None and not (options.cmd or options.command):
             raise BoxError("no command given (see --help)")
         box = resolve(options, host_env, cwd)

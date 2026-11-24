@@ -31,7 +31,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "box";
-  version = "0.7.0";
+  version = "0.9.0";
 
   src = lib.cleanSource ./.;
 
