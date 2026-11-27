@@ -340,7 +340,7 @@ class ServiceTagMilter(Base):
         new_subject = _tagged_subject(current, tag)
         try:
             self.chgheader("Subject", 0, new_subject)
-            _emit("added tag [%s]" % tag, "subject %r -> %r" % (_log_safe(current, 120), _log_safe(new_subject, 120)))
+            _emit("added tag [%s]" % tag)
         except Exception:
             _emit("error", "failed to tag subject; left untouched")
         return CONTINUE

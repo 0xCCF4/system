@@ -112,7 +112,7 @@ with lib;
 
     updateInterval = mkOption {
       type = types.str;
-      default = "daily";
+      default = "weekly";
       description = ''
         systemd calendar spec for how often the country zone lists are
         re-downloaded from ipdeny and the nftables set refreshed.
@@ -175,10 +175,34 @@ with lib;
           echo "[geoblock-fetch] downloading zone lists"
           # At boot the Persistent= timer fires right away, often before the local resolver
           # (dnscrypt-proxy, which first fetches its resolver list) answers: retry every
-          # error, DNS failures included, for up to 5 minutes
+          # error, DNS failures included, for up to 5 minutes.
+          #
+          # ipdeny resets large transfers at random offsets (curl error 56 "connection
+          # reset by peer", or 92 with HTTP/2).  A plain retry restarts the tarball from
+          # byte zero and usually gets reset again.  So resume with `-C -` until the
+          # archive is complete and passes `gzip -t`.
           fetch() {
-            curl -fsSL --retry 20 --retry-delay 15 --retry-all-errors --retry-max-time 300 \
-              "$1" -o "$2"
+            url=$1
+            out=$2
+            tries=0
+            while :; do
+              # A complete archive already in place (last resume raced the end of the
+              # transfer, so curl got 416) needs no further download.
+              if [ -s "$out" ] && gzip -t "$out" 2>/dev/null; then
+                return 0
+              fi
+              curl -fsSL --http1.1 -C - --connect-timeout 30 --max-time 300 \
+                "$url" -o "$out" || true
+              if [ -s "$out" ] && gzip -t "$out" 2>/dev/null; then
+                return 0
+              fi
+              tries=$((tries + 1))
+              if [ "$tries" -ge 20 ]; then
+                echo "[geoblock-fetch] giving up on $url after $tries attempts" >&2
+                return 1
+              fi
+              sleep 15
+            done
           }
           fetch ${escapeShellArg cfg.zonesV4Url} "$WORK/v4.tar.gz"
           fetch ${escapeShellArg cfg.zonesV6Url} "$WORK/v6.tar.gz"
@@ -193,14 +217,24 @@ with lib;
             [ -s "$WORK/v6/$cc.zone" ] || { echo "[geoblock-fetch] missing/empty $cc.zone (v6)" >&2; exit 1; }
           done
 
-          install -d -m 0755 ${escapeShellArg cfg.cacheDirectory}
+          # geoblock-update-set runs with the restricted capability bounding set
+          # {CAP_NET_ADMIN} only, make the cache
+          # world-readable before it is moved into place.
           for zone in v4 v6; do
-            rm -rf "${cfg.cacheDirectory}/$zone.old"
-            if [ -d "${cfg.cacheDirectory}/$zone" ]; then
-              mv "${cfg.cacheDirectory}/$zone" "${cfg.cacheDirectory}/$zone.old"
+            chmod 0755 "$WORK/$zone"
+            chmod 0644 "$WORK/$zone"/*.zone
+          done
+
+          CACHE=${escapeShellArg cfg.cacheDirectory}
+          install -d -m 0755 "$CACHE"
+
+          for zone in v4 v6; do
+            rm -rf "$CACHE/$zone.old"
+            if [ -d "$CACHE/$zone" ]; then
+              mv "$CACHE/$zone" "$CACHE/$zone.old"
             fi
-            mv "$WORK/$zone" "${cfg.cacheDirectory}/$zone"
-            rm -rf "${cfg.cacheDirectory}/$zone.old"
+            mv "$WORK/$zone" "$CACHE/$zone"
+            rm -rf "$CACHE/$zone.old"
           done
 
           echo "[geoblock-fetch] done"
@@ -211,7 +245,7 @@ with lib;
           # need root.  The `.updated` marker is touched last, after the zone
           # dirs are fully swapped in, so the path unit fires with a complete
           # cache.
-          touch "${cfg.cacheDirectory}/.updated"
+          touch "$CACHE/.updated"
         '';
       };
 
@@ -423,8 +457,14 @@ with lib;
 
       # Create the cache dir owned by geoblock at boot.  This runs on the
       # persistent copy before the impermanence mount, so the ownership sticks.
+      # `d` fixes the cache root only.  `Z` repairs the ownership of the zone
+      # data below it as well.  The unprivileged `geoblock` user writes that
+      # data.  Root-owned data from an older version of this module, which
+      # fetched as root, blocks the swap.  The mode stays untouched (`-`).
+      # geoblock-fetch sets 0755 and 0644 on the data it publishes.
       systemd.tmpfiles.rules = [
         "d ${cfg.cacheDirectory} 0755 geoblock nogroup -"
+        "Z ${cfg.cacheDirectory} - geoblock nogroup -"
       ];
 
       # When the fetch publishes new zone data (marker touched last), re-run
